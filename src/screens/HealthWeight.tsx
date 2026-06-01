@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { View, StyleSheet, Pressable, PanResponder } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { TrendingDown, TrendingUp } from 'lucide-react-native';
+import { TrendingDown, TrendingUp, Maximize2, Minimize2 } from 'lucide-react-native';
 import Svg, { Path, Line, Circle, Text as SvgText } from 'react-native-svg';
 
 import { Card, FsText, Button, SectionHeader, Badge } from '@/components/ui';
@@ -148,6 +148,8 @@ const shortDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month
 function WeightChart({ entries, goalKg, unit }: { entries: WeightEntry[]; goalKg: number | null; unit: import('@/types').UnitSystem }) {
   const W = 320, H = 140;
   const [sel, setSel] = useState<number | null>(null);
+  // false = fit the y-range to the data (zoomed-in trend); true = expand to include the goal line.
+  const [showGoal, setShowGoal] = useState(false);
   const widthRef = useRef(0);
   const nRef = useRef(entries.length);
   nRef.current = entries.length;
@@ -179,8 +181,13 @@ function WeightChart({ entries, goalKg, unit }: { entries: WeightEntry[]; goalKg
   }
   const vals = entries.map((e) => toDisplay(e.weightKg, unit));
   const goal = goalKg != null ? toDisplay(goalKg, unit) : null;
-  const lo = Math.min(...vals, goal ?? Infinity);
-  const hi = Math.max(...vals, goal ?? -Infinity);
+  const dataLo = Math.min(...vals), dataHi = Math.max(...vals);
+  // The goal only affects the range when the user has asked to keep it in view.
+  const includeGoal = showGoal && goal != null;
+  const lo = Math.min(dataLo, includeGoal ? goal! : Infinity);
+  const hi = Math.max(dataHi, includeGoal ? goal! : -Infinity);
+  // Offer the toggle only when the goal actually sits outside the data's own range.
+  const goalOutside = goal != null && (goal < dataLo || goal > dataHi);
   const pad = (hi - lo) * 0.12 || 2;
   const min = lo - pad, max = hi + pad;
   const x = (i: number) => (i / (entries.length - 1)) * W;
@@ -193,11 +200,21 @@ function WeightChart({ entries, goalKg, unit }: { entries: WeightEntry[]; goalKg
 
   return (
     <View style={{ marginVertical: space[2] }}>
-      <View style={{ height: 18, alignItems: 'center' }}>
+      <View style={{ height: 22, justifyContent: 'center' }}>
         {sel != null && (
-          <FsText variant="caption" style={{ color: colors.text, fontWeight: '600' }}>
+          <FsText variant="caption" style={{ color: colors.text, fontWeight: '600', textAlign: 'center' }}>
             {formatWeight(entries[sel].weightKg, unit)} · {shortDate(entries[sel].date)}
           </FsText>
+        )}
+        {goalOutside && (
+          <Pressable onPress={() => setShowGoal((v) => !v)} hitSlop={6} style={styles.zoomBtn}>
+            {showGoal
+              ? <Minimize2 color={colors.primary} size={13} />
+              : <Maximize2 color={colors.primary} size={13} />}
+            <FsText variant="caption" style={{ color: colors.primary, fontWeight: '600' }}>
+              {showGoal ? 'Fit data' : 'Show goal'}
+            </FsText>
+          </Pressable>
         )}
       </View>
       <View style={{ flexDirection: 'row' }}>
@@ -259,6 +276,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   input: { flex: 1, color: colors.text, paddingVertical: 12, fontSize: 14 },
+  zoomBtn: { position: 'absolute', right: 0, top: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', gap: 4 },
   toggle: { flexDirection: 'row', gap: space[1], marginTop: space[2] },
   toggleBtn: { flex: 1, paddingVertical: 6, borderRadius: radius.sm, alignItems: 'center', backgroundColor: colors.surfaceHigh },
   toggleActive: { backgroundColor: colors.primary },

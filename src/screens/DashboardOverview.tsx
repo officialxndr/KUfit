@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Pressable, StyleSheet, Alert, Image } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { UserCircle, Dumbbell, Ruler, AlertTriangle, Flame } from 'lucide-react-native';
 
@@ -121,7 +121,11 @@ export function DashboardOverview() {
       {/* Greeting */}
       <View style={styles.greetRow}>
         <View style={styles.greetLeft}>
-          <UserCircle color={colors.muted} size={44} strokeWidth={1.25} />
+          {profile.avatarUri ? (
+            <Image source={{ uri: profile.avatarUri }} style={styles.greetAvatar} />
+          ) : (
+            <UserCircle color={colors.muted} size={44} strokeWidth={1.25} />
+          )}
           <View>
             <FsText variant="h1">{greeting()}</FsText>
             {!!profile.name && (
@@ -296,6 +300,7 @@ const styles = StyleSheet.create({
     marginBottom: space[4],
   },
   greetLeft: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  greetAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surfaceHigh },
   calRow: { flexDirection: 'row', alignItems: 'center', gap: space[6] },
   tapHint: { textAlign: 'center', marginTop: space[3] },
   cardHead: {

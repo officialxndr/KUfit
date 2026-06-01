@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View, TextInput, StyleSheet, Pressable, Modal, ScrollView, Dimensions,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView, Platform, Animated, PanResponder,
 } from 'react-native';
 import { ChevronDown, Star } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -95,21 +95,66 @@ export function FoodQuantitySheet({
 }: Props) {
   const profile = useSettingsStore((s) => s.profile);
   const insets = useSafeAreaInsets();
-  // Cap the whole sheet just below the notch; the inner ScrollView flex-shrinks
-  // within it so the action buttons stay pinned and tall content scrolls.
-  const sheetMaxHeight = SCREEN_H - insets.top;
+  // Cap the whole sheet so its top edge stays a clear gap below the notch/camera
+  // cutout, then bound the inner ScrollView (absolute points) so it reliably
+  // scrolls. Reserving chrome (grabber + title + pinned actions + paddings) keeps
+  // the action buttons pinned and tall content scrollable.
+  const sheetMaxHeight = SCREEN_H - insets.top - 24;
+  const scrollMaxHeight = sheetMaxHeight - insets.bottom - 180;
   const [amount, setAmount] = useState(String(initialServings));
   const [unit, setUnit] = useState('serving');
   const [unitMenuOpen, setUnitMenuOpen] = useState(false);
 
-  // Reset to the opening state whenever a new food is selected.
+  // Drag-to-dismiss: the sheet rides a translateY driver. The handle region owns a
+  // PanResponder for the swipe-down gesture; the content ScrollView (no longer
+  // wrapped in a Pressable) scrolls independently.
+  const translateY = useRef(new Animated.Value(SCREEN_H)).current;
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  // Full-screen dim fades in as the sheet slides up (and lightens as you drag down).
+  const backdropOpacity = translateY.interpolate({
+    inputRange: [0, SCREEN_H],
+    outputRange: [0.55, 0],
+    extrapolate: 'clamp',
+  });
+
+  // Reset + slide in whenever a new food is selected.
   useEffect(() => {
     if (food) {
       setAmount(String(initialServings));
       setUnit('serving');
       setUnitMenuOpen(false);
+      translateY.setValue(SCREEN_H);
+      Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 3, speed: 14 }).start();
     }
-  }, [food, initialServings]);
+  }, [food, initialServings, translateY]);
+
+  const animateClose = () => {
+    Animated.timing(translateY, { toValue: SCREEN_H, duration: 220, useNativeDriver: true })
+      .start(() => closeRef.current());
+  };
+
+  const handlePan = useRef(
+    PanResponder.create({
+      // The grab strip has no tappable children, so claim the touch immediately —
+      // press the bar and drag down to dismiss; a short drag springs back.
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderMove: (_e, g) => translateY.setValue(Math.max(0, g.dy)),
+      onPanResponderRelease: (_e, g) => {
+        if (g.dy > 110 || g.vy > 0.5) {
+          Animated.timing(translateY, { toValue: SCREEN_H, duration: 200, useNativeDriver: true })
+            .start(() => closeRef.current());
+        } else {
+          Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
+        }
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
+      },
+    })
+  ).current;
 
   const selectUnit = (u: string) => {
     setUnitMenuOpen(false);
@@ -128,11 +173,19 @@ export function FoodQuantitySheet({
   };
 
   return (
-    <Modal visible={!!food} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.modalBackdrop} onPress={onClose}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <Pressable style={[styles.sheet, { maxHeight: sheetMaxHeight, paddingBottom: insets.bottom + space[4] }]} onPress={(e) => e.stopPropagation()}>
-            {food && (() => {
+    <Modal visible={!!food} transparent animationType="none" statusBarTranslucent onRequestClose={animateClose}>
+      <View style={{ flex: 1 }}>
+        {/* Dim backdrop (fades with the sheet's travel) + transparent tap layer. */}
+        <Animated.View style={[styles.modalBackdrop, { opacity: backdropOpacity }]} pointerEvents="none" />
+        <Pressable style={styles.backdropTouch} onPress={animateClose} />
+        <View style={styles.sheetWrap} pointerEvents="box-none">
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ width: '100%' }}
+            pointerEvents="box-none"
+          >
+            <Animated.View style={[styles.sheet, { maxHeight: sheetMaxHeight, paddingBottom: insets.bottom + space[4], transform: [{ translateY }] }]}>
+              {food && (() => {
               const availableUnits = unitsFor(food.servingUnit);
               const qty = amountToServings(food, Number(amount) || 0, unit);
               const add = {
@@ -155,25 +208,30 @@ export function FoodQuantitySheet({
               const over = goal > 0 && after > goal;
               return (
                 <>
-                  <View style={styles.grabber} />
+                  {/* Drag strip — grab the bar and swipe down to dismiss. */}
+                  <View style={styles.grabStrip} {...handlePan.panHandlers}>
+                    <View style={styles.grabber} />
+                  </View>
+                  <View style={styles.handleText}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
+                      <FsText variant="cardTitle" numberOfLines={1} style={{ flex: 1 }}>{food.name}</FsText>
+                      {favorite && (
+                        <Pressable onPress={favorite.onToggle} hitSlop={10}>
+                          <Star color={favorite.active ? colors.warning : colors.muted} size={22} fill={favorite.active ? colors.warning : 'transparent'} />
+                        </Pressable>
+                      )}
+                    </View>
+                    <FsText variant="caption" style={{ marginTop: 2 }}>
+                      {food.brand ? `${food.brand} · ` : ''}{Math.round(food.calories)} kcal per {food.servingSize}{food.servingUnit}
+                    </FsText>
+                  </View>
+
                   <ScrollView
-                    style={styles.scrollBody}
+                    style={{ maxHeight: scrollMaxHeight }}
                     showsVerticalScrollIndicator
                     keyboardShouldPersistTaps="handled"
-                    nestedScrollEnabled
-                    contentContainerStyle={{ paddingBottom: space[2] }}
+                    contentContainerStyle={{ paddingTop: space[3], paddingBottom: space[2] }}
                   >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
-                    <FsText variant="cardTitle" numberOfLines={1} style={{ flex: 1 }}>{food.name}</FsText>
-                    {favorite && (
-                      <Pressable onPress={favorite.onToggle} hitSlop={10}>
-                        <Star color={favorite.active ? colors.warning : colors.muted} size={22} fill={favorite.active ? colors.warning : 'transparent'} />
-                      </Pressable>
-                    )}
-                  </View>
-                  <FsText variant="caption" style={{ marginBottom: space[3] }}>
-                    {food.brand ? `${food.brand} · ` : ''}{Math.round(food.calories)} kcal per {food.servingSize}{food.servingUnit}
-                  </FsText>
                   <FoodBadgeRow details={food.details} />
 
                   <View style={styles.qtyRow}>
@@ -267,7 +325,7 @@ export function FoodQuantitySheet({
                       </View>
                     ) : (
                       <View style={{ flex: 1 }}>
-                        <Button title="Cancel" variant="ghost" onPress={onClose} />
+                        <Button title="Cancel" variant="ghost" onPress={animateClose} />
                       </View>
                     )}
                     <View style={{ flex: 2 }}>
@@ -277,9 +335,10 @@ export function FoodQuantitySheet({
                 </>
               );
             })()}
-          </Pressable>
-        </KeyboardAvoidingView>
-      </Pressable>
+            </Animated.View>
+          </KeyboardAvoidingView>
+        </View>
+      </View>
     </Modal>
   );
 }
@@ -310,16 +369,19 @@ const styles = StyleSheet.create({
   },
   summaryTop: { flexDirection: 'row', alignItems: 'baseline' },
   macroRow: { flexDirection: 'row', gap: space[3], marginLeft: 'auto', alignItems: 'center' },
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
+  modalBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#000' },
+  backdropTouch: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  sheetWrap: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
     padding: space[4], paddingBottom: space[8],
   },
+  // Generous hit area so the grabber is easy to grab and pull down.
+  grabStrip: { alignItems: 'center', paddingTop: space[1], paddingBottom: space[3] },
+  handleText: { paddingBottom: space[1] },
   grabber: {
-    alignSelf: 'center', width: 40, height: 4, borderRadius: radius.full,
-    backgroundColor: colors.border, marginBottom: space[3],
+    width: 44, height: 5, borderRadius: radius.full, backgroundColor: colors.border,
   },
-  scrollBody: { flexGrow: 0, flexShrink: 1 },
   actions: { paddingTop: space[2] },
   qtyRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], marginBottom: space[3] },
   qtyField: {

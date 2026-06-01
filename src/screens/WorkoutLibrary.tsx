@@ -24,6 +24,7 @@ export function WorkoutLibrary() {
   const [newName, setNewName] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
   const [tplQuery, setTplQuery] = useState('');
+  const [labelFilter, setLabelFilter] = useState<string | null>(null); // null = All
 
   const refresh = useCallback(() => {
     setTemplates(workoutRepo.getTemplates());
@@ -59,10 +60,15 @@ export function WorkoutLibrary() {
       { text: 'Delete', style: 'destructive', onPress: () => { workoutRepo.deleteTemplate(t.id); refresh(); } },
     ]);
 
+  // Distinct labels for the filter chip row (alpha order).
+  const labels = [...new Set(templates.map((t) => t.label?.trim()).filter((l): l is string => !!l))].sort((a, b) => a.localeCompare(b));
+
   // Filter + group templates by label (folder).
   const filteredTemplates = templates.filter((t) => {
     const q = tplQuery.trim().toLowerCase();
-    return !q || t.name.toLowerCase().includes(q) || (t.label ?? '').toLowerCase().includes(q);
+    const matchesQuery = !q || t.name.toLowerCase().includes(q) || (t.label ?? '').toLowerCase().includes(q);
+    const matchesLabel = !labelFilter || (t.label?.trim() || '') === labelFilter;
+    return matchesQuery && matchesLabel;
   });
   const groups = (() => {
     const map = new Map<string, WorkoutTemplate[]>();
@@ -263,7 +269,7 @@ export function WorkoutLibrary() {
         </Card>
       ) : (
         <>
-          {templates.length > 3 && (
+          {templates.length > 1 && (
             <View style={styles.tplSearch}>
               <Search color={colors.muted} size={16} />
               <TextInput
@@ -274,6 +280,29 @@ export function WorkoutLibrary() {
                 style={{ flex: 1, color: colors.text, paddingVertical: 10, fontSize: 14 }}
               />
             </View>
+          )}
+          {labels.length > 0 && (
+            <View style={styles.chipRow}>
+              <Pressable
+                onPress={() => setLabelFilter(null)}
+                style={[styles.filterChip, labelFilter === null && styles.filterChipOn]}
+              >
+                <FsText variant="caption" style={{ color: labelFilter === null ? colors.white : colors.muted, fontWeight: '600' }}>All</FsText>
+              </Pressable>
+              {labels.map((l) => {
+                const on = labelFilter === l;
+                return (
+                  <Pressable key={l} onPress={() => setLabelFilter(on ? null : l)} style={[styles.filterChip, on && styles.filterChipOn]}>
+                    <FsText variant="caption" style={{ color: on ? colors.white : colors.muted, fontWeight: '600' }}>{l}</FsText>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+          {filteredTemplates.length === 0 && (
+            <Card style={{ marginBottom: space[3] }}>
+              <FsText variant="caption">No templates match your filter.</FsText>
+            </Card>
           )}
           {groups.map(([groupLabel, items]) => (
             <View key={groupLabel || '_'}>
@@ -390,6 +419,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
     paddingHorizontal: 12, marginBottom: space[3],
   },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginBottom: space[3] },
+  filterChip: {
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.full,
+    backgroundColor: colors.surfaceHigh, borderWidth: 1, borderColor: colors.border,
+  },
+  filterChipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   tplActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: space[3], marginTop: space[2], paddingTop: space[2], borderTopWidth: 1, borderTopColor: colors.border },
   tplActionBtn: { padding: 2 },
 });

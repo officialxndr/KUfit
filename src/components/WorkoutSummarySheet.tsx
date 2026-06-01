@@ -1,10 +1,10 @@
-import { View, StyleSheet, Pressable, Modal, ScrollView, Dimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, StyleSheet, Pressable, ScrollView, Dimensions } from 'react-native';
 import { Timer, Dumbbell, Layers, Flame, Trophy, X } from 'lucide-react-native';
 
 import { FsText, Card, Badge } from '@/components/ui';
+import { BottomSheet } from '@/components/BottomSheet';
 import { formatWeight, formatVolume } from '@/lib/units';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, space } from '@/theme/tokens';
 import type { UnitSystem, WorkoutSession } from '@/types';
 
 const SCREEN_H = Dimensions.get('window').height;
@@ -19,7 +19,6 @@ export function WorkoutSummarySheet({ session, unit, onClose }: {
   unit: UnitSystem;
   onClose: () => void;
 }) {
-  const insets = useSafeAreaInsets();
   const sets = session?.exercises.reduce((n, e) => n + e.sets.length, 0) ?? 0;
   const prs = session?.exercises.reduce((n, e) => n + e.sets.filter((s) => s.isPersonalBest).length, 0) ?? 0;
   const durationMin = session?.finishedAt
@@ -27,11 +26,8 @@ export function WorkoutSummarySheet({ session, unit, onClose }: {
     : null;
 
   return (
-    <Modal visible={!!session} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={[styles.sheet, { maxHeight: SCREEN_H - insets.top, paddingBottom: insets.bottom + space[4] }]} onPress={(e) => e.stopPropagation()}>
-          <View style={styles.grabber} />
-          {session && (
+    <BottomSheet visible={!!session} onClose={onClose}>
+      {session && (
             <>
               <View style={styles.head}>
                 <View style={{ flex: 1 }}>
@@ -77,9 +73,7 @@ export function WorkoutSummarySheet({ session, unit, onClose }: {
               </ScrollView>
             </>
           )}
-        </Pressable>
-      </Pressable>
-    </Modal>
+    </BottomSheet>
   );
 }
 
@@ -94,9 +88,6 @@ function Stat({ icon: Icon, label, value }: { icon: typeof Timer; label: string;
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: space[4] },
-  grabber: { alignSelf: 'center', width: 40, height: 4, borderRadius: radius.full, backgroundColor: colors.border, marginBottom: space[3] },
   head: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: space[3] },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
   statCard: { width: '48%', flexGrow: 1, alignItems: 'center', gap: 2 },

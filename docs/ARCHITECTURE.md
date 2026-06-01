@@ -30,8 +30,11 @@ External network (Open Food Facts, ExerciseDB CDN) is called directly from the d
   then runs `runMigrations()`. Run once in `src/app/_layout.tsx` on startup. Columns added after a DB
   already exists go through `ensureColumn(table, col, decl)` (forward-only, no-op once present) since
   `CREATE TABLE IF NOT EXISTS` never alters an existing table — e.g. `food_items.saturatedFat`,
-  `food_items.detailsJson`. An `app_meta` key/value table (`getMeta`/`setMeta`) tracks seed versions
+  `food_items.detailsJson`, `food_items.isFavorite`, `recipes.isFavorite`, and
+  `recipes.servingWeightG` (optional grams-per-serving so a recipe can be logged/scaled by weight).
+  An `app_meta` key/value table (`getMeta`/`setMeta`) tracks seed versions
   (e.g. `baseFoodsVersion`) so bundled data can re-seed in place when bumped.
+  **New columns need a fresh app launch** to run `runMigrations()`.
 - **Repositories** (`FoodRepo`, `HealthRepo`, `WorkoutRepo`) — synchronous SQLite access, mapping
   rows ↔ domain types from `src/types`. Mutations set `syncStatus='pending'`; soft-deletes set
   `deleted=1`. Dedup on `barcode` / `serverId` / `exerciseDbId`.
@@ -81,10 +84,23 @@ to the shell.
 - `components/SwipeToDelete.tsx` — standard swipe-left → red Delete + confirm for user logs
   (food items, weight entries, measurements, history). `lib/avatar.ts` picks a profile picture
   (`expo-image-picker`) and persists it to the document dir; shown in `AppHeader` + Settings.
-- `components/FoodQuantitySheet.tsx` — shared bottom-sheet quantity editor (unit conversion + live
-  nutrition + day-progress projection), used by both `add-food` (logging) and `FoodToday` (editing a
-  logged item). Edit mode passes `baselineQty` to strip the existing entry from the projection.
-  Scrollable; embeds `FoodDetails` for OFF rich data.
+- `components/BottomSheet.tsx` — **shared draggable bottom sheet** (the one place that owns sheet
+  behavior). Slides up on `visible`, a full-screen dim backdrop whose **opacity is driven by the
+  sheet's `translateY`** (fades in/out and lightens as you drag), a generous **grab strip**
+  (`PanResponder`, `onStartShouldSetPanResponder`) you drag down to dismiss, an absolute tap layer to
+  dismiss, and a `maxHeight` cap that keeps the top edge below the notch. Stays mounted through the
+  slide-out (internal `mounted` state) so closing always animates — whether from the grab gesture,
+  the backdrop, a child button calling `onClose`, or the parent flipping `visible`. Built on RN's
+  built-in `Animated`/`PanResponder` (no reanimated worklets). Used by `QuickActionsSheet`,
+  `WorkoutSummarySheet`, `HealthMeasure` (the SiteDetail + MeasurementDetail pop-ups), and the
+  `exercise-progress` "Compare" picker. Content scrolls via a child `ScrollView` with its own
+  `maxHeight`, independent of the drag gesture.
+- `components/FoodQuantitySheet.tsx` — shared quantity editor (unit conversion + live nutrition +
+  day-progress projection), used by both `add-food` (logging) and `FoodToday` (editing a logged
+  item). Edit mode passes `baselineQty` to strip the existing entry from the projection. Implements
+  the **same draggable-sheet pattern as `BottomSheet`** directly (it predates the shared component and
+  adds keyboard-avoidance + a derived scroll `maxHeight`); embeds `FoodDetails` for OFF rich data. For
+  a recipe with a `servingWeightG`, the sheet offers a `g` unit so recipes log by weight.
 - `components/FoodDetails.tsx` — `FoodBadgeRow` (diet/allergen badges + Nutri/NOVA/Eco score chips)
   and `FoodDetailSections` (expandable per-serving nutrient list + ingredients/additives), driven by
   a `FoodDetails` blob and scaled by the chosen servings.
@@ -103,8 +119,14 @@ shell provides the scroll area, header, and bottom bar. Each still reads on focu
 `useFocusEffect`. Sub-tabs: Dashboard (Overview/Goals), Food (Today/Recipes/Trends/**Search**),
 Workout (Library/History/Exercises/Stats), Health (Weight/**Trends**/Body/Measure). Goals editing was
 unified: `components/GoalsEditor.tsx` is the single editor (rendered inline on Dashboard → Goals, and
-opened as `GoalsEditorModal` from a **gear `rightAction`** on `AppHeader` for Food & Health), so the
-old Food/Health Goals tabs were repurposed to Search/Trends.
+opened as `GoalsEditorModal` from a **gear `rightAction`** on `AppHeader` for Food/Workout/Health), so
+the old Food/Health Goals tabs were repurposed to Search/Trends. The editor floats the **current
+section's group to the top** (`focusSection`). **Goal Phases & Cycles renders as a sub-page *inside*
+the goals modal** via `components/GoalPhasesPanel.tsx` (an internal `view` state swaps the modal body;
+a "‹ Goals" back arrow returns) — it is **not** a pushed route, because an RN `Modal` left mounted
+over a pushed route renders above it and swallows all touches (which previously locked the header). The
+standalone `app/goal-phases.tsx` route is now a thin wrapper around the same panel, used only by the
+Dashboard inline editor (no modal there to conflict with).
 
 ## Routing (`src/app`, expo-router, file-based)
 - `(tabs)/` — a single `index` route rendering `AppShell`; `_layout.tsx` is a plain Stack (the
@@ -122,8 +144,15 @@ Routes and their presentation are declared in `src/app/_layout.tsx`.
 ## Animation note
 `react-native-reanimated` is installed but its worklets babel plugin is **not** configured, so use
 React Native's built-in `Animated` (no worklets) for animations — see `workout-summary.tsx`
-(SVG wave layers + rising body via `Animated`). gesture-handler `Swipeable` (legacy Animated) is
-used for swipe-to-delete and works without the plugin.
+(SVG wave layers + rising body via `Animated`) and `components/BottomSheet.tsx` (slide + drag-to-
+dismiss + backdrop fade via `Animated`/`PanResponder`). gesture-handler `Swipeable` (legacy Animated)
+is used for swipe-to-delete and works without the plugin.
+
+**Bottom sheets:** any bottom-anchored pop-up should use `components/BottomSheet.tsx` (or, for the
+food/recipe editor, `FoodQuantitySheet`) rather than a raw `Modal` + `flex-end` view, so drag-to-
+dismiss and the fade backdrop stay consistent. Centered dialogs/popovers (rest-timer & notes in
+`session.tsx`, the `AppHeader` section dropdown, the calendar pickers, the nutrient picker) are
+intentionally **not** bottom sheets and keep their `animationType="fade"` modals.
 
 ## Theming (`src/theme`)
 - `tokens.ts` — colors, radii, spacing, shadows (ported from `../../FitSelf Design System/colors_and_type.css`).

@@ -88,6 +88,7 @@ function mapRecipe(row: any, ingredients: RecipeIngredient[]): Recipe {
     name: row.name,
     description: row.description ?? null,
     servings: row.servings ?? 1,
+    servingWeightG: row.servingWeightG ?? null,
     isFavorite: !!row.isFavorite,
     ingredients,
     nutrition: undefined,
@@ -591,13 +592,14 @@ export class FoodRepo {
     name: string;
     description?: string | null;
     servings: number;
+    servingWeightG?: number | null;
     ingredients: Array<{ foodItemLocalId: string; quantity: number }>;
   }): string {
     const localId = Crypto.randomUUID();
     db.runSync(
-      `INSERT INTO recipes (localId, name, description, servings, syncStatus, updatedAt)
-       VALUES (?, ?, ?, ?, 'pending', ?)`,
-      [localId, input.name, input.description ?? null, input.servings, new Date().toISOString()]
+      `INSERT INTO recipes (localId, name, description, servings, servingWeightG, syncStatus, updatedAt)
+       VALUES (?, ?, ?, ?, ?, 'pending', ?)`,
+      [localId, input.name, input.description ?? null, input.servings, input.servingWeightG ?? null, new Date().toISOString()]
     );
     for (const ing of input.ingredients) {
       db.runSync(
@@ -613,11 +615,12 @@ export class FoodRepo {
     name: string;
     description?: string | null;
     servings: number;
+    servingWeightG?: number | null;
     ingredients: Array<{ foodItemLocalId: string; quantity: number }>;
   }): void {
     db.runSync(
-      `UPDATE recipes SET name = ?, description = ?, servings = ?, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
-      [input.name, input.description ?? null, input.servings, new Date().toISOString(), localId]
+      `UPDATE recipes SET name = ?, description = ?, servings = ?, servingWeightG = ?, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
+      [input.name, input.description ?? null, input.servings, input.servingWeightG ?? null, new Date().toISOString(), localId]
     );
     db.runSync(`DELETE FROM recipe_ingredients WHERE recipeLocalId = ?`, [localId]);
     for (const ing of input.ingredients) {

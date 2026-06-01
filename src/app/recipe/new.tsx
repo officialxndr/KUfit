@@ -20,6 +20,7 @@ export default function NewRecipe() {
   const editing = !!id;
   const [name, setName] = useState('');
   const [servings, setServings] = useState(1);
+  const [servingWeight, setServingWeight] = useState(''); // grams per serving (optional)
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [query, setQuery] = useState('');
 
@@ -30,6 +31,7 @@ export default function NewRecipe() {
     if (r) {
       setName(r.name);
       setServings(r.servings || 1);
+      setServingWeight(r.servingWeightG != null ? String(r.servingWeightG) : '');
       setIngredients(r.ingredients.map((ing) => ({ foodItem: ing.foodItem, quantity: ing.quantity })));
     }
   }, [id]);
@@ -58,9 +60,11 @@ export default function NewRecipe() {
   const save = () => {
     if (!name.trim()) return Alert.alert('Name your recipe', 'Give the recipe a name first.');
     if (ingredients.length === 0) return Alert.alert('Add ingredients', 'Add at least one ingredient.');
+    const weightG = Number(servingWeight);
     const payload = {
       name: name.trim(),
       servings: s,
+      servingWeightG: servingWeight.trim() && weightG > 0 ? weightG : null,
       ingredients: ingredients.map((i) => ({ foodItemLocalId: i.foodItem.id, quantity: i.quantity })),
     };
     if (editing && id) foodRepo.updateRecipe(id, payload);
@@ -102,17 +106,43 @@ export default function NewRecipe() {
           </View>
         </View>
 
+        <View style={styles.servingsRow}>
+          <View style={{ flex: 1 }}>
+            <FsText variant="bodyMedium">Grams per serving</FsText>
+            <FsText variant="caption" style={{ marginTop: 2 }}>Optional — lets you log this recipe by weight</FsText>
+          </View>
+          <View style={styles.weightField}>
+            <TextInput
+              value={servingWeight}
+              onChangeText={(t) => setServingWeight(t.replace(/[^0-9.]/g, ''))}
+              keyboardType="decimal-pad"
+              placeholder="—"
+              placeholderTextColor={colors.muted}
+              style={{ color: colors.text, fontSize: 16, textAlign: 'right', minWidth: 48, paddingVertical: 8 }}
+            />
+            <FsText variant="caption">g</FsText>
+          </View>
+        </View>
+
         {/* Nutrition preview */}
-        {ingredients.length > 0 && (
-          <Card style={{ marginTop: space[3] }}>
-            <FsText variant="overline">Per serving</FsText>
-            <FsText variant="stat" style={{ marginTop: 4 }}>{Math.round(total.cal / s)} kcal</FsText>
-            <FsText variant="caption" style={{ marginTop: 2 }}>
-              P {Math.round(total.p / s)}g · C {Math.round(total.c / s)}g · F {Math.round(total.f / s)}g
-              {'   ·   '}makes {s} serving{s > 1 ? 's' : ''} ({Math.round(total.cal)} kcal total)
-            </FsText>
-          </Card>
-        )}
+        {ingredients.length > 0 && (() => {
+          const weightG = Number(servingWeight);
+          const hasWeight = servingWeight.trim() !== '' && weightG > 0;
+          return (
+            <Card style={{ marginTop: space[3] }}>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                <FsText variant="overline">Per serving</FsText>
+                {hasWeight && <FsText variant="caption">{Math.round(weightG)} g / serving</FsText>}
+              </View>
+              <FsText variant="stat" style={{ marginTop: 4 }}>{Math.round(total.cal / s)} kcal</FsText>
+              <FsText variant="caption" style={{ marginTop: 2 }}>
+                P {Math.round(total.p / s)}g · C {Math.round(total.c / s)}g · F {Math.round(total.f / s)}g
+                {'   ·   '}makes {s} serving{s > 1 ? 's' : ''}
+                {hasWeight ? ` (${Math.round(weightG * s)} g total)` : ` (${Math.round(total.cal)} kcal total)`}
+              </FsText>
+            </Card>
+          );
+        })()}
 
         {/* Ingredients */}
         <FsText variant="overline" style={{ marginTop: space[4], marginBottom: space[2] }}>Ingredients</FsText>
@@ -201,6 +231,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: space[3],
+  },
+  weightField: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: colors.surfaceHigh, borderRadius: radius.sm, paddingHorizontal: 12,
   },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
   stepBtn: { width: 36, height: 36, borderRadius: radius.sm, backgroundColor: colors.surfaceHigh, alignItems: 'center', justifyContent: 'center' },

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View, TextInput, Pressable, StyleSheet, Modal, ScrollView } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Card, FsText } from '@/components/ui';
 import { StepperField } from '@/components/StepperField';
+import { GoalPhasesPanel } from '@/components/GoalPhasesPanel';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { resolveTargets } from '@/lib/targets';
 import { useSettingsStore, type NutrientGoal } from '@/stores/settingsStore';
@@ -59,10 +60,14 @@ const defaultGoalFor = (key: string): NutrientGoal => ({
  * All edits persist live to the settings profile, which drives the calorie/macro
  * engine and the Food "Other nutrients" bars.
  */
-export function GoalsEditor({ focusSection }: { focusSection?: string }) {
+export function GoalsEditor({ focusSection, onOpenPhases }: { focusSection?: string; onOpenPhases?: () => void }) {
   const profile = useSettingsStore((s) => s.profile);
   const setProfile = useSettingsStore((s) => s.setProfile);
   const router = useRouter();
+  // When hosted in a modal, navigating to /goal-phases must close that modal first
+  // (an RN Modal left mounted over a pushed route eats touches). The host passes a
+  // handler that does the close-then-navigate dance; inline usage just pushes.
+  const openPhases = onOpenPhases ?? (() => router.push('/goal-phases'));
   const unit = profile.unitSystem;
   const targets = resolveTargets(profile);
 
@@ -185,7 +190,9 @@ export function GoalsEditor({ focusSection }: { focusSection?: string }) {
             <FsText variant="cardTitle">Cycle active: {phase.name}</FsText>
             <FsText variant="caption">This phase overrides your weight & calorie targets until it ends.</FsText>
           </View>
-          <CycleLink />
+          <Pressable onPress={openPhases} hitSlop={8}>
+            <ChevronRight color={colors.muted} size={20} />
+          </Pressable>
         </Card>
       ) : (
         <Card style={{ marginBottom: space[2], padding: 0 }}>
@@ -232,7 +239,7 @@ export function GoalsEditor({ focusSection }: { focusSection?: string }) {
       )}
 
       {/* Goal Phases & Cycles — always reachable so a cycle can be created/edited. */}
-      <Pressable onPress={() => router.push('/goal-phases')} style={{ marginBottom: space[2] }}>
+      <Pressable onPress={openPhases} style={{ marginBottom: space[2] }}>
         <Card style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
           <CalendarRange color={colors.primary} size={20} />
           <View style={{ flex: 1 }}>
@@ -295,27 +302,31 @@ export function GoalsEditor({ focusSection }: { focusSection?: string }) {
   );
 }
 
-function CycleLink() {
-  const router = useRouter();
-  return (
-    <Pressable onPress={() => router.push('/goal-phases')} hitSlop={8}>
-      <ChevronRight color={colors.muted} size={20} />
-    </Pressable>
-  );
-}
-
 /** Full-screen modal wrapper for the header gear button. */
-export function GoalsEditorModal({ visible, onClose, focusSection }: { visible: boolean; onClose: () => void; focusSection?: string }) {
+export function GoalsEditorModal({ visible, onClose, focusSection }: {
+  visible: boolean; onClose: () => void; focusSection?: string;
+}) {
+  // Goal Phases & Cycles renders as a sub-page *inside* this modal (not a pushed
+  // route), so the back arrow returns here and the app header is never blocked.
+  const [view, setView] = useState<'goals' | 'phases'>('goals');
+  useEffect(() => { if (visible) setView('goals'); }, [visible]);
+
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} presentationStyle="formSheet">
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
-        <View style={styles.modalHeader}>
-          <FsText variant="h2">Goals</FsText>
-          <Pressable onPress={onClose} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
-        </View>
-        <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: space[8] }} keyboardShouldPersistTaps="handled">
-          <GoalsEditor focusSection={focusSection} />
-        </ScrollView>
+        {view === 'phases' ? (
+          <GoalPhasesPanel onBack={() => setView('goals')} />
+        ) : (
+          <>
+            <View style={styles.modalHeader}>
+              <FsText variant="h2">Goals</FsText>
+              <Pressable onPress={onClose} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
+            </View>
+            <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: space[8] }} keyboardShouldPersistTaps="handled">
+              <GoalsEditor focusSection={focusSection} onOpenPhases={() => setView('phases')} />
+            </ScrollView>
+          </>
+        )}
       </SafeAreaView>
     </Modal>
   );

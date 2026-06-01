@@ -231,6 +231,7 @@ function runMigrations() {
   ensureColumn('food_items', 'detailsJson', 'TEXT');
   ensureColumn('food_items', 'isFavorite', 'INTEGER DEFAULT 0');
   ensureColumn('recipes', 'isFavorite', 'INTEGER DEFAULT 0');
+  ensureColumn('recipes', 'servingWeightG', 'REAL');
 }
 
 function ensureColumn(table: string, column: string, decl: string) {

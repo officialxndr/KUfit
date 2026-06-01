@@ -1,11 +1,12 @@
-import { useCallback, useMemo, useState } from 'react';
-import { View, StyleSheet, Pressable, Modal, TextInput, ScrollView } from 'react-native';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { View, StyleSheet, Pressable, TextInput, ScrollView } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ruler, X, Pencil, Check, ChevronRight, Sparkles } from 'lucide-react-native';
 
 import { Card, FsText, Button, SectionHeader } from '@/components/ui';
 import { StepperField } from '@/components/StepperField';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
+import { BottomSheet } from '@/components/BottomSheet';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { UNIT_LABELS, inchesToCm } from '@/lib/units';
@@ -62,6 +63,14 @@ export function HealthMeasure() {
 
   const remove = (m: BodyMeasurement) => { healthRepo.deleteMeasurement(m.id); refresh(); };
   const [siteKey, setSiteKey] = useState<SiteKey | null>(null);
+
+  // Retain the last opened value so the sheet can animate its slide-out after the
+  // selection is cleared (the sheet stays mounted until the exit finishes).
+  const lastDetail = useRef<BodyMeasurement | null>(null);
+  if (detail) lastDetail.current = detail;
+  const lastSite = useRef<SiteKey | null>(null);
+  if (siteKey) lastSite.current = siteKey;
+  const activeSite = (siteKey ?? lastSite.current) as SiteKey | null;
 
   return (
     <>
@@ -123,9 +132,10 @@ export function HealthMeasure() {
         </>
       )}
 
-      {detail && (
+      {lastDetail.current && (
         <MeasurementDetail
-          entry={detail}
+          visible={!!detail}
+          entry={lastDetail.current}
           entries={entries}
           unit={unit}
           fmt={fmt}
@@ -136,17 +146,18 @@ export function HealthMeasure() {
         />
       )}
 
-      {siteKey && (
+      {activeSite && (
         <SiteDetail
-          siteKey={siteKey}
+          visible={!!siteKey}
+          siteKey={activeSite}
           entries={entries}
           unit={unit}
           toLen={toLen}
           fromLen={fromLen}
           lengthLabel={lengthLabel}
-          goalCm={measurementGoals[siteKey] ?? null}
-          onSetGoal={(cm) => setProfile({ measurementGoals: { ...measurementGoals, [siteKey]: cm } })}
-          onClearGoal={() => { const { [siteKey]: _, ...rest } = measurementGoals; setProfile({ measurementGoals: rest }); }}
+          goalCm={measurementGoals[activeSite] ?? null}
+          onSetGoal={(cm) => setProfile({ measurementGoals: { ...measurementGoals, [activeSite]: cm } })}
+          onClearGoal={() => { const { [activeSite]: _, ...rest } = measurementGoals; setProfile({ measurementGoals: rest }); }}
           onClose={() => setSiteKey(null)}
         />
       )}
@@ -155,7 +166,8 @@ export function HealthMeasure() {
 }
 
 /** Per-site insight popup: trends over time, next landmark, a goal, and ideal-ratio suggestions. */
-function SiteDetail({ siteKey, entries, unit, toLen, fromLen, lengthLabel, goalCm, onSetGoal, onClearGoal, onClose }: {
+function SiteDetail({ visible, siteKey, entries, unit, toLen, fromLen, lengthLabel, goalCm, onSetGoal, onClearGoal, onClose }: {
+  visible: boolean;
   siteKey: SiteKey;
   entries: BodyMeasurement[];
   unit: string;
@@ -198,15 +210,13 @@ function SiteDetail({ siteKey, entries, unit, toLen, fromLen, lengthLabel, goalC
   const goalDisp = goalCm != null ? Math.round(toLen(goalCm) * 10) / 10 : 0;
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.modalBackdrop} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
-          <View style={styles.sheetHead}>
-            <FsText variant="cardTitle">{SITE_LABEL(siteKey)}</FsText>
-            <Pressable onPress={onClose} hitSlop={8}><X color={colors.text} size={22} /></Pressable>
-          </View>
+    <BottomSheet visible={visible} onClose={onClose}>
+      <View style={styles.sheetHead}>
+        <FsText variant="cardTitle">{SITE_LABEL(siteKey)}</FsText>
+        <Pressable onPress={onClose} hitSlop={8}><X color={colors.text} size={22} /></Pressable>
+      </View>
 
-          <ScrollView style={{ maxHeight: 460 }}>
+      <ScrollView style={{ maxHeight: 460 }}>
             <FsText variant="display" style={{ marginBottom: space[2] }}>
               {curDisp != null ? `${curDisp.toFixed(1)} ${lengthLabel}` : '—'}
             </FsText>
@@ -269,13 +279,12 @@ function SiteDetail({ siteKey, entries, unit, toLen, fromLen, lengthLabel, goalC
               )}
             </View>
           </ScrollView>
-        </Pressable>
-      </Pressable>
-    </Modal>
+    </BottomSheet>
   );
 }
 
-function MeasurementDetail({ entry, entries, fmt, toLen, fromLen, onClose, onSaved }: {
+function MeasurementDetail({ visible, entry, entries, fmt, toLen, fromLen, onClose, onSaved }: {
+  visible: boolean;
   entry: BodyMeasurement;
   entries: BodyMeasurement[];
   unit: string;
@@ -318,20 +327,18 @@ function MeasurementDetail({ entry, entries, fmt, toLen, fromLen, onClose, onSav
   }, [entry, first]);
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.modalBackdrop}>
-        <View style={styles.sheet}>
-          <View style={styles.sheetHead}>
-            <FsText variant="cardTitle">{entry.date}</FsText>
-            <View style={{ flexDirection: 'row', gap: space[3] }}>
-              <Pressable onPress={() => (editing ? save() : setEditing(true))} hitSlop={8}>
-                {editing ? <Check color={colors.success} size={22} /> : <Pencil color={colors.muted} size={20} />}
-              </Pressable>
-              <Pressable onPress={onClose} hitSlop={8}><X color={colors.text} size={22} /></Pressable>
-            </View>
-          </View>
+    <BottomSheet visible={visible} onClose={onClose}>
+      <View style={styles.sheetHead}>
+        <FsText variant="cardTitle">{entry.date}</FsText>
+        <View style={{ flexDirection: 'row', gap: space[3] }}>
+          <Pressable onPress={() => (editing ? save() : setEditing(true))} hitSlop={8}>
+            {editing ? <Check color={colors.success} size={22} /> : <Pencil color={colors.muted} size={20} />}
+          </Pressable>
+          <Pressable onPress={onClose} hitSlop={8}><X color={colors.text} size={22} /></Pressable>
+        </View>
+      </View>
 
-          <ScrollView style={{ maxHeight: 420 }}>
+      <ScrollView style={{ maxHeight: 420 }}>
             {SITES.map((s) => {
               const cur = entry[s.key] as number | null;
               const olderV = older?.[s.key] as number | null | undefined;
@@ -371,9 +378,7 @@ function MeasurementDetail({ entry, entries, fmt, toLen, fromLen, onClose, onSav
               ))}
             </View>
           )}
-        </View>
-      </View>
-    </Modal>
+    </BottomSheet>
   );
 }
 
@@ -401,8 +406,6 @@ const styles = StyleSheet.create({
     width: 56, height: 56, borderRadius: radius.lg, backgroundColor: colors.surface,
     alignItems: 'center', justifyContent: 'center', marginBottom: space[2],
   },
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: space[4], paddingBottom: space[8] },
   sheetHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space[2] },
   milestones: { marginTop: space[3], gap: 3, padding: space[3], backgroundColor: colors.surfaceHigh, borderRadius: radius.md },
 });

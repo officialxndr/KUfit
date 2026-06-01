@@ -41,7 +41,7 @@ function recipeToSheetFood(r: Recipe): SheetFood | null {
   return {
     name: r.name,
     brand: `${r.servings} serving${r.servings > 1 ? 's' : ''} · recipe`,
-    servingSize: 1, servingUnit: 'serving',
+    servingSize: r.servingWeightG ?? 1, servingUnit: r.servingWeightG ? 'g' : 'serving',
     calories: n.perServingCalories, protein: n.perServingProtein, carbs: n.perServingCarbs, fat: n.perServingFat,
     fiber: b?.core.fiber ?? null, sugar: b?.core.sugar ?? null, sodium: b?.core.sodium ?? null,
     saturatedFat: b?.core.saturatedFat ?? null, details: b?.details ?? null,

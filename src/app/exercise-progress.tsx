@@ -1,15 +1,16 @@
 import { useCallback, useMemo, useState } from 'react';
-import { View, StyleSheet, Pressable, ScrollView, Modal } from 'react-native';
+import { View, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { X, GitCompare } from 'lucide-react-native';
 
 import { FsText, Card } from '@/components/ui';
+import { BottomSheet } from '@/components/BottomSheet';
 import { LineChart, type Series } from '@/components/LineChart';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { formatWeight } from '@/lib/units';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, space } from '@/theme/tokens';
 
 const COMPARE_COLOR = colors.macroFat;
 const CHART_H = 80;
@@ -114,25 +115,21 @@ export default function ExerciseProgress() {
         )}
       </ScrollView>
 
-      <Modal visible={picking} transparent animationType="slide" onRequestClose={() => setPicking(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setPicking(false)}>
-          <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
-            <FsText variant="h2" style={{ textAlign: 'center', marginBottom: space[3] }}>Compare with…</FsText>
-            <ScrollView style={{ maxHeight: 360 }}>
-              {others.length === 0 ? (
-                <FsText variant="caption">No other exercises with history yet.</FsText>
-              ) : (
-                others.map((e) => (
-                  <Pressable key={e.id} style={styles.pickRow} onPress={() => pickCompare(e.id, e.name)}>
-                    <FsText variant="bodyMedium" style={{ flex: 1 }} numberOfLines={1}>{e.name}</FsText>
-                    <FsText variant="caption">{e.sessions} sessions</FsText>
-                  </Pressable>
-                ))
-              )}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <BottomSheet visible={picking} onClose={() => setPicking(false)}>
+        <FsText variant="h2" style={{ textAlign: 'center', marginBottom: space[3] }}>Compare with…</FsText>
+        <ScrollView style={{ maxHeight: 360 }}>
+          {others.length === 0 ? (
+            <FsText variant="caption">No other exercises with history yet.</FsText>
+          ) : (
+            others.map((e) => (
+              <Pressable key={e.id} style={styles.pickRow} onPress={() => pickCompare(e.id, e.name)}>
+                <FsText variant="bodyMedium" style={{ flex: 1 }} numberOfLines={1}>{e.name}</FsText>
+                <FsText variant="caption">{e.sessions} sessions</FsText>
+              </Pressable>
+            ))
+          )}
+        </ScrollView>
+      </BottomSheet>
     </SafeAreaView>
   );
 }
@@ -167,11 +164,6 @@ const styles = StyleSheet.create({
   bars: { flexDirection: 'row', alignItems: 'flex-end', height: CHART_H + 18, gap: 3 },
   barCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: '100%' },
   barValue: { fontSize: 9, marginBottom: 2, fontVariant: ['tabular-nums'] },
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
-    padding: space[4], paddingBottom: space[8],
-  },
   pickRow: {
     flexDirection: 'row', alignItems: 'center', gap: space[2],
     paddingVertical: space[3], borderTopWidth: 1, borderTopColor: colors.border,

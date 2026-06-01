@@ -117,6 +117,20 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       instead of the full-screen view; weight chart **y-axis + scrub-capture**; and a Measure **per-site
       detail** (3/6/12-mo trends, landmarks, per-site goals, approximate golden-ratio targets).
 - [x] Verified: `tsc --noEmit` clean; full `expo export` iOS bundle clean.
+- [x] **Round 3 fixes** — recipe edit gains optional **grams per serving** (`recipes.servingWeightG`) for
+      weight-based logging; Workout **Library label-filter chips** + always-on template search; a
+      weight-chart **fit-data / show-goal zoom toggle**; and the Dashboard greeting now shows the saved
+      **profile photo** instead of a generic icon.
+- [x] **Goal Phases as a sub-page** — the Goals modal renders Goal Phases & Cycles **inside itself**
+      (`components/GoalPhasesPanel.tsx`, an internal view swap with a "‹ Goals" back arrow) instead of
+      pushing `/goal-phases`. Fixes the header lockup: an RN `Modal` left over a pushed route was
+      capturing all touches. The standalone route now just wraps the panel (Dashboard inline editor).
+- [x] **Shared draggable bottom sheet** — new `components/BottomSheet.tsx`: slide-in, **grab-strip
+      drag-to-dismiss**, a **fade backdrop driven by the sheet's travel** (no more dim popping/sliding
+      with the sheet), notch-safe `maxHeight`, and animated close on every path. Rolled out to
+      `QuickActionsSheet`, `WorkoutSummarySheet`, the Measure site/snapshot pop-ups, and the
+      `exercise-progress` "Compare" picker; `FoodQuantitySheet` matches the same pattern (incl. the
+      reliable scroll fix — a concrete ScrollView `maxHeight`). Centered dialogs/popovers left as-is.
 
 ## Not built yet (planned)
 - [ ] **Dark/light theme toggle** — deferred. The app is dark-first and the type scale + ~40 screen

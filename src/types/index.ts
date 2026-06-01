@@ -97,6 +97,8 @@ export interface Recipe {
   name: string
   description?: string | null
   servings: number
+  /** Optional weight (g) of one serving, enabling gram-based logging/scaling. */
+  servingWeightG?: number | null
   isFavorite?: boolean
   ingredients: RecipeIngredient[]
   nutrition?: {

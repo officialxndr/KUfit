@@ -9,17 +9,16 @@ import { pickAvatar } from '@/lib/avatar';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useServerStore } from '@/stores/serverStore';
+import { useNavStore } from '@/stores/navStore';
 import { testServerConnection } from '@/lib/sync';
 import { health, healthPlatformLabel } from '@/lib/health';
 import { ACTIVITY_DESCRIPTIONS } from '@/lib/tdee';
 import { downloadAllMedia } from '@/lib/exerciseMedia';
-import { toDisplay, toKg, formatWeight, UNIT_LABELS } from '@/lib/units';
 import { colors, radius, space } from '@/theme/tokens';
-import type { ActivityLevel, GoalType, Sex, UnitSystem } from '@/types';
+import type { ActivityLevel, Sex, UnitSystem } from '@/types';
 
 const SEXES: Sex[] = ['MALE', 'FEMALE', 'OTHER'];
 const ACTIVITIES: ActivityLevel[] = ['SEDENTARY', 'LIGHT', 'MODERATE', 'ACTIVE', 'VERY_ACTIVE'];
-const GOALS: GoalType[] = ['LOSE', 'MAINTAIN', 'GAIN'];
 
 function Field({
   label,
@@ -57,6 +56,7 @@ function Field({
 export function SettingsView() {
   const profile = useSettingsStore((s) => s.profile);
   const setProfile = useSettingsStore((s) => s.setProfile);
+  const setSection = useNavStore((s) => s.setSection);
   const router = useRouter();
   const unit = profile.unitSystem;
 
@@ -75,13 +75,6 @@ export function SettingsView() {
   };
 
   const [heightCm, setHeightCm] = useState(profile.heightCm?.toString() ?? '');
-  const [goalWeight, setGoalWeight] = useState(
-    profile.goalWeightKg != null ? String(toDisplay(profile.goalWeightKg, unit)) : ''
-  );
-  const [calorieGoal, setCalorieGoal] = useState(profile.calorieGoal?.toString() ?? '');
-  const [protein, setProtein] = useState(profile.proteinTarget?.toString() ?? '');
-  const [carbs, setCarbs] = useState(profile.carbsTarget?.toString() ?? '');
-  const [fat, setFat] = useState(profile.fatTarget?.toString() ?? '');
 
   const server = useServerStore();
   const [serverUrl, setServerUrl] = useState(server.serverUrl ?? '');
@@ -129,10 +122,7 @@ export function SettingsView() {
 
   const num = (s: string) => (s.trim() === '' ? null : Number(s));
 
-  const switchUnit = (next: UnitSystem) => {
-    setProfile({ unitSystem: next });
-    if (profile.goalWeightKg != null) setGoalWeight(String(toDisplay(profile.goalWeightKg, next)));
-  };
+  const switchUnit = (next: UnitSystem) => setProfile({ unitSystem: next });
 
   return (
     <>
@@ -200,26 +190,12 @@ export function SettingsView() {
       </Card>
 
       <Card style={{ marginBottom: space[3] }}>
-        <SectionHeader title="Goal" />
-        <View style={{ flexDirection: 'row', gap: space[2], marginBottom: space[3] }}>
-          {GOALS.map((g) => (
-            <Chip key={g} label={g[0] + g.slice(1).toLowerCase()} selected={profile.goalType === g} onPress={() => setProfile({ goalType: g })} />
-          ))}
-        </View>
-        <Field
-          label="Goal weight"
-          value={goalWeight}
-          onChangeText={(t) => { setGoalWeight(t); setProfile({ goalWeightKg: t.trim() === '' ? null : toKg(Number(t), unit) }); }}
-          keyboardType="decimal-pad"
-          suffix={UNIT_LABELS[unit].weight}
-          placeholder="75"
-        />
-        <Field
-          label="Goal date (YYYY-MM-DD)"
-          value={profile.goalDate ?? ''}
-          onChangeText={(t) => setProfile({ goalDate: t || null })}
-          placeholder="2026-09-01"
-        />
+        <SectionHeader title="Goals" />
+        <FsText variant="caption" style={{ marginBottom: space[3] }}>
+          Your weight goal, calorie & macro targets, training and nutrient goals all live in one place
+          now — the Goals editor (the target icon on Food/Workout/Health, or Dashboard → Goals).
+        </FsText>
+        <Button title="Edit goals" variant="ghost" onPress={() => setSection('dashboard', 'goals')} />
       </Card>
 
       <Card style={{ marginBottom: space[3] }}>
@@ -263,16 +239,6 @@ export function SettingsView() {
         )}
       </Card>
 
-      <Card style={{ marginBottom: space[3] }}>
-        <SectionHeader title="Targets (optional)" />
-        <FsText variant="caption" style={{ marginBottom: space[3] }}>
-          Leave calories blank to auto-calculate from your TDEE and goal.
-        </FsText>
-        <Field label="Calorie override" value={calorieGoal} onChangeText={(t) => { setCalorieGoal(t); setProfile({ calorieGoal: num(t) }); }} keyboardType="numeric" suffix="kcal" placeholder="auto" />
-        <Field label="Protein target" value={protein} onChangeText={(t) => { setProtein(t); setProfile({ proteinTarget: num(t) }); }} keyboardType="numeric" suffix="g" />
-        <Field label="Carbs target" value={carbs} onChangeText={(t) => { setCarbs(t); setProfile({ carbsTarget: num(t) }); }} keyboardType="numeric" suffix="g" />
-        <Field label="Fat target" value={fat} onChangeText={(t) => { setFat(t); setProfile({ fatTarget: num(t) }); }} keyboardType="numeric" suffix="g" />
-      </Card>
     </>
   );
 }

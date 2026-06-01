@@ -46,8 +46,9 @@ export function FoodRecipes() {
     return {
       name: selected.name,
       brand: `${selected.servings} serving${selected.servings > 1 ? 's' : ''} · recipe`,
-      servingSize: 1,
-      servingUnit: 'serving',
+      // A gram-weighted serving lets the sheet offer a `g` unit; otherwise it's abstract "1 serving".
+      servingSize: selected.servingWeightG ?? 1,
+      servingUnit: selected.servingWeightG ? 'g' : 'serving',
       calories: n.perServingCalories,
       protein: n.perServingProtein,
       carbs: n.perServingCarbs,

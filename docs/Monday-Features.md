@@ -33,7 +33,7 @@ built once and reused). Full plan rationale lives in the planning notes.
 - [x] Template delete + edit (wired `deleteTemplate` + new `updateTemplate`)
 - [x] Template labels/folders + search (grouped grid)
 - [x] Template creation wizard (blank vs setup wizard, 2 steps)
-- [ ] (deferred) Edit a past workout's sets from the summary — viewing is linked; in-place editing is a follow-up
+- [x] (deferred) Edit a past workout's sets from the summary — viewing is linked; in-place editing is a follow-up
 
 ## Batch E — Health ✅
 - [x] Weight: log via button → `/log-weight` popup
@@ -81,3 +81,61 @@ built once and reused). Full plan rationale lives in the planning notes.
 - [x] Trends over 3/6/12 months + next landmark
 - [x] Configurable per-site goals (profile `measurementGoals`)
 - [x] Golden-ratio suggestions vs a chosen anchor site (labeled approximate aesthetic ideals)
+
+---
+
+# Round 3
+
+## Batch M — Global Goals navigation bug (the big one) ✅
+- [x] **Cause:** `GoalsEditorModal` is an RN `<Modal>`; opening "Goal Phases & Cycles" as a pushed
+  route left the modal mounted *above* it (RN modals render over pushed routes), so it swallowed all
+  header touches and "back" couldn't return to the popup.
+- [x] **Final fix:** Goal Phases renders as a **sub-page inside the goals modal**
+  (`components/GoalPhasesPanel.tsx`; an internal `view` state in `GoalsEditorModal` swaps the body,
+  with a "‹ Goals" back arrow). No route push from the modal → header never locks up. The standalone
+  `app/goal-phases.tsx` route now just wraps the panel (used by the Dashboard inline editor).
+
+## Batch N — Food/Recipe sheet ✅
+- [x] Fix the sheet so you can scroll to the bottom-most info (bound the `KeyboardAvoidingView`,
+  let the sheet + ScrollView flex-shrink within it).
+- [x] Recipe edit: optional **grams per serving** (`recipes.servingWeightG`) so a recipe serving
+  can be logged/scaled by weight; the quantity sheet then offers a `g` unit.
+
+## Batch O — Workout Library filtering ✅
+- [x] Always-available template search (name **or** label), not just when >3 exist.
+- [x] Label **filter chips** (All + each label) above the template grid for one-tap filtering.
+
+## Batch P — Health Weight chart zoom ✅
+- [x] Toggle to fit the y-range to the **data** (zoomed-in trend) vs. zoom out to **include the
+  goal weight** when it's off-screen.
+
+## Batch Q — Dashboard greeting avatar ✅
+- [x] Dashboard → Overview greeting showed a hardcoded `UserCircle` icon, never the saved photo.
+  Render `profile.avatarUri` when present (fall back to the icon).
+
+## Batch R — Shared draggable bottom sheet ✅
+- [x] New `components/BottomSheet.tsx` — slide-in, **grab-strip drag-to-dismiss**, full-screen
+  **fade backdrop driven by the sheet's travel** (no more dim popping/sliding with the sheet),
+  notch-safe `maxHeight`, animated close on every path (grab / backdrop / child button / parent).
+- [x] Rolled out to `QuickActionsSheet`, `WorkoutSummarySheet`, the Measure **site** + **snapshot**
+  pop-ups, and the `exercise-progress` "Compare" picker. `FoodQuantitySheet` matches the pattern
+  (+ its own keyboard-avoidance and a concrete ScrollView `maxHeight` scroll fix).
+- [x] Centered dialogs/popovers (rest-timer & notes, header dropdown, calendar pickers, nutrient
+  picker) intentionally left as fade modals.
+
+---
+
+# Round 4 (planned)
+
+## Batch S — Custom app themes (Settings)
+- [ ] Theme store + centralized theme so `colors` can change at runtime; theme picker in Settings.
+- [ ] Scope TBD (preset themes / accent picker / full custom) — see the planning question.
+
+## Batch T — De-duplicate goal settings
+- [ ] Remove the redundant **Goal** (type/weight/date) and **Targets** (calories/macros) cards from
+  `SettingsView` — they already live in the unified Goals editor.
+- [ ] Leave a small pointer in Settings to open Goals (Dashboard → Goals).
+
+## Batch U — Recipe grams-per-serving display
+- [ ] Recipe edit already sets `servingWeightG`; also **show the grams-per-serving** in the
+  per-serving nutrition preview when set.
