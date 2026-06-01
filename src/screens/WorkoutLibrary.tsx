@@ -285,7 +285,7 @@ export function WorkoutLibrary() {
               <View style={styles.grid}>
                 {items.map((t) => (
                   <Pressable key={t.id} style={styles.gridItem} onPress={() => startTemplate(t)}>
-                    <Card style={{ minHeight: 124, justifyContent: 'space-between' }}>
+                    <Card style={{ flex: 1, minHeight: 124, justifyContent: 'space-between' }}>
                       <FsText variant="cardTitle" numberOfLines={2}>{t.name}</FsText>
                       <View>
                         <FsText variant="caption">{t.exercises.length} exercises</FsText>

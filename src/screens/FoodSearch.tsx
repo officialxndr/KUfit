@@ -36,7 +36,18 @@ export function FoodSearch() {
   const [loading, setLoading] = useState(false);
   const [meal, setMeal] = useState<MealType>(mealByTime);
   const [selected, setSelected] = useState<FoodCandidate | null>(null);
+  const [favActive, setFavActive] = useState(false);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const pick = (item: FoodCandidate) => { Keyboard.dismiss(); setFavActive(!!item.isFavorite); setSelected(item); };
+  const toggleFav = () => {
+    if (!selected) return;
+    const id = selected.localId ?? ensureFoodItem(selected);
+    selected.localId = id;
+    foodRepo.toggleFavorite(id);
+    selected.isFavorite = !selected.isFavorite;
+    setFavActive((v) => !v);
+  };
 
   useEffect(() => {
     if (debounce.current) clearTimeout(debounce.current);
@@ -101,7 +112,7 @@ export function FoodSearch() {
       )}
 
       {results.map((item, i) => (
-        <Pressable key={(item.localId ?? item.barcode ?? item.name) + i} onPress={() => { Keyboard.dismiss(); setSelected(item); }}>
+        <Pressable key={(item.localId ?? item.barcode ?? item.name) + i} onPress={() => pick(item)}>
           <Card style={styles.resultRow}>
             <View style={{ flex: 1 }}>
               <FsText variant="bodyMedium" numberOfLines={1}>{item.name}</FsText>
@@ -115,7 +126,13 @@ export function FoodSearch() {
         </Pressable>
       ))}
 
-      <FoodQuantitySheet food={selected} date={today()} onSubmit={logSelected} onClose={() => setSelected(null)} />
+      <FoodQuantitySheet
+        food={selected}
+        date={today()}
+        favorite={selected ? { active: favActive, onToggle: toggleFav } : undefined}
+        onSubmit={logSelected}
+        onClose={() => setSelected(null)}
+      />
     </>
   );
 }

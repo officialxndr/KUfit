@@ -152,11 +152,12 @@ function WeightChart({ entries, goalKg, unit }: { entries: WeightEntry[]; goalKg
   const nRef = useRef(entries.length);
   nRef.current = entries.length;
 
-  // Drag across the chart to inspect the nearest weigh-in.
+  // Drag across the chart to inspect the nearest weigh-in. The *capture* handlers
+  // claim the touch before the parent ScrollView so scrubbing never scrolls the page.
   const pan = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
       onPanResponderGrant: (e) => pick(e.nativeEvent.locationX),
       onPanResponderMove: (e) => pick(e.nativeEvent.locationX),
       onPanResponderRelease: () => setSel(null),
@@ -185,6 +186,10 @@ function WeightChart({ entries, goalKg, unit }: { entries: WeightEntry[]; goalKg
   const x = (i: number) => (i / (entries.length - 1)) * W;
   const y = (v: number) => H - ((v - min) / (max - min)) * H;
   const path = vals.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+  const mid = (lo + hi) / 2;
+  const yTicks = [hi, mid, lo];
+  const fmtTick = (v: number) => (Math.abs(v - Math.round(v)) < 0.05 ? String(Math.round(v)) : v.toFixed(1));
+  const Y_AXIS_W = 34;
 
   return (
     <View style={{ marginVertical: space[2] }}>
@@ -195,24 +200,38 @@ function WeightChart({ entries, goalKg, unit }: { entries: WeightEntry[]; goalKg
           </FsText>
         )}
       </View>
-      <View onLayout={(e) => { widthRef.current = e.nativeEvent.layout.width; }} {...pan.panHandlers}>
-        <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
-          {goal != null && goal >= min && goal <= max && (
-            <Line x1={0} y1={y(goal)} x2={W} y2={y(goal)} stroke={colors.primary} strokeWidth={1.5} strokeDasharray="4 4" opacity={0.6} />
-          )}
-          <Path d={path} fill="none" stroke={colors.primary} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-          {vals.map((v, i) => (
-            <Circle key={i} cx={x(i)} cy={y(v)} r={sel === i ? 4.5 : 2.5} fill={colors.primary} />
+      <View style={{ flexDirection: 'row' }}>
+        {/* Y-axis labels */}
+        <View style={{ width: Y_AXIS_W, height: H }}>
+          {yTicks.map((v) => (
+            <FsText key={v} variant="caption" style={{ position: 'absolute', right: 4, top: y(v) - 7, fontSize: 10 }}>
+              {fmtTick(v)}
+            </FsText>
           ))}
-          {sel != null && (
-            <Line x1={x(sel)} y1={0} x2={x(sel)} y2={H} stroke={colors.muted} strokeWidth={1} strokeDasharray="3 3" />
-          )}
-          {goal != null && (
-            <SvgText x={4} y={y(goal) - 4} fill={colors.muted} fontSize={9}>goal {goal}</SvgText>
-          )}
-        </Svg>
+        </View>
+        <View style={{ flex: 1 }} onLayout={(e) => { widthRef.current = e.nativeEvent.layout.width; }} {...pan.panHandlers}>
+          <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
+            {/* horizontal gridlines */}
+            {yTicks.map((v) => (
+              <Line key={v} x1={0} y1={y(v)} x2={W} y2={y(v)} stroke={colors.border} strokeWidth={1} opacity={0.5} />
+            ))}
+            {goal != null && goal >= min && goal <= max && (
+              <Line x1={0} y1={y(goal)} x2={W} y2={y(goal)} stroke={colors.primary} strokeWidth={1.5} strokeDasharray="4 4" opacity={0.6} />
+            )}
+            <Path d={path} fill="none" stroke={colors.primary} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+            {vals.map((v, i) => (
+              <Circle key={i} cx={x(i)} cy={y(v)} r={sel === i ? 4.5 : 2.5} fill={colors.primary} />
+            ))}
+            {sel != null && (
+              <Line x1={x(sel)} y1={0} x2={x(sel)} y2={H} stroke={colors.muted} strokeWidth={1} strokeDasharray="3 3" />
+            )}
+            {goal != null && (
+              <SvgText x={4} y={y(goal) - 4} fill={colors.muted} fontSize={9}>goal {fmtTick(goal)}</SvgText>
+            )}
+          </Svg>
+        </View>
       </View>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4, paddingLeft: Y_AXIS_W }}>
         <FsText variant="caption">{shortDate(entries[0].date)}</FsText>
         <FsText variant="caption">{shortDate(entries[entries.length - 1].date)}</FsText>
       </View>

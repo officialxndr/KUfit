@@ -88,6 +88,7 @@ function mapRecipe(row: any, ingredients: RecipeIngredient[]): Recipe {
     name: row.name,
     description: row.description ?? null,
     servings: row.servings ?? 1,
+    isFavorite: !!row.isFavorite,
     ingredients,
     nutrition: undefined,
     createdAt: row.updatedAt ?? new Date().toISOString(),
@@ -187,6 +188,13 @@ export class FoodRepo {
     return (db.getAllSync(
       `SELECT * FROM food_items WHERE isFavorite = 1 AND deleted IS NOT 1 ORDER BY name`
     ) as any[]).map(mapFoodItem);
+  }
+
+  toggleRecipeFavorite(localId: string): void {
+    db.runSync(
+      `UPDATE recipes SET isFavorite = CASE WHEN isFavorite = 1 THEN 0 ELSE 1 END, updatedAt = ? WHERE localId = ?`,
+      [new Date().toISOString(), localId]
+    );
   }
 
   // Distinct recently-logged food items (for quick-add)
@@ -478,12 +486,16 @@ export class FoodRepo {
     if (!recipe) return null;
     const servings = recipe.servings || 1;
     const rows = db.getAllSync(
-      `SELECT ri.quantity AS qty, fi.fiber, fi.sugar, fi.sodium, fi.saturatedFat, fi.detailsJson
+      `SELECT ri.quantity AS qty, fi.name AS name, fi.fiber, fi.sugar, fi.sodium, fi.saturatedFat, fi.detailsJson
        FROM recipe_ingredients ri
        JOIN food_items fi ON ri.foodItemLocalId = fi.localId
        WHERE ri.recipeLocalId = ?`,
       [recipeLocalId]
     ) as any[];
+    // Human-readable ingredient list (shown in the sheet's "Ingredients" section).
+    const ingredientsText = rows.length
+      ? rows.map((r) => `${r.name}${r.qty && r.qty !== 1 ? ` ×${+r.qty.toFixed(2)}` : ''}`).join(', ')
+      : null;
 
     const acc = { fiber: 0, sugar: 0, sodium: 0, saturatedFat: 0 };
     const has = { fiber: false, sugar: false, sodium: false, saturatedFat: false };
@@ -506,7 +518,7 @@ export class FoodRepo {
     const nutriments = [...nutriSum].map(([key, value]) => ({ key, value: perServing(value) }));
     const details: FoodDetails = {
       nutriments,
-      nutriScore: null, novaGroup: null, ecoScore: null, nutrientLevels: null, ingredientsText: null,
+      nutriScore: null, novaGroup: null, ecoScore: null, nutrientLevels: null, ingredientsText,
       allergens: allergens.size ? [...allergens] : null,
       additives: additives.size ? [...additives] : null,
       labels: null, // diet labels need AND across ingredients — omit to avoid false positives
@@ -518,7 +530,7 @@ export class FoodRepo {
         sodium: has.sodium ? perServing(acc.sodium) : null,
         saturatedFat: has.saturatedFat ? perServing(acc.saturatedFat) : null,
       },
-      details: nutriments.length || details.allergens || details.additives ? details : null,
+      details: nutriments.length || details.allergens || details.additives || ingredientsText ? details : null,
     };
   }
 

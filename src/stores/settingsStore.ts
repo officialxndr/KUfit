@@ -32,6 +32,8 @@ export interface Profile {
   goalWeightKg: number | null;
   /** Maintain buffer (± kg) around goalWeightKg; null = single target. */
   goalRangeKg: number | null;
+  /** Goal weight we last offered to auto-switch to maintain for (avoids re-prompting). */
+  maintainPromptedFor: number | null;
   goalBodyFat: number | null;
   goalDate: string | null;
   calorieGoal: number | null; // manual override; null = auto from TDEE
@@ -45,6 +47,8 @@ export interface Profile {
   trainingFocus: TrainingFocus | null;
   // Custom secondary nutrient goals (Nutrition section)
   nutrientGoals: NutrientGoal[];
+  /** Per-site body-measurement goals, keyed by site, value in cm. */
+  measurementGoals: Record<string, number>;
 }
 
 const DEFAULT_PROFILE: Profile = {
@@ -58,6 +62,7 @@ const DEFAULT_PROFILE: Profile = {
   goalType: 'MAINTAIN',
   goalWeightKg: null,
   goalRangeKg: null,
+  maintainPromptedFor: null,
   goalBodyFat: null,
   goalDate: null,
   calorieGoal: null,
@@ -69,6 +74,7 @@ const DEFAULT_PROFILE: Profile = {
   weeklySessionTarget: null,
   trainingFocus: null,
   nutrientGoals: [],
+  measurementGoals: {},
 };
 
 interface SettingsState {

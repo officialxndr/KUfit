@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet, Pressable, Modal, TextInput, ScrollView } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Ruler, X, Pencil, Check } from 'lucide-react-native';
+import { Ruler, X, Pencil, Check, ChevronRight, Sparkles } from 'lucide-react-native';
 
 import { Card, FsText, Button, SectionHeader } from '@/components/ui';
+import { StepperField } from '@/components/StepperField';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -11,16 +12,28 @@ import { UNIT_LABELS, inchesToCm } from '@/lib/units';
 import { colors, radius, space } from '@/theme/tokens';
 import type { BodyMeasurement } from '@/types';
 
-const SITES: { key: keyof BodyMeasurement; label: string }[] = [
+type SiteKey = keyof BodyMeasurement;
+const SITES: { key: SiteKey; label: string }[] = [
   { key: 'neck', label: 'Neck' }, { key: 'shoulders', label: 'Shoulders' }, { key: 'chest', label: 'Chest' },
   { key: 'leftArm', label: 'Left Arm' }, { key: 'rightArm', label: 'Right Arm' }, { key: 'waist', label: 'Waist' },
   { key: 'hips', label: 'Hips' }, { key: 'leftThigh', label: 'Left Thigh' }, { key: 'rightThigh', label: 'Right Thigh' },
   { key: 'leftCalf', label: 'Left Calf' }, { key: 'rightCalf', label: 'Right Calf' },
 ];
+const SITE_LABEL = (k: SiteKey) => SITES.find((s) => s.key === k)?.label ?? String(k);
+
+// Approximate "ideal" aesthetic proportions (Grecian / Steve-Reeves style), as
+// relative units. ratio(anchor→site) = IDEAL[site] / IDEAL[anchor]. These are
+// rough guidelines, not medical/objective targets.
+const IDEAL: Record<string, number> = {
+  neck: 1.0, shoulders: 2.24, chest: 1.99, leftArm: 1.0, rightArm: 1.0,
+  waist: 1.39, hips: 1.5, leftThigh: 1.2, rightThigh: 1.2, leftCalf: 1.0, rightCalf: 1.0,
+};
 
 export function HealthMeasure() {
   const router = useRouter();
   const unit = useSettingsStore((s) => s.profile.unitSystem);
+  const measurementGoals = useSettingsStore((s) => s.profile.measurementGoals) ?? {};
+  const setProfile = useSettingsStore((s) => s.setProfile);
   const [entries, setEntries] = useState<BodyMeasurement[]>([]);
   const [detail, setDetail] = useState<BodyMeasurement | null>(null);
 
@@ -43,11 +56,12 @@ export function HealthMeasure() {
         if (cur == null) return null;
         const last = prev?.[site.key] as number | null | undefined;
         const delta = last != null ? toLen(cur) - toLen(last) : null;
-        return { label: site.label, cur, last, delta };
+        return { key: site.key, label: site.label, cur, last, delta };
       }).filter(Boolean)
     : [];
 
   const remove = (m: BodyMeasurement) => { healthRepo.deleteMeasurement(m.id); refresh(); };
+  const [siteKey, setSiteKey] = useState<SiteKey | null>(null);
 
   return (
     <>
@@ -75,20 +89,22 @@ export function HealthMeasure() {
             <FsText variant="overline" style={styles.colDelta}>Δ</FsText>
           </View>
           {rows.map((r, i) => (
-            <View key={r!.label} style={[styles.row, i > 0 && styles.divider]}>
+            <Pressable key={r!.label} style={[styles.row, i > 0 && styles.divider]} onPress={() => setSiteKey(r!.key)}>
               <FsText variant="body" style={{ flex: 1 }}>{r!.label}</FsText>
               <FsText variant="bodyMedium" style={styles.colNum}>{fmt(r!.cur)}</FsText>
               <FsText variant="caption" style={styles.colNum}>{r!.last != null ? fmt(r!.last) : '—'}</FsText>
               <FsText
                 variant="caption"
-                style={[styles.colDelta, { color: r!.delta == null || Math.abs(r!.delta) < 0.05 ? colors.muted : r!.delta < 0 ? colors.success : colors.danger }]}
+                style={[styles.colDeltaTap, { color: r!.delta == null || Math.abs(r!.delta) < 0.05 ? colors.muted : r!.delta < 0 ? colors.success : colors.danger }]}
               >
                 {r!.delta == null ? '—' : `${r!.delta > 0 ? '+' : ''}${r!.delta.toFixed(1)}`}
               </FsText>
-            </View>
+              <ChevronRight color={colors.muted} size={14} />
+            </Pressable>
           ))}
         </Card>
       )}
+      <FsText variant="caption" style={{ marginTop: -space[1], marginBottom: space[3] }}>Tap a site for trends, goals & ideal proportions.</FsText>
 
       {/* History — tap to inspect/edit, swipe to delete a snapshot */}
       {entries.length > 0 && (
@@ -119,7 +135,143 @@ export function HealthMeasure() {
           onSaved={() => { setDetail(null); refresh(); }}
         />
       )}
+
+      {siteKey && (
+        <SiteDetail
+          siteKey={siteKey}
+          entries={entries}
+          unit={unit}
+          toLen={toLen}
+          fromLen={fromLen}
+          lengthLabel={lengthLabel}
+          goalCm={measurementGoals[siteKey] ?? null}
+          onSetGoal={(cm) => setProfile({ measurementGoals: { ...measurementGoals, [siteKey]: cm } })}
+          onClearGoal={() => { const { [siteKey]: _, ...rest } = measurementGoals; setProfile({ measurementGoals: rest }); }}
+          onClose={() => setSiteKey(null)}
+        />
+      )}
     </>
+  );
+}
+
+/** Per-site insight popup: trends over time, next landmark, a goal, and ideal-ratio suggestions. */
+function SiteDetail({ siteKey, entries, unit, toLen, fromLen, lengthLabel, goalCm, onSetGoal, onClearGoal, onClose }: {
+  siteKey: SiteKey;
+  entries: BodyMeasurement[];
+  unit: string;
+  toLen: (cm: number) => number;
+  fromLen: (v: number) => number;
+  lengthLabel: string;
+  goalCm: number | null;
+  onSetGoal: (cm: number) => void;
+  onClearGoal: () => void;
+  onClose: () => void;
+}) {
+  const [anchor, setAnchor] = useState<SiteKey | null>(null);
+  const latest = entries[0];
+  const curCm = (latest?.[siteKey] as number | null) ?? null;
+  const curDisp = curCm != null ? toLen(curCm) : null;
+
+  // Value at (or just before) N months ago → delta vs now.
+  const valueMonthsAgo = (months: number): number | null => {
+    const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - months);
+    const iso = cutoff.toISOString().slice(0, 10);
+    const e = entries.find((m) => m.date <= iso && m[siteKey] != null); // entries are DESC
+    return e ? (e[siteKey] as number) : null;
+  };
+  const trend = (months: number) => {
+    const past = valueMonthsAgo(months);
+    if (curCm == null || past == null) return null;
+    return toLen(curCm) - toLen(past);
+  };
+
+  // Next round-number landmark above the current value (0.5 in / 1 cm steps).
+  const step = unit === 'IMPERIAL' ? 0.5 : 1;
+  const nextLandmark = curDisp != null ? (Math.floor(curDisp / step) + 1) * step : null;
+
+  // Ideal proportion vs a chosen anchor site.
+  const anchorCm = anchor && latest ? (latest[anchor] as number | null) : null;
+  const suggestedCm = anchor && anchorCm != null && IDEAL[siteKey] && IDEAL[anchor]
+    ? anchorCm * (IDEAL[siteKey] / IDEAL[anchor]) : null;
+  const anchorOptions = SITES.filter((s) => s.key !== siteKey && latest?.[s.key] != null && IDEAL[s.key]);
+
+  const goalDisp = goalCm != null ? Math.round(toLen(goalCm) * 10) / 10 : 0;
+
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+          <View style={styles.sheetHead}>
+            <FsText variant="cardTitle">{SITE_LABEL(siteKey)}</FsText>
+            <Pressable onPress={onClose} hitSlop={8}><X color={colors.text} size={22} /></Pressable>
+          </View>
+
+          <ScrollView style={{ maxHeight: 460 }}>
+            <FsText variant="display" style={{ marginBottom: space[2] }}>
+              {curDisp != null ? `${curDisp.toFixed(1)} ${lengthLabel}` : '—'}
+            </FsText>
+
+            {/* Trends */}
+            <FsText variant="overline" style={{ marginTop: space[2], marginBottom: space[2] }}>Change over time</FsText>
+            <View style={styles.trendRow}>
+              {([['3 mo', trend(3)], ['6 mo', trend(6)], ['1 yr', trend(12)]] as const).map(([l, d]) => (
+                <View key={l} style={styles.trendCell}>
+                  <FsText variant="caption">{l}</FsText>
+                  <FsText variant="cardTitle" style={{ color: d == null || Math.abs(d) < 0.05 ? colors.muted : d < 0 ? colors.success : colors.danger }}>
+                    {d == null ? '—' : `${d > 0 ? '+' : ''}${d.toFixed(1)}`}
+                  </FsText>
+                </View>
+              ))}
+            </View>
+            {nextLandmark != null && (
+              <FsText variant="caption" style={{ marginTop: space[2] }}>
+                Next landmark: {nextLandmark.toFixed(1)} {lengthLabel}
+              </FsText>
+            )}
+
+            {/* Goal */}
+            <View style={styles.goalRow}>
+              <View style={{ flex: 1 }}>
+                <FsText variant="bodyMedium">Goal</FsText>
+                {goalCm != null && curCm != null && (
+                  <FsText variant="caption" style={{ marginTop: 2 }}>
+                    {(toLen(goalCm) - toLen(curCm)).toFixed(1)} {lengthLabel} to go
+                  </FsText>
+                )}
+              </View>
+              <StepperField value={goalDisp} onCommit={(n) => (n > 0 ? onSetGoal(fromLen(n)) : onClearGoal())} step={step} min={0} max={120} unit={lengthLabel} />
+            </View>
+
+            {/* Golden ratio */}
+            <View style={styles.ratioBox}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: space[2] }}>
+                <Sparkles color={colors.primary} size={16} />
+                <FsText variant="bodyMedium">Ideal proportion</FsText>
+              </View>
+              <FsText variant="caption" style={{ marginBottom: space[2] }}>
+                Pick a site you're happy with; see this site's classically-proportioned target (approximate aesthetic ideal).
+              </FsText>
+              <View style={styles.chips}>
+                {anchorOptions.map((s) => (
+                  <Pressable key={s.key} onPress={() => setAnchor(s.key)} style={[styles.chip, anchor === s.key && styles.chipOn]}>
+                    <FsText variant="caption" style={{ color: anchor === s.key ? colors.white : colors.muted, fontWeight: '600' }}>{s.label}</FsText>
+                  </Pressable>
+                ))}
+              </View>
+              {suggestedCm != null && (
+                <View style={{ marginTop: space[3], flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
+                  <View style={{ flex: 1 }}>
+                    <FsText variant="caption">Suggested {SITE_LABEL(siteKey)}</FsText>
+                    <FsText variant="cardTitle">{toLen(suggestedCm).toFixed(1)} {lengthLabel}</FsText>
+                  </View>
+                  <Button title="Set as goal" onPress={() => onSetGoal(suggestedCm)} style={{ paddingVertical: 8, paddingHorizontal: 14 }} />
+                </View>
+              )}
+            </View>
+          </ScrollView>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -235,6 +387,14 @@ const styles = StyleSheet.create({
   divider: { borderTopWidth: 1, borderTopColor: colors.border },
   colNum: { width: 78, textAlign: 'right' },
   colDelta: { width: 48, textAlign: 'right' },
+  colDeltaTap: { width: 44, textAlign: 'right' },
+  trendRow: { flexDirection: 'row', gap: space[2] },
+  trendCell: { flex: 1, alignItems: 'center', backgroundColor: colors.surfaceHigh, borderRadius: radius.md, paddingVertical: space[3], gap: 2 },
+  goalRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], marginTop: space[4], paddingTop: space[3], borderTopWidth: 1, borderTopColor: colors.border },
+  ratioBox: { marginTop: space[4], padding: space[3], backgroundColor: colors.surfaceHigh, borderRadius: radius.md },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
+  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.full, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  chipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   editInput: { width: 90, textAlign: 'right', color: colors.text, backgroundColor: colors.surfaceHigh, borderRadius: radius.sm, paddingHorizontal: 10, paddingVertical: 6 },
   empty: { alignItems: 'center', paddingVertical: space[8], gap: space[2] },
   emptyIcon: {

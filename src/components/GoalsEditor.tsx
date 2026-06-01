@@ -59,9 +59,10 @@ const defaultGoalFor = (key: string): NutrientGoal => ({
  * All edits persist live to the settings profile, which drives the calorie/macro
  * engine and the Food "Other nutrients" bars.
  */
-export function GoalsEditor() {
+export function GoalsEditor({ focusSection }: { focusSection?: string }) {
   const profile = useSettingsStore((s) => s.profile);
   const setProfile = useSettingsStore((s) => s.setProfile);
+  const router = useRouter();
   const unit = profile.unitSystem;
   const targets = resolveTargets(profile);
 
@@ -106,8 +107,8 @@ export function GoalsEditor() {
     setProfile({ nutrientGoals: goals.filter((g) => g.key !== key) });
   const available = ALL_NUTRIENTS.filter((n) => !goals.some((g) => g.key === n.key));
 
-  return (
-    <>
+  const nutritionGroup = (
+    <View key="food">
       {/* ── Nutrition (Food) ── */}
       <GroupHeader icon={UtensilsCrossed} label="Nutrition" section="Food" />
       <Card style={{ marginBottom: space[2], padding: 0 }}>
@@ -170,7 +171,11 @@ export function GoalsEditor() {
         <Plus color={colors.primary} size={16} />
         <FsText variant="bodyMedium" style={{ color: colors.primary }}>Track other nutrient</FsText>
       </Pressable>
+    </View>
+  );
 
+  const healthGroup = (
+    <View key="health">
       {/* ── Health (Weight) ── */}
       <GroupHeader icon={HeartPulse} label="Health" section="Health" />
       {phase ? (
@@ -226,6 +231,22 @@ export function GoalsEditor() {
         </Card>
       )}
 
+      {/* Goal Phases & Cycles — always reachable so a cycle can be created/edited. */}
+      <Pressable onPress={() => router.push('/goal-phases')} style={{ marginBottom: space[2] }}>
+        <Card style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
+          <CalendarRange color={colors.primary} size={20} />
+          <View style={{ flex: 1 }}>
+            <FsText variant="bodyMedium">Goal Phases &amp; Cycles</FsText>
+            <FsText variant="caption">Plan dated cut/bulk/maintenance blocks with their own targets</FsText>
+          </View>
+          <ChevronRight color={colors.muted} size={20} />
+        </Card>
+      </Pressable>
+    </View>
+  );
+
+  const trainingGroup = (
+    <View key="workout">
       {/* ── Training (Workout) ── */}
       <GroupHeader icon={Dumbbell} label="Training" section="Workout" />
       <Card style={{ marginBottom: space[3], padding: 0 }}>
@@ -237,6 +258,18 @@ export function GoalsEditor() {
           <Segmented options={FOCUSES} value={profile.trainingFocus} onSelect={(f) => setProfile({ trainingFocus: f })} />
         </View>
       </Card>
+    </View>
+  );
+
+  // Float the current section's group to the top — it's the most relevant here.
+  const order =
+    focusSection === 'workout' ? [trainingGroup, nutritionGroup, healthGroup]
+      : focusSection === 'health' ? [healthGroup, nutritionGroup, trainingGroup]
+        : [nutritionGroup, healthGroup, trainingGroup];
+
+  return (
+    <>
+      {order}
 
       <FsText variant="caption" style={{ textAlign: 'center', marginBottom: space[4] }}>
         Changes save automatically.
@@ -272,7 +305,7 @@ function CycleLink() {
 }
 
 /** Full-screen modal wrapper for the header gear button. */
-export function GoalsEditorModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+export function GoalsEditorModal({ visible, onClose, focusSection }: { visible: boolean; onClose: () => void; focusSection?: string }) {
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} presentationStyle="formSheet">
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
@@ -281,7 +314,7 @@ export function GoalsEditorModal({ visible, onClose }: { visible: boolean; onClo
           <Pressable onPress={onClose} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
         </View>
         <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: space[8] }} keyboardShouldPersistTaps="handled">
-          <GoalsEditor />
+          <GoalsEditor focusSection={focusSection} />
         </ScrollView>
       </SafeAreaView>
     </Modal>

@@ -108,6 +108,14 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       (`HealthRepo.updateMeasurement`).
 - [x] **Dashboard** — week/streak bars give logged days a clear minimum height so a light day no longer
       looks empty.
+- [x] **Round 2 polish** — shared `components/CalorieMacroCard.tsx` (circular ring) used by both Dashboard
+      Overview and Food → Today (ring caption + "kcal" label fixed); Goals gear added to **Workout** and
+      the editor floats the **current section's group to the top**, with an always-available Goal Phases/
+      Cycles link and a one-time **auto-maintain** prompt at goal; a **favorite star** in the food/recipe
+      sheet (foods + `recipes.isFavorite`) with recipe **ingredients** in the summary and a robust
+      scroll/clip fix; equal-height template cards + a **history popup** summary (`WorkoutSummarySheet`)
+      instead of the full-screen view; weight chart **y-axis + scrub-capture**; and a Measure **per-site
+      detail** (3/6/12-mo trends, landmarks, per-site goals, approximate golden-ratio targets).
 - [x] Verified: `tsc --noEmit` clean; full `expo export` iOS bundle clean.
 
 ## Not built yet (planned)

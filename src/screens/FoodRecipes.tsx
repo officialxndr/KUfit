@@ -30,6 +30,15 @@ export function FoodRecipes() {
 
   // Recipe preview/log via the shared rich sheet (full ingredient-aggregated breakdown).
   const [selected, setSelected] = useState<Recipe | null>(null);
+  const [favActive, setFavActive] = useState(false);
+  const openRecipe = (r: Recipe) => { setFavActive(!!r.isFavorite); setSelected(r); };
+  const toggleRecipeFav = () => {
+    if (!selected) return;
+    foodRepo.toggleRecipeFavorite(selected.id);
+    selected.isFavorite = !selected.isFavorite;
+    setFavActive((v) => !v);
+    refresh();
+  };
   const sheetFood = useMemo<SheetFood | null>(() => {
     if (!selected?.nutrition) return null;
     const b = foodRepo.getRecipeBreakdown(selected.id);
@@ -105,7 +114,7 @@ export function FoodRecipes() {
         filtered.map((r) => {
           const n = r.nutrition;
           return (
-            <Pressable key={r.id} onPress={() => setSelected(r)}>
+            <Pressable key={r.id} onPress={() => openRecipe(r)}>
             <Card style={{ marginBottom: space[3] }}>
               <View style={styles.recipeHead}>
                 <View style={{ flex: 1 }}>
@@ -139,7 +148,7 @@ export function FoodRecipes() {
                   <Pencil color={colors.text} size={14} />
                   <FsText variant="caption">Edit</FsText>
                 </Pressable>
-                <Pressable onPress={() => setSelected(r)} style={styles.logBtn}>
+                <Pressable onPress={() => openRecipe(r)} style={styles.logBtn}>
                   <Plus color={colors.primary} size={14} />
                   <FsText variant="caption" style={{ color: colors.primary, fontWeight: '600' }}>Log Serving</FsText>
                 </Pressable>
@@ -154,6 +163,7 @@ export function FoodRecipes() {
         food={sheetFood}
         date={today()}
         submitLabel="Log Serving"
+        favorite={selected ? { active: favActive, onToggle: toggleRecipeFav } : undefined}
         onSubmit={logServing}
         onClose={() => setSelected(null)}
       />

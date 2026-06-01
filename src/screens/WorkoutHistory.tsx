@@ -1,11 +1,12 @@
 import { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet, Pressable, Modal, Alert } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Timer, Trash2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown, X } from 'lucide-react-native';
 
 import { Card, FsText, Badge } from '@/components/ui';
 import { MonthCalendar } from '@/components/MonthCalendar';
+import { WorkoutSummarySheet } from '@/components/WorkoutSummarySheet';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { formatVolume } from '@/lib/units';
@@ -23,12 +24,12 @@ function durationLabel(s: WorkoutSession): string | null {
 }
 
 export function WorkoutHistory() {
-  const router = useRouter();
   const unit = useSettingsStore((s) => s.profile.unitSystem);
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
   const [viewMonth, setViewMonth] = useState(() => firstOfMonth(new Date()));
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [calOpen, setCalOpen] = useState(false);
+  const [detail, setDetail] = useState<WorkoutSession | null>(null);
 
   const refresh = useCallback(() => setSessions(workoutRepo.getSessions(300)), []);
   useFocusEffect(refresh);
@@ -64,7 +65,7 @@ export function WorkoutHistory() {
           </Pressable>
         )}
       >
-        <Pressable onPress={() => router.push({ pathname: '/workout-summary', params: { id: s.id, from: 'history' } })}>
+        <Pressable onPress={() => setDetail(s)}>
           <Card style={{ marginBottom: space[3] }}>
             <View style={styles.rowTop}>
               <View style={{ flex: 1 }}>
@@ -151,6 +152,8 @@ export function WorkoutHistory() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <WorkoutSummarySheet session={detail} unit={unit} onClose={() => setDetail(null)} />
     </>
   );
 }

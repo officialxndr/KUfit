@@ -125,7 +125,7 @@ export function AppShell() {
         section={section}
         onSwitch={(s: SectionKey) => setSection(s)}
         onOpenProfile={() => setSection('settings')}
-        rightAction={section === 'food' || section === 'health'
+        rightAction={section === 'food' || section === 'health' || section === 'workout'
           ? { icon: Target, onPress: () => setGoalsOpen(true) }
           : undefined}
       />
@@ -156,7 +156,7 @@ export function AppShell() {
         onClose={() => setSheetOpen(false)}
       />
 
-      <GoalsEditorModal visible={goalsOpen} onClose={() => setGoalsOpen(false)} />
+      <GoalsEditorModal visible={goalsOpen} onClose={() => setGoalsOpen(false)} focusSection={section} />
     </View>
   );
 }

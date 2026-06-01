@@ -54,6 +54,7 @@ export function initDb() {
       name TEXT NOT NULL,
       description TEXT,
       servings REAL DEFAULT 1,
+      isFavorite INTEGER DEFAULT 0,
       updatedAt TEXT,
       deleted INTEGER DEFAULT 0
     );
@@ -229,6 +230,7 @@ function runMigrations() {
   ensureColumn('food_items', 'saturatedFat', 'REAL');
   ensureColumn('food_items', 'detailsJson', 'TEXT');
   ensureColumn('food_items', 'isFavorite', 'INTEGER DEFAULT 0');
+  ensureColumn('recipes', 'isFavorite', 'INTEGER DEFAULT 0');
 }
 
 function ensureColumn(table: string, column: string, decl: string) {

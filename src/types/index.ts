@@ -97,6 +97,7 @@ export interface Recipe {
   name: string
   description?: string | null
   servings: number
+  isFavorite?: boolean
   ingredients: RecipeIngredient[]
   nutrition?: {
     perServingCalories: number

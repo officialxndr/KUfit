@@ -22,6 +22,7 @@ const TABS: { key: Tab; label: string }[] = [
 ];
 
 type Row = { kind: 'recipe'; recipe: Recipe } | { kind: 'food'; food: FoodCandidate };
+type FavTarget = { kind: 'food'; candidate: FoodCandidate } | { kind: 'recipe'; recipe: Recipe };
 
 /** Map a stored FoodItem to a search candidate (carries favorite + rich details). */
 function toCandidate(fi: FoodItem): FoodCandidate {
@@ -59,7 +60,8 @@ export default function AddFoodModal() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const [selected, setSelected] = useState<{ food: SheetFood; log: (qty: number) => void } | null>(null);
+  const [selected, setSelected] = useState<{ food: SheetFood; log: (qty: number) => void; fav: FavTarget } | null>(null);
+  const [favActive, setFavActive] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -69,12 +71,13 @@ export default function AddFoodModal() {
   // Load results for the active tab + query.
   const load = useCallback(() => {
     if (debounce.current) clearTimeout(debounce.current);
+    allRecipes.current = foodRepo.getRecipes(); // keep favorite flags fresh
     const ql = q.trim().toLowerCase();
     const matchRecipes = ql.length >= 2 ? allRecipes.current.filter((r) => r.name.toLowerCase().includes(ql)) : allRecipes.current;
 
     if (tab === 'favorites') {
       setFoods(foodRepo.getFavoriteFoodItems().map(toCandidate));
-      setRecipes([]);
+      setRecipes(allRecipes.current.filter((r) => r.isFavorite));
       setLoading(false);
       return;
     }
@@ -107,8 +110,10 @@ export default function AddFoodModal() {
 
   const pickFood = (c: FoodCandidate) => {
     Keyboard.dismiss();
+    setFavActive(!!c.isFavorite);
     setSelected({
       food: c,
+      fav: { kind: 'food', candidate: c },
       log: (qty) => { foodRepo.addLog({ date, meal, foodItemLocalId: ensureFoodItem(c), servingQty: qty }); router.back(); },
     });
   };
@@ -116,7 +121,24 @@ export default function AddFoodModal() {
     const food = recipeToSheetFood(r);
     if (!food) return;
     Keyboard.dismiss();
-    setSelected({ food, log: (qty) => { foodRepo.addLog({ date, meal, recipeLocalId: r.id, servingQty: qty }); router.back(); } });
+    setFavActive(!!r.isFavorite);
+    setSelected({ food, fav: { kind: 'recipe', recipe: r }, log: (qty) => { foodRepo.addLog({ date, meal, recipeLocalId: r.id, servingQty: qty }); router.back(); } });
+  };
+  // Star toggle in the sheet — persists + flips the local flag so the row/list stays in sync.
+  const toggleSelectedFav = () => {
+    if (!selected) return;
+    if (selected.fav.kind === 'recipe') {
+      foodRepo.toggleRecipeFavorite(selected.fav.recipe.id);
+      selected.fav.recipe.isFavorite = !selected.fav.recipe.isFavorite;
+    } else {
+      const c = selected.fav.candidate;
+      const id = c.localId ?? ensureFoodItem(c);
+      c.localId = id;
+      foodRepo.toggleFavorite(id);
+      c.isFavorite = !c.isFavorite;
+    }
+    setFavActive((v) => !v);
+    load();
   };
   const toggleFav = (c: FoodCandidate) => {
     if (!c.localId) return;
@@ -249,6 +271,7 @@ export default function AddFoodModal() {
       <FoodQuantitySheet
         food={selected?.food ?? null}
         date={date}
+        favorite={selected ? { active: favActive, onToggle: toggleSelectedFav } : undefined}
         onSubmit={(qty) => selected?.log(qty)}
         onClose={() => setSelected(null)}
       />

@@ -15,7 +15,7 @@ import {
 } from 'lucide-react-native';
 
 import { Card, FsText } from '@/components/ui';
-import { MacroBars } from '@/components/MacroBar';
+import { CalorieMacroCard } from '@/components/CalorieMacroCard';
 import { MonthCalendar } from '@/components/MonthCalendar';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { FoodQuantitySheet, type SheetFood } from '@/components/FoodQuantitySheet';
@@ -99,7 +99,15 @@ export function FoodToday() {
   const remove = (id: string) => { foodRepo.deleteLog(id); refresh(); };
 
   const [editing, setEditing] = useState<FoodLog | null>(null);
+  const [favActive, setFavActive] = useState(false);
   const editFood = editing ? logToSheetFood(editing) : null;
+  const openEdit = (l: FoodLog) => { setFavActive(!!(l.foodItem?.isFavorite ?? l.recipe?.isFavorite)); setEditing(l); };
+  const toggleEditFav = () => {
+    if (!editing) return;
+    if (editing.recipe) foodRepo.toggleRecipeFavorite(editing.recipe.id);
+    else if (editing.foodItem) foodRepo.toggleFavorite(editing.foodItem.id);
+    setFavActive((v) => !v);
+  };
   const saveEdit = (qty: number) => {
     if (!editing) return;
     if (qty <= 0) foodRepo.deleteLog(editing.id);
@@ -142,31 +150,14 @@ export function FoodToday() {
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={onPageScroll}
         >
-          {/* Page 1 — calories + macros */}
-          <View style={{ width: PAGE_W, padding: space[4], paddingTop: space[2], gap: space[3] }}>
-            <View>
-              <View style={styles.barHead}>
-                <FsText variant="bodyMedium">Calories</FsText>
-                <FsText variant="caption" style={{ fontVariant: ['tabular-nums'] }}>
-                  {Math.round(totals.calories)}{goal > 0 ? ` / ${goal}` : ''}
-                </FsText>
-              </View>
-              <View style={styles.track}>
-                <View style={{ width: `${goal > 0 ? Math.min(totals.calories / goal, 1) * 100 : 0}%`, height: '100%', borderRadius: radius.full, backgroundColor: remaining < 0 ? colors.danger : colors.success }} />
-              </View>
-              {goal > 0 && (
-                <FsText variant="caption" style={{ marginTop: 4, color: remaining < 0 ? colors.danger : colors.muted }}>
-                  {remaining < 0 ? `${Math.abs(Math.round(remaining))} kcal over` : `${Math.round(remaining)} kcal remaining`}
-                </FsText>
-              )}
-            </View>
-            <MacroBars
+          {/* Page 1 — calories ring + macros (shared with Dashboard) */}
+          <View style={{ width: PAGE_W, padding: space[4], paddingTop: space[2], justifyContent: 'center' }}>
+            <CalorieMacroCard
+              calories={totals.calories}
               protein={totals.protein}
               carbs={totals.carbs}
               fat={totals.fat}
-              proteinTarget={targets.proteinTarget}
-              carbsTarget={targets.carbsTarget}
-              fatTarget={targets.fatTarget}
+              targets={targets}
             />
           </View>
 
@@ -217,7 +208,7 @@ export function FoodToday() {
                   const sub = fi ? `${l.servingQty} × ${fi.servingSize}${fi.servingUnit}` : `${l.servingQty} serving${l.servingQty > 1 ? 's' : ''} · recipe`;
                   return (
                     <SwipeToDelete key={l.id} marginBottom={0} onDelete={() => remove(l.id)} confirmTitle="Remove item?" confirmMessage={`Remove ${name} from ${meal.label}?`}>
-                      <Pressable style={styles.itemRow} onPress={() => setEditing(l)}>
+                      <Pressable style={styles.itemRow} onPress={() => openEdit(l)}>
                         <View style={{ flex: 1 }}>
                           <FsText variant="bodyMedium" numberOfLines={1}>{name}</FsText>
                           <FsText variant="caption">{sub}</FsText>
@@ -260,6 +251,7 @@ export function FoodToday() {
         initialServings={editing?.servingQty ?? 1}
         baselineQty={editing?.servingQty ?? 0}
         submitLabel="Save"
+        favorite={editing ? { active: favActive, onToggle: toggleEditFav } : undefined}
         onSubmit={saveEdit}
         onClose={() => setEditing(null)}
         onDelete={() => { if (editing) remove(editing.id); setEditing(null); }}

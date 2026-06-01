@@ -3,7 +3,7 @@ import {
   View, TextInput, StyleSheet, Pressable, Modal, ScrollView, Dimensions,
   KeyboardAvoidingView, Platform,
 } from 'react-native';
-import { ChevronDown } from 'lucide-react-native';
+import { ChevronDown, Star } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FsText, Button } from '@/components/ui';
@@ -81,6 +81,8 @@ interface Props {
   onClose: () => void;
   /** When provided, a Delete button appears alongside Cancel. */
   onDelete?: () => void;
+  /** When provided, a favorite star toggle appears next to the name. */
+  favorite?: { active: boolean; onToggle: () => void };
 }
 
 /**
@@ -89,12 +91,13 @@ interface Props {
  * via `baselineQty` + `onDelete`).
  */
 export function FoodQuantitySheet({
-  food, date, initialServings = 1, baselineQty = 0, submitLabel = 'Add to Log', onSubmit, onClose, onDelete,
+  food, date, initialServings = 1, baselineQty = 0, submitLabel = 'Add to Log', onSubmit, onClose, onDelete, favorite,
 }: Props) {
   const profile = useSettingsStore((s) => s.profile);
   const insets = useSafeAreaInsets();
-  // Keep the sheet (incl. grabber, action buttons) clear of the notch/status bar.
-  const scrollMaxHeight = SCREEN_H - insets.top - 160;
+  // Cap the whole sheet just below the notch; the inner ScrollView flex-shrinks
+  // within it so the action buttons stay pinned and tall content scrolls.
+  const sheetMaxHeight = SCREEN_H - insets.top;
   const [amount, setAmount] = useState(String(initialServings));
   const [unit, setUnit] = useState('serving');
   const [unitMenuOpen, setUnitMenuOpen] = useState(false);
@@ -128,7 +131,7 @@ export function FoodQuantitySheet({
     <Modal visible={!!food} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.modalBackdrop} onPress={onClose}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+          <Pressable style={[styles.sheet, { maxHeight: sheetMaxHeight, paddingBottom: insets.bottom + space[4] }]} onPress={(e) => e.stopPropagation()}>
             {food && (() => {
               const availableUnits = unitsFor(food.servingUnit);
               const qty = amountToServings(food, Number(amount) || 0, unit);
@@ -154,12 +157,20 @@ export function FoodQuantitySheet({
                 <>
                   <View style={styles.grabber} />
                   <ScrollView
-                    style={[styles.scrollBody, { maxHeight: scrollMaxHeight }]}
-                    showsVerticalScrollIndicator={false}
+                    style={styles.scrollBody}
+                    showsVerticalScrollIndicator
                     keyboardShouldPersistTaps="handled"
+                    nestedScrollEnabled
                     contentContainerStyle={{ paddingBottom: space[2] }}
                   >
-                  <FsText variant="cardTitle" numberOfLines={1}>{food.name}</FsText>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
+                    <FsText variant="cardTitle" numberOfLines={1} style={{ flex: 1 }}>{food.name}</FsText>
+                    {favorite && (
+                      <Pressable onPress={favorite.onToggle} hitSlop={10}>
+                        <Star color={favorite.active ? colors.warning : colors.muted} size={22} fill={favorite.active ? colors.warning : 'transparent'} />
+                      </Pressable>
+                    )}
+                  </View>
                   <FsText variant="caption" style={{ marginBottom: space[3] }}>
                     {food.brand ? `${food.brand} · ` : ''}{Math.round(food.calories)} kcal per {food.servingSize}{food.servingUnit}
                   </FsText>

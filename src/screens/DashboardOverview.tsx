@@ -1,11 +1,10 @@
-import { useCallback, useState } from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { View, Pressable, StyleSheet, Alert } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { UserCircle, Dumbbell, Ruler, AlertTriangle, Flame } from 'lucide-react-native';
 
 import { Card, FsText } from '@/components/ui';
-import { CalorieRing } from '@/components/CalorieRing';
-import { MacroBars } from '@/components/MacroBar';
+import { CalorieMacroCard } from '@/components/CalorieMacroCard';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
@@ -43,6 +42,7 @@ interface WeekBar {
 
 export function DashboardOverview() {
   const profile = useSettingsStore((s) => s.profile);
+  const setProfile = useSettingsStore((s) => s.setProfile);
   const setSection = useNavStore((s) => s.setSection);
   const session = useSessionStore();
   const router = useRouter();
@@ -81,6 +81,28 @@ export function DashboardOverview() {
 
   useFocusEffect(refresh);
 
+  // One-time nudge to switch to maintain once the 7-day average reaches the goal.
+  // Gated on the trend avg (not a single weigh-in), no active phase, and a per-goal
+  // flag so it never nags or re-fires unless a new goal weight is set.
+  useEffect(() => {
+    const gw = profile.goalWeightKg;
+    const avg = stats?.avg7;
+    if (gw == null || avg == null) return;
+    if (profile.goalType !== 'LOSE' && profile.goalType !== 'GAIN') return;
+    if (profile.maintainPromptedFor === gw) return;
+    if (healthRepo.getActiveGoalPhase()) return;
+    const reached = profile.goalType === 'LOSE' ? avg <= gw : avg >= gw;
+    if (!reached) return;
+    Alert.alert(
+      'Goal weight reached 🎉',
+      `Your 7-day average (${formatWeight(avg, profile.unitSystem)}) is at your goal. Switch to maintain to hold it here?`,
+      [
+        { text: 'Keep going', onPress: () => setProfile({ maintainPromptedFor: gw }) },
+        { text: 'Switch to maintain', onPress: () => setProfile({ goalType: 'MAINTAIN', maintainPromptedFor: gw }) },
+      ]
+    );
+  }, [stats]);
+
   const targets = resolveTargets(profile);
   const goal = targets.calorieTarget ?? 0;
   const maxV = Math.max(goal, ...week.map((b) => b.calories), 1) * 1.1;
@@ -113,19 +135,13 @@ export function DashboardOverview() {
       {/* Calorie + macros */}
       <Pressable onPress={() => setSection('food', 'today')}>
         <Card style={{ marginBottom: space[3] }}>
-          <View style={styles.calRow}>
-            <CalorieRing eaten={totals.calories} goal={goal} size={124} strokeWidth={12} />
-            <View style={{ flex: 1 }}>
-              <MacroBars
-                protein={totals.protein}
-                carbs={totals.carbs}
-                fat={totals.fat}
-                proteinTarget={targets.proteinTarget}
-                carbsTarget={targets.carbsTarget}
-                fatTarget={targets.fatTarget}
-              />
-            </View>
-          </View>
+          <CalorieMacroCard
+            calories={totals.calories}
+            protein={totals.protein}
+            carbs={totals.carbs}
+            fat={totals.fat}
+            targets={targets}
+          />
           <FsText variant="caption" style={styles.tapHint}>Tap to log food →</FsText>
         </Card>
       </Pressable>
