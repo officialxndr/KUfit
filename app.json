@@ -38,6 +38,14 @@
       "expo-router",
       "expo-sqlite",
       [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
+        }
+      ],
+      [
         "expo-camera",
         {
           "cameraPermission": "FitSelf uses the camera to scan food barcodes."
@@ -65,7 +73,8 @@
           "background": false
         }
       ],
-      "react-native-health-connect"
+      "react-native-health-connect",
+      "expo-build-properties"
     ],
     "experiments": {
       "typedRoutes": true,
