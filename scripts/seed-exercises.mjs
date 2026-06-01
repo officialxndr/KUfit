@@ -71,23 +71,34 @@ function normalize(ex) {
   };
 }
 
-async function fetchAll() {
-  const out = [];
-  let offset = 0;
-  let total = Infinity;
-  while (offset < total) {
-    const body = await fetchJson(`${BASE}/exercises?limit=${PAGE}&offset=${offset}`);
-    total = body.meta?.total ?? out.length;
-    const data = body.data ?? [];
-    if (data.length === 0) break;
-    for (const ex of data) out.push(normalize(ex));
-    offset += data.length;
-    process.stdout.write(`\r  fetched ${out.length}/${total}`);
+/**
+ * NOTE: the public oss.exercisedb.dev `/exercises` list endpoint is broken for
+ * pagination — `offset`, `page`, and `cursor` are all ignored and it only ever
+ * returns the first 25 rows (re-fetching them yields the duplicate-bloated
+ * catalog this replaced). Filtered queries (`?bodyParts=`, `?equipments=`,
+ * `?muscles=`) each return a *different* 25, so we fan out across every value of
+ * those dimensions and dedup by exerciseId to assemble the catalog.
+ */
+async function fetchDimension(param, listPath, seen) {
+  const list = (await fetchJson(`${BASE}/${listPath}`)).data ?? [];
+  for (const item of list) {
+    const name = typeof item === 'string' ? item : item.name;
+    const body = await fetchJson(`${BASE}/exercises?${param}=${encodeURIComponent(name)}&limit=${PAGE}`);
+    for (const ex of body.data ?? []) {
+      if (!seen.has(ex.exerciseId)) seen.set(ex.exerciseId, normalize(ex));
+    }
+    process.stdout.write(`\r  ${param}: ${seen.size} unique`);
     await sleep(150);
-    if (!body.meta?.hasNextPage) break;
   }
   process.stdout.write('\n');
-  return out;
+}
+
+async function fetchAll() {
+  const seen = new Map();
+  await fetchDimension('bodyParts', 'bodyparts', seen);
+  await fetchDimension('equipments', 'equipments', seen);
+  await fetchDimension('muscles', 'muscles', seen);
+  return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 async function downloadGif(url, dest) {

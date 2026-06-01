@@ -21,6 +21,13 @@ export default function CustomFood() {
   const [protein, setProtein] = useState('');
   const [carbs, setCarbs] = useState('');
   const [fat, setFat] = useState('');
+  const [fiber, setFiber] = useState('');
+  const [sugar, setSugar] = useState('');
+  const [saturatedFat, setSaturatedFat] = useState('');
+  const [sodium, setSodium] = useState('');
+
+  // Empty optional fields stay null (unknown) rather than collapsing to 0.
+  const optional = (v: string) => (v.trim() === '' ? null : Number(v) || 0);
 
   const create = (thenLog: boolean) => {
     if (!name.trim() || !calories) {
@@ -37,9 +44,10 @@ export default function CustomFood() {
       protein: Number(protein) || 0,
       carbs: Number(carbs) || 0,
       fat: Number(fat) || 0,
-      fiber: null,
-      sugar: null,
-      sodium: null,
+      fiber: optional(fiber),
+      sugar: optional(sugar),
+      sodium: optional(sodium),
+      saturatedFat: optional(saturatedFat),
       source: 'MANUAL',
       isCustom: true,
     });
@@ -83,6 +91,18 @@ export default function CustomFood() {
             <View style={{ flex: 1 }}><Field label="Protein (g)" value={protein} onChangeText={setProtein} keyboardType="decimal-pad" /></View>
             <View style={{ flex: 1 }}><Field label="Carbs (g)" value={carbs} onChangeText={setCarbs} keyboardType="decimal-pad" /></View>
             <View style={{ flex: 1 }}><Field label="Fat (g)" value={fat} onChangeText={setFat} keyboardType="decimal-pad" /></View>
+          </View>
+        </Card>
+
+        <Card style={{ marginBottom: space[3] }}>
+          <SectionHeader title="More nutrients (optional)" />
+          <View style={{ flexDirection: 'row', gap: space[2] }}>
+            <View style={{ flex: 1 }}><Field label="Fiber (g)" value={fiber} onChangeText={setFiber} keyboardType="decimal-pad" /></View>
+            <View style={{ flex: 1 }}><Field label="Sugar (g)" value={sugar} onChangeText={setSugar} keyboardType="decimal-pad" /></View>
+          </View>
+          <View style={{ flexDirection: 'row', gap: space[2] }}>
+            <View style={{ flex: 1 }}><Field label="Sat. fat (g)" value={saturatedFat} onChangeText={setSaturatedFat} keyboardType="decimal-pad" /></View>
+            <View style={{ flex: 1 }}><Field label="Sodium (mg)" value={sodium} onChangeText={setSodium} keyboardType="decimal-pad" /></View>
           </View>
         </Card>
 

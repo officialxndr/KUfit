@@ -1,0 +1,320 @@
+import { useEffect, useState } from 'react';
+import {
+  View, TextInput, StyleSheet, Pressable, Modal, ScrollView, Dimensions,
+  KeyboardAvoidingView, Platform,
+} from 'react-native';
+import { ChevronDown } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { FsText, Button } from '@/components/ui';
+import { MacroBars } from '@/components/MacroBar';
+import { FoodBadgeRow, FoodDetailSections } from '@/components/FoodDetails';
+import { foodRepo } from '@/lib/repositories/FoodRepo';
+import { resolveTargets } from '@/lib/targets';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { colors, radius, space, shadow } from '@/theme/tokens';
+import type { FoodDetails } from '@/types';
+
+const SCREEN_H = Dimensions.get('window').height;
+
+/** Minimal nutrition shape the sheet needs — satisfied by FoodCandidate, FoodItem, or a recipe serving. */
+export interface SheetFood {
+  name: string;
+  brand?: string | null;
+  servingSize: number;
+  servingUnit: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber?: number | null;
+  sugar?: number | null;
+  sodium?: number | null;
+  saturatedFat?: number | null;
+  details?: FoodDetails | null;
+}
+
+// Conversions to a canonical base (grams for mass, ml for volume).
+const UNIT_TO_CANONICAL: Record<string, number> = {
+  g: 1, kg: 1000, oz: 28.3495, lb: 453.592,
+  ml: 1, l: 1000, tsp: 4.92892, tbsp: 14.7868, cup: 236.588, 'fl oz': 29.5735,
+};
+const MASS_UNITS = ['g', 'kg', 'oz', 'lb'];
+const VOLUME_UNITS = ['ml', 'l', 'tsp', 'tbsp', 'cup', 'fl oz'];
+
+/** Units offered for a food, based on whether its serving is a mass or volume. */
+function unitsFor(servingUnit: string | undefined): string[] {
+  const u = (servingUnit ?? '').toLowerCase();
+  if (MASS_UNITS.includes(u)) return ['serving', 'g', 'oz'];
+  if (VOLUME_UNITS.includes(u)) return ['serving', 'ml', 'tsp', 'tbsp', 'cup', 'fl oz'];
+  return ['serving'];
+}
+const unitLabel = (u: string) => (u === 'serving' ? 'serving' : u);
+
+/** Convert an amount (in `unit`) to a servings multiplier for the given food. */
+function amountToServings(food: SheetFood, amt: number, unit: string): number {
+  if (unit === 'serving') return amt;
+  const baseCanon = food.servingSize * (UNIT_TO_CANONICAL[(food.servingUnit ?? '').toLowerCase()] ?? 1);
+  const unitCanon = UNIT_TO_CANONICAL[unit] ?? 1;
+  return baseCanon > 0 ? (amt * unitCanon) / baseCanon : amt;
+}
+function servingsToAmount(food: SheetFood, servings: number, unit: string): number {
+  if (unit === 'serving') return servings;
+  const baseCanon = food.servingSize * (UNIT_TO_CANONICAL[(food.servingUnit ?? '').toLowerCase()] ?? 1);
+  const unitCanon = UNIT_TO_CANONICAL[unit] ?? 1;
+  return unitCanon > 0 ? (servings * baseCanon) / unitCanon : servings;
+}
+
+interface Props {
+  /** The food to log/edit; `null` keeps the sheet closed. */
+  food: SheetFood | null;
+  /** Day the log belongs to — drives the "after" projection against day totals. */
+  date: string;
+  /** Servings the sheet opens at (defaults to 1). */
+  initialServings?: number;
+  /** Servings of this item already counted in the day's totals (edit mode) so the
+   *  projection replaces rather than stacks on the existing entry. */
+  baselineQty?: number;
+  /** Primary action label (e.g. "Add to Log" / "Save"). */
+  submitLabel?: string;
+  onSubmit: (servings: number) => void;
+  onClose: () => void;
+  /** When provided, a Delete button appears alongside Cancel. */
+  onDelete?: () => void;
+}
+
+/**
+ * Bottom-sheet quantity editor with a live nutrition + day-progress summary.
+ * Shared by the add-food flow (mode add) and the Today log editor (mode edit,
+ * via `baselineQty` + `onDelete`).
+ */
+export function FoodQuantitySheet({
+  food, date, initialServings = 1, baselineQty = 0, submitLabel = 'Add to Log', onSubmit, onClose, onDelete,
+}: Props) {
+  const profile = useSettingsStore((s) => s.profile);
+  const insets = useSafeAreaInsets();
+  // Keep the sheet (incl. grabber, action buttons) clear of the notch/status bar.
+  const scrollMaxHeight = SCREEN_H - insets.top - 160;
+  const [amount, setAmount] = useState(String(initialServings));
+  const [unit, setUnit] = useState('serving');
+  const [unitMenuOpen, setUnitMenuOpen] = useState(false);
+
+  // Reset to the opening state whenever a new food is selected.
+  useEffect(() => {
+    if (food) {
+      setAmount(String(initialServings));
+      setUnit('serving');
+      setUnitMenuOpen(false);
+    }
+  }, [food, initialServings]);
+
+  const selectUnit = (u: string) => {
+    setUnitMenuOpen(false);
+    if (!food || u === unit) return;
+    // Keep the same physical quantity when switching units.
+    const servings = amountToServings(food, Number(amount) || 0, unit);
+    setAmount(String(Math.round(servingsToAmount(food, servings, u) * 100) / 100));
+    setUnit(u);
+  };
+
+  const submit = () => {
+    if (!food) return;
+    const qty = amountToServings(food, Number(amount) || 0, unit);
+    if (!qty || qty <= 0) return;
+    onSubmit(qty);
+  };
+
+  return (
+    <Modal visible={!!food} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+            {food && (() => {
+              const availableUnits = unitsFor(food.servingUnit);
+              const qty = amountToServings(food, Number(amount) || 0, unit);
+              const add = {
+                cal: food.calories * qty,
+                p: food.protein * qty,
+                c: food.carbs * qty,
+                f: food.fat * qty,
+              };
+              const targets = resolveTargets(profile);
+              const totals = foodRepo.getDayTotals(date);
+              // Strip the existing entry's contribution so edits replace it.
+              const baseCal = totals.calories - food.calories * baselineQty;
+              const baseP = totals.protein - food.protein * baselineQty;
+              const baseC = totals.carbs - food.carbs * baselineQty;
+              const baseF = totals.fat - food.fat * baselineQty;
+              const goal = targets.calorieTarget ?? 0;
+              const after = baseCal + add.cal;
+              const remaining = goal - after;
+              const calPct = goal > 0 ? Math.min(after / goal, 1) : 0;
+              const over = goal > 0 && after > goal;
+              return (
+                <>
+                  <View style={styles.grabber} />
+                  <ScrollView
+                    style={[styles.scrollBody, { maxHeight: scrollMaxHeight }]}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    contentContainerStyle={{ paddingBottom: space[2] }}
+                  >
+                  <FsText variant="cardTitle" numberOfLines={1}>{food.name}</FsText>
+                  <FsText variant="caption" style={{ marginBottom: space[3] }}>
+                    {food.brand ? `${food.brand} · ` : ''}{Math.round(food.calories)} kcal per {food.servingSize}{food.servingUnit}
+                  </FsText>
+                  <FoodBadgeRow details={food.details} />
+
+                  <View style={styles.qtyRow}>
+                    <View style={styles.qtyField}>
+                      <TextInput
+                        value={amount}
+                        onChangeText={setAmount}
+                        keyboardType="decimal-pad"
+                        style={[styles.input, { textAlign: 'center' }]}
+                        selectTextOnFocus
+                      />
+                    </View>
+                    {availableUnits.length > 1 ? (
+                      <View style={{ flex: 1 }}>
+                        <Pressable style={styles.unitSelect} onPress={() => setUnitMenuOpen((o) => !o)}>
+                          <FsText variant="bodyMedium">{unitLabel(unit)}{unit === 'serving' && qty !== 1 ? 's' : ''}</FsText>
+                          <ChevronDown color={colors.muted} size={16} />
+                        </Pressable>
+                        {unitMenuOpen && (
+                          <View style={styles.unitMenu}>
+                            {availableUnits.map((u) => (
+                              <Pressable key={u} style={styles.unitMenuItem} onPress={() => selectUnit(u)}>
+                                <FsText variant="bodyMedium" style={{ color: u === unit ? colors.primary : colors.text }}>
+                                  {unitLabel(u)}
+                                </FsText>
+                              </Pressable>
+                            ))}
+                          </View>
+                        )}
+                      </View>
+                    ) : (
+                      <FsText variant="caption" style={{ flex: 1 }}>serving{qty !== 1 ? 's' : ''}</FsText>
+                    )}
+                  </View>
+
+                  {/* Nutrition summary */}
+                  <View style={styles.summary}>
+                    <View style={styles.summaryTop}>
+                      <View>
+                        <FsText variant="overline">This food adds</FsText>
+                        <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                          <FsText variant="stat">{Math.round(add.cal)}</FsText>
+                          <FsText variant="caption"> kcal</FsText>
+                        </View>
+                      </View>
+                      <View style={styles.macroRow}>
+                        <Macro label="P" v={add.p} c={colors.macroProtein} />
+                        <Macro label="C" v={add.c} c={colors.macroCarbs} />
+                        <Macro label="F" v={add.f} c={colors.macroFat} />
+                      </View>
+                    </View>
+
+                    {goal > 0 && (
+                      <View style={{ marginTop: space[3] }}>
+                        <View style={styles.barHead}>
+                          <FsText variant="caption">Calories</FsText>
+                          <FsText variant="caption" style={{ fontVariant: ['tabular-nums'] }}>
+                            {Math.round(after)} / {goal} · {remaining < 0 ? `${Math.abs(Math.round(remaining))} over` : `${Math.round(remaining)} left`}
+                          </FsText>
+                        </View>
+                        <View style={styles.track}>
+                          <View style={{ width: `${calPct * 100}%`, height: '100%', borderRadius: radius.full, backgroundColor: over ? colors.danger : colors.success }} />
+                        </View>
+                      </View>
+                    )}
+
+                    <View style={{ marginTop: space[3] }}>
+                      <FsText variant="caption" style={{ marginBottom: space[2] }}>Macros</FsText>
+                      <MacroBars
+                        protein={baseP + add.p}
+                        carbs={baseC + add.c}
+                        fat={baseF + add.f}
+                        proteinTarget={targets.proteinTarget}
+                        carbsTarget={targets.carbsTarget}
+                        fatTarget={targets.fatTarget}
+                      />
+                    </View>
+                  </View>
+
+                  <FoodDetailSections
+                    core={{ fiber: food.fiber, sugar: food.sugar, saturatedFat: food.saturatedFat, sodium: food.sodium }}
+                    details={food.details}
+                    qty={qty}
+                  />
+                  </ScrollView>
+
+                  <View style={[styles.actions, { flexDirection: 'row', gap: space[2] }]}>
+                    {onDelete ? (
+                      <View style={{ flex: 1 }}>
+                        <Button title="Delete" variant="ghost" onPress={onDelete} />
+                      </View>
+                    ) : (
+                      <View style={{ flex: 1 }}>
+                        <Button title="Cancel" variant="ghost" onPress={onClose} />
+                      </View>
+                    )}
+                    <View style={{ flex: 2 }}>
+                      <Button title={submitLabel} onPress={submit} />
+                    </View>
+                  </View>
+                </>
+              );
+            })()}
+          </Pressable>
+        </KeyboardAvoidingView>
+      </Pressable>
+    </Modal>
+  );
+}
+
+function Macro({ label, v, c }: { label: string; v: number; c: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+      <View style={{ width: 6, height: 6, borderRadius: 2, backgroundColor: c }} />
+      <FsText variant="caption">{label} {Math.round(v)}g</FsText>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  unitSelect: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: colors.surfaceHigh, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 11,
+  },
+  unitMenu: {
+    position: 'absolute', bottom: '100%', left: 0, right: 0, marginBottom: 4,
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
+    overflow: 'hidden', zIndex: 20, ...shadow.pop,
+  },
+  unitMenuItem: { paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: colors.border },
+  summary: {
+    backgroundColor: colors.surfaceHigh, borderRadius: radius.md, padding: space[3],
+    marginBottom: space[3], gap: space[2],
+  },
+  summaryTop: { flexDirection: 'row', alignItems: 'baseline' },
+  macroRow: { flexDirection: 'row', gap: space[3], marginLeft: 'auto', alignItems: 'center' },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
+    padding: space[4], paddingBottom: space[8],
+  },
+  grabber: {
+    alignSelf: 'center', width: 40, height: 4, borderRadius: radius.full,
+    backgroundColor: colors.border, marginBottom: space[3],
+  },
+  scrollBody: { flexGrow: 0, flexShrink: 1 },
+  actions: { paddingTop: space[2] },
+  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], marginBottom: space[3] },
+  qtyField: {
+    backgroundColor: colors.surfaceHigh, borderRadius: radius.md, width: 80, paddingHorizontal: 8,
+  },
+  barHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space[1] },
+  track: { height: 8, borderRadius: radius.full, backgroundColor: colors.surfaceHigh, overflow: 'hidden' },
+  input: { flex: 1, color: colors.text, paddingVertical: 12, fontSize: 14 },
+});

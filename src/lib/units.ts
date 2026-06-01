@@ -24,6 +24,13 @@ export const formatWeight = (kg: number, system: UnitSystem): string => {
   return `${val} ${label}`;
 };
 
+/** Total training volume (stored in kg) → display unit, compact (e.g. "12.4k lbs"). */
+export const formatVolume = (kg: number, system: UnitSystem): string => {
+  const val = toDisplay(kg, system);
+  const label = UNIT_LABELS[system].weight;
+  return `${val >= 1000 ? `${(val / 1000).toFixed(1)}k` : Math.round(val)} ${label}`;
+};
+
 export const formatHeight = (cm: number, system: UnitSystem): string =>
   system === 'IMPERIAL'
     ? `${Math.floor(cm / 30.48)}'${Math.round((cm % 30.48) / 2.54)}"`

@@ -7,6 +7,7 @@ import { View, ActivityIndicator } from 'react-native';
 
 import { initDb } from '@/lib/db';
 import { seedExercisesIfEmpty } from '@/lib/exerciseSeed';
+import { seedBaseFoodsIfNeeded } from '@/lib/baseFoodsSeed';
 import { colors } from '@/theme/tokens';
 
 export default function RootLayout() {
@@ -16,6 +17,7 @@ export default function RootLayout() {
     try {
       initDb();
       seedExercisesIfEmpty();
+      seedBaseFoodsIfNeeded();
     } catch (e) {
       console.error('startup init failed', e);
     }
@@ -41,13 +43,21 @@ export default function RootLayout() {
           }}
         >
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
           <Stack.Screen name="add-food" options={{ presentation: 'modal' }} />
           <Stack.Screen name="exercises" options={{ presentation: 'modal' }} />
           <Stack.Screen name="exercise/[id]" />
+          <Stack.Screen name="exercise/new" options={{ presentation: 'modal' }} />
           <Stack.Screen name="session" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
+          <Stack.Screen name="workout-summary" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
           <Stack.Screen name="template/new" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="recipe/new" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="goal-phases" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="exercise-reports" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="exercise-progress" options={{ presentation: 'modal' }} />
           <Stack.Screen name="tdee" options={{ presentation: 'modal' }} />
           <Stack.Screen name="measurements" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="log-weight" options={{ presentation: 'modal' }} />
           <Stack.Screen name="custom-food" options={{ presentation: 'modal' }} />
         </Stack>
       </SafeAreaProvider>

@@ -9,8 +9,15 @@ Assistant automations via the sync layer (`serverStore` is null by default).
 > Expo APIs change between versions (e.g. `expo-file-system` split out a `/legacy` API).
 
 ## Architecture
-- **Screens**: `src/app/**` (expo-router, file-based). Tabs in `src/app/(tabs)/`.
-- **State**: Zustand in `src/stores/` (`settingsStore` = local user profile; `serverStore` = optional server).
+- **Navigation shell**: `src/navigation/` — the main app area is one custom screen (`AppShell`),
+  not a tab bar: a top section switcher (`AppHeader`) + contextual bottom bar (`BottomNav`) with a
+  center "+" multi-action FAB (`QuickActionsSheet`), all driven by `config.ts`. `(tabs)/index.tsx`
+  just renders `AppShell`.
+- **Screens**: section bodies are content fragments in `src/screens/*` (no `Screen` wrapper — the
+  shell owns the scroll/header/bottom bar). Standalone routes/modals stay in `src/app/**`
+  (expo-router, file-based).
+- **State**: Zustand in `src/stores/` (`settingsStore` = local user profile; `navStore` = shell
+  section/sub-tab; `routineStore` = workout routines; `serverStore` = optional server).
 - **Data**: `src/lib/db.ts` (SQLite schema, mirrors the server Prisma models with
   `localId`/`serverId`/`syncStatus` for future sync) + `src/lib/repositories/{Food,Health,Workout}Repo.ts`.
   Repos are the only thing that touches the DB. Mutations mark rows `syncStatus='pending'`.

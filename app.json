@@ -14,6 +14,9 @@
       "supportsTablet": false,
       "infoPlist": {
         "NSCameraUsageDescription": "FitSelf uses the camera to scan food barcodes.",
+        "NSPhotoLibraryUsageDescription": "FitSelf uses your photos to set a profile picture.",
+        "NSHealthShareUsageDescription": "FitSelf reads weight and activity from Apple Health to keep your stats in sync.",
+        "NSHealthUpdateUsageDescription": "FitSelf can write workouts and weight to Apple Health.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -47,7 +50,22 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 120
         }
-      ]
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "FitSelf uses your photos to set a profile picture."
+        }
+      ],
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "FitSelf reads weight and activity from Apple Health to keep your stats in sync.",
+          "NSHealthUpdateUsageDescription": "FitSelf can write workouts and weight to Apple Health.",
+          "background": false
+        }
+      ],
+      "react-native-health-connect"
     ],
     "experiments": {
       "typedRoutes": true,

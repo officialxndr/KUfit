@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FitSelf — UI Kit</title>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      background: #1a1a1c;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; padding: 24px;
+    }
+    ::-webkit-scrollbar { width: 0; height: 0; }
+  </style>
+  <script type="text/babel" src="ios-frame.jsx"></script>
+  <script type="text/babel" src="ui-components.jsx"></script>
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="screens-core.jsx"></script>
+  <script type="text/babel" src="screens-fitness.jsx"></script>
+</head>
+<body>
+  <template id="__bundler_thumbnail">
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <rect width="100" height="100" rx="22" fill="#0a0a0a"/>
+      <circle cx="50" cy="44" r="20" fill="none" stroke="#6366f1" stroke-width="6" stroke-linecap="round" stroke-dasharray="94 32" transform="rotate(-90 50 44)"/>
+      <text x="50" y="80" font-family="-apple-system, sans-serif" font-size="13" font-weight="700" fill="#f9f9f9" text-anchor="middle">FitSelf</text>
+    </svg>
+  </template>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+    const FS = window.FS;
+
+    // Tweak defaults — three expressive, brand-grounded controls that re-skin the
+    // whole app by mutating the shared FS token object.
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "theme": "dark",
+      "depth": "oled",
+      "accent": "#6366f1"
+    }/*EDITMODE-END*/;
+
+    // Surface ladders [bg, surface, surfaceHigh, border] per theme × depth.
+    const LADDERS = {
+      dark: {
+        oled:    ['#000000', '#0c0c0c', '#161616', '#242424'],
+        classic: ['#0a0a0a', '#141414', '#1e1e1e', '#2a2a2a'],
+        soft:    ['#15151a', '#1d1d24', '#292932', '#353541'],
+      },
+      light: {
+        oled:    ['#ffffff', '#ffffff', '#f0f0f2', '#e3e3e6'],
+        classic: ['#f4f4f5', '#ffffff', '#e4e4e7', '#d4d4d8'],
+        soft:    ['#eceef2', '#ffffff', '#e2e6ee', '#d3d8e2'],
+      },
+    };
+    const ACCENT_HOVER = { '#6366f1': '#818cf8', '#10b981': '#34d399', '#0ea5e9': '#38bdf8', '#f59e0b': '#fbbf24', '#f43f5e': '#fb7185' };
+
+    // Mutate the shared FS token object so every screen re-skins on next render.
+    function applyTweaks(t) {
+      const dark = t.theme !== 'light';
+      const ladder = LADDERS[dark ? 'dark' : 'light'][t.depth] || LADDERS[dark ? 'dark' : 'light'].classic;
+      FS.bg = ladder[0]; FS.surface = ladder[1]; FS.surfaceHigh = ladder[2]; FS.border = ladder[3];
+      FS.text = dark ? '#f9f9f9' : '#09090b';
+      FS.muted = dark ? '#6b7280' : '#71717a';
+      FS.primary = t.accent;
+      FS.primaryHover = ACCENT_HOVER[t.accent] || t.accent;
+      FS.protein = t.accent; // protein macro tracks the brand accent
+    }
+
+    const SECTIONS = [
+      { key: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
+      { key: 'food',      label: 'Food',      icon: 'utensils-crossed' },
+      { key: 'workout',   label: 'Workout',   icon: 'dumbbell' },
+      { key: 'health',    label: 'Health',    icon: 'heart-pulse' },
+      { key: 'settings',  label: 'Settings',  icon: 'settings' },
+    ];
+
+    // Contextual bottom-nav tabs per section (matches the app's navConfig).
+    const SECTION_TABS = {
+      dashboard: [{ key: 'overview', label: 'Overview', icon: 'layout-dashboard' }, { key: 'goals', label: 'Goals', icon: 'target' }],
+      food:    [{ key: 'today', label: 'Today', icon: 'calendar' }, { key: 'recipes', label: 'Recipes', icon: 'utensils' }, { key: 'trends', label: 'Trends', icon: 'flame' }, { key: 'goals', label: 'Goals', icon: 'target' }],
+      workout: [{ key: 'templates', label: 'Library', icon: 'layout-grid' }, { key: 'history', label: 'History', icon: 'trophy' }, { key: 'exercises', label: 'Exercises', icon: 'dumbbell' }, { key: 'stats', label: 'Stats', icon: 'bar-chart-2' }],
+      health:  [{ key: 'weight', label: 'Weight', icon: 'activity' }, { key: 'goals', label: 'Goals', icon: 'flame' }, { key: 'body', label: 'Body', icon: 'heart-pulse' }, { key: 'measure', label: 'Measure', icon: 'ruler' }],
+    };
+    // On dashboard/settings, the nav shows the section launcher.
+    const LAUNCHER = [
+      { key: 'food', label: 'Food', icon: 'utensils-crossed' },
+      { key: 'workout', label: 'Workout', icon: 'dumbbell' },
+      { key: 'health', label: 'Health', icon: 'heart-pulse' },
+      { key: 'settings', label: 'Settings', icon: 'settings' },
+    ];
+
+    const FAB_ACTIONS = {
+      dashboard: [['utensils-crossed', 'Log food'], ['activity', 'Log weight'], ['dumbbell', 'Start workout']],
+      food:      [['search', 'Search food'], ['scan-line', 'Scan barcode'], ['repeat', 'Quick add'], ['utensils', 'New recipe']],
+      workout:   [['repeat', 'Start Routine'], ['plus', 'Empty workout'], ['clock', 'From template']],
+      health:    [['activity', 'Log weight'], ['ruler', 'Log measurement']],
+    };
+
+    function App() {
+      const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+      applyTweaks(t);
+      React.useEffect(() => { document.body.style.background = t.theme === 'light' ? '#e5e7eb' : '#1a1a1c'; }, [t.theme]);
+
+      const [authed, setAuthed] = useState(false);
+      const [section, setSection] = useState('dashboard');
+      const [subTab, setSubTab] = useState(null);
+      const [sheet, setSheet] = useState(false);
+      const [session, setSession] = useState(null); // active workout name or null
+      const [routines, setRoutines] = useState(() => {
+        const now = Date.now();
+        return [{ id: 'r1', name: 'PPL Rotation', templateIds: ['push', 'pull', 'legs'],
+          lastDones: { push: now - 2*86400000, pull: now - 4*86400000, legs: now - 6*86400000 } }];
+      });
+      const [routineSheet, setRoutineSheet] = useState(false);
+
+      const go = (sec) => { setSection(sec); setSubTab(null); };
+
+      const startNextInRoutine = (routine) => {
+        const next = getNextInRoutine(routine);
+        if (!next) return;
+        setRoutines(prev => prev.map(r =>
+          r.id !== routine.id ? r : { ...r, lastDones: { ...r.lastDones, [next.id]: Date.now() } }
+        ));
+        setSession(next.name);
+      };
+
+      const handleFabAction = (label) => {
+        setSheet(false);
+        if (label === 'Start workout' || label === 'Empty workout') {
+          setSession('Quick Workout');
+        } else if (label === 'From template') {
+          setSection('workout'); setSubTab('templates');
+        } else if (label === 'Start Routine') {
+          if (routines.length === 0) { setSection('workout'); setSubTab('routines'); }
+          else if (routines.length === 1) { startNextInRoutine(routines[0]); }
+          else { setRoutineSheet(true); }
+        }
+      };
+
+      const subTabs = SECTION_TABS[section];
+      const navTabs = subTabs || LAUNCHER;
+      const navActive = subTabs ? (subTab || subTabs[0].key) : section;
+      const hasFab = section !== 'settings';
+
+      const onNavTab = (key) => {
+        if (subTabs) setSubTab(key);          // within-section sub-tab
+        else go(key);                          // launcher → switch section
+      };
+
+      let content;
+      if (section === 'dashboard') content = <DashboardScreen subTab={subTab || 'overview'} go={go} openSheet={() => setSheet(true)} />;
+      else if (section === 'food') content = <FoodScreen subTab={subTab || 'today'} openSheet={() => setSheet(true)} />;
+      else if (section === 'workout') content = <WorkoutScreen subTab={subTab || 'templates'} onStart={(n) => setSession(n)} routines={routines} setRoutines={setRoutines} />;
+      else if (section === 'health') content = <HealthScreen subTab={subTab || 'weight'} />;
+      else if (section === 'settings') content = <SettingsScreen onLogout={() => { setAuthed(false); setSection('dashboard'); }} />;
+
+      return (
+        <React.Fragment>
+        <IOSDevice dark={t.theme !== 'light'} width={402} height={874}>
+          <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: FS.bg, fontFamily: FS.font, color: FS.text, position: 'relative' }}>
+            {!authed ? (
+              <LoginScreen onLogin={() => setAuthed(true)} />
+            ) : session ? (
+              <ActiveSession
+                name={session}
+                onFinish={() => { setSession(null); setSection('workout'); setSubTab('history'); }}
+                onDiscard={() => { setSession(null); setSection('workout'); }}
+              />
+            ) : (
+              <React.Fragment>
+                <AppHeader section={section} sections={SECTIONS} onSwitch={go} onOpenSettings={() => go('settings')} />
+                {content}
+                <BottomNav tabs={navTabs} active={navActive} onTab={onNavTab} hasFab={hasFab} onFab={() => setSheet(true)} />
+              </React.Fragment>
+            )}
+
+            {sheet && (
+              <Sheet onClose={() => setSheet(false)}>
+                <div style={{ width: 36, height: 4, background: FS.surfaceHigh, borderRadius: 99, margin: '0 auto 16px' }} />
+                <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 12px', textAlign: 'center' }}>Quick Actions</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {(FAB_ACTIONS[section] || FAB_ACTIONS.dashboard).map(([ic, label], i) => (
+                    <button key={i} onClick={() => handleFabAction(label)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, background: FS.surfaceHigh, border: 'none', borderRadius: 12, padding: '14px 16px', color: FS.text, fontSize: 15, fontFamily: FS.font, cursor: 'pointer', textAlign: 'left', width: '100%' }}>
+                      <Icon name={ic} size={20} color={FS.primary} />{label}
+                    </button>
+                  ))}
+                </div>
+              </Sheet>
+            )}
+
+            {routineSheet && (
+              <Sheet onClose={() => setRoutineSheet(false)}>
+                <div style={{ width: 36, height: 4, background: FS.surfaceHigh, borderRadius: 99, margin: '0 auto 16px' }} />
+                <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 16px', textAlign: 'center' }}>Start a Routine</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {routines.map(r => {
+                    const next = getNextInRoutine(r);
+                    return (
+                      <button key={r.id} onClick={() => { setRoutineSheet(false); startNextInRoutine(r); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, background: FS.surfaceHigh,
+                          border: 'none', borderRadius: 12, padding: '14px 16px', cursor: 'pointer',
+                          fontFamily: FS.font, textAlign: 'left', width: '100%' }}>
+                        <div style={{ flex: 1 }}>
+                          <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: FS.text }}>{r.name}</p>
+                          {next && <p style={{ margin: '3px 0 0', fontSize: 12, color: FS.muted }}>Next up: {next.name}</p>}
+                        </div>
+                        <Icon name="play" size={18} color={FS.primary} />
+                      </button>
+                    );
+                  })}
+                </div>
+              </Sheet>
+            )}
+          </div>
+        </IOSDevice>
+        <TweaksPanel>
+          <TweakSection label="Theme" />
+          <TweakRadio label="Mode" value={t.theme} options={['dark', 'light']} onChange={(v) => setTweak('theme', v)} />
+          <TweakRadio label="Surface" value={t.depth} options={['oled', 'classic', 'soft']} onChange={(v) => setTweak('depth', v)} />
+          <TweakSection label="Brand" />
+          <TweakColor label="Accent" value={t.accent} options={['#6366f1', '#10b981', '#0ea5e9', '#f59e0b', '#f43f5e']} onChange={(v) => setTweak('accent', v)} />
+        </TweaksPanel>
+        </React.Fragment>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

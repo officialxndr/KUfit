@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
-import type { FoodItem, FoodSource } from '@/types';
+import { extractDetails } from '@/lib/offNutrients';
+import type { FoodDetails, FoodItem, FoodSource } from '@/types';
 
 /**
  * Open Food Facts food search + barcode lookup, ported from the web API
@@ -38,13 +39,17 @@ export interface FoodCandidate {
   fiber: number | null;
   sugar: number | null;
   sodium: number | null;
+  saturatedFat: number | null;
   source: FoodSource;
   isCustom: boolean;
+  isFavorite?: boolean;
+  details?: FoodDetails | null;
 }
 
 function fromLocal(fi: FoodItem): FoodCandidate {
   return { ...fi, localId: fi.id, barcode: fi.barcode ?? null, brand: fi.brand ?? null,
-    fiber: fi.fiber ?? null, sugar: fi.sugar ?? null, sodium: fi.sodium ?? null };
+    fiber: fi.fiber ?? null, sugar: fi.sugar ?? null, sodium: fi.sodium ?? null,
+    saturatedFat: fi.saturatedFat ?? null, isFavorite: fi.isFavorite ?? false, details: fi.details ?? null };
 }
 
 function offProductToCandidate(p: any): FoodCandidate | null {
@@ -66,8 +71,10 @@ function offProductToCandidate(p: any): FoodCandidate | null {
     fiber: n.fiber_serving ?? n.fiber_100g ?? null,
     sugar: n.sugars_serving ?? n.sugars_100g ?? null,
     sodium: n.sodium_serving != null ? n.sodium_serving * 1000 : null,
+    saturatedFat: n['saturated-fat_serving'] ?? n['saturated-fat_100g'] ?? null,
     source: 'OPEN_FOOD_FACTS',
     isCustom: false,
+    details: extractDetails(p),
   };
 }
 
@@ -90,7 +97,9 @@ export async function searchFood(query: string): Promise<FoodCandidate[]> {
         json: 1,
         page_size: 100,
         sort_by: 'unique_scans_n',
-        fields: 'product_name,brands,nutriments,serving_size,code',
+        fields: 'product_name,brands,nutriments,serving_size,code,nutriscore_grade,'
+          + 'nova_group,ecoscore_grade,nutrient_levels,ingredients_text,allergens_tags,'
+          + 'additives_tags,labels_tags,ingredients_analysis_tags',
       },
       headers: { 'User-Agent': USER_AGENT },
       timeout: 8000,
@@ -121,11 +130,10 @@ export async function searchFood(query: string): Promise<FoodCandidate[]> {
     return 10;
   };
 
-  const custom = local.filter((l) => l.isCustom);
-  const rest = [...local.filter((l) => !l.isCustom), ...offItems].sort(
-    (a, b) => score(b.name) - score(a.name)
-  );
-  return [...custom, ...rest].slice(0, 60);
+  // Local-first: every on-device match (custom/base/cached) ranks above OFF results.
+  const localRanked = local.sort((a, b) => score(b.name) - score(a.name));
+  const offRanked = offItems.sort((a, b) => score(b.name) - score(a.name));
+  return [...localRanked, ...offRanked].slice(0, 60);
 }
 
 /** Barcode lookup: local cache → Open Food Facts (→ USDA if enabled). */
@@ -154,8 +162,10 @@ export async function barcodeLookup(barcode: string): Promise<FoodCandidate | nu
         fiber: n.fiber_serving ?? n.fiber_100g ?? null,
         sugar: n.sugars_serving ?? n.sugars_100g ?? null,
         sodium: n.sodium_serving != null ? n.sodium_serving * 1000 : null,
+        saturatedFat: n['saturated-fat_serving'] ?? n['saturated-fat_100g'] ?? null,
         source: 'OPEN_FOOD_FACTS',
         isCustom: false,
+        details: extractDetails(p),
       };
     }
   } catch {
@@ -184,6 +194,7 @@ export async function barcodeLookup(barcode: string): Promise<FoodCandidate | nu
           fiber: g(1079) || null,
           sugar: g(2000) || null,
           sodium: g(1093) ? g(1093) * 1000 : null,
+          saturatedFat: g(1258) || null,
           source: 'USDA',
           isCustom: false,
         };
@@ -212,7 +223,9 @@ export function ensureFoodItem(c: FoodCandidate): string {
     fiber: c.fiber,
     sugar: c.sugar,
     sodium: c.sodium,
+    saturatedFat: c.saturatedFat,
     source: c.source,
     isCustom: c.isCustom,
+    details: c.details ?? null,
   });
 }

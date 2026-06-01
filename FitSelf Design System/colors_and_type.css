@@ -1,0 +1,226 @@
+/* ============================================================================
+   FitSelf — Color & Type Foundations
+   Source of truth: officialxndr/health-app  (apps/web/src/index.css,
+   tailwind.config.js). FitSelf is a dark-FIRST PWA; dark is the default theme.
+   Drop this file in and use the CSS vars, or read off the values directly.
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   1. BASE TOKENS — raw palette
+   ---------------------------------------------------------------------------- */
+
+:root {
+  /* Dark theme is the product default (index.html ships class="dark") */
+
+  /* Surfaces (dark) — a near-black stack that steps up by ~10–20 luminance */
+  --bg:            #0a0a0a;   /* app background, behind all cards            */
+  --surface:       #141414;   /* default card / header / nav background      */
+  --surface-high:  #1e1e1e;   /* inset fields, chips, pressed states         */
+  --border:        #2a2a2a;   /* hairline dividers & card outlines           */
+
+  /* Text */
+  --text:          #f9f9f9;   /* primary foreground                          */
+  --muted:         #6b7280;   /* secondary text, captions, inactive icons    */
+
+  /* Brand */
+  --primary:       #6366f1;   /* indigo — the single brand accent            */
+  --primary-hover: #818cf8;   /* lighter indigo for hover                    */
+
+  /* Semantic status */
+  --success:       #22c55e;   /* on-track, set complete, weight loss         */
+  --warning:       #f59e0b;   /* slightly behind, streaks, caution           */
+  --danger:        #ef4444;   /* over goal, destructive, off-track           */
+
+  /* Macro accents (used in rings/bars across Food & Dashboard) */
+  --macro-protein: #6366f1;   /* indigo — matches primary                    */
+  --macro-carbs:   #f59e0b;   /* amber                                       */
+  --macro-fat:     #ec4899;   /* pink                                        */
+
+  /* Ring track (calorie ring background arc) */
+  --ring-track:    #2a2a2a;
+
+  /* ---- Type families ----
+     FitSelf ships NO webfonts. It uses the native system stack, which renders
+     as SF Pro on Apple devices (the target platform for the sideloaded iOS app)
+     and Segoe UI / Roboto elsewhere. Keep it native — do not swap in a webfont. */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-num:  -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; /* used with tabular-nums for stats/timers */
+
+  /* ---- Radii ---- */
+  --r-sm:   8px;    /* chips, inline fields, small buttons (rounded-lg)      */
+  --r-md:   12px;   /* primary buttons, inputs (rounded-xl)                  */
+  --r-lg:   16px;   /* cards, sheets, FAB targets (rounded-2xl)              */
+  --r-xl:   24px;   /* bottom sheets / modals top corners (rounded-3xl)      */
+  --r-full: 9999px; /* pills, avatars, the FAB, status badges               */
+
+  /* ---- Elevation ---- (used sparingly — the UI is mostly flat) */
+  --shadow-pop:  0 10px 25px rgba(0,0,0,0.45);          /* dropdowns / menus  */
+  --shadow-fab:  0 8px 20px rgba(99,102,241,0.30);      /* the indigo FAB     */
+
+  /* ---- Spacing rhythm ---- (Tailwind 4px scale; these are the ones in use) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;   /* gap between stacked cards (space-y-3)                 */
+  --space-4: 16px;   /* page padding (p-4) & larger card gaps (space-y-4)    */
+  --space-6: 24px;
+}
+
+/* ----------------------------------------------------------------------------
+   2. LIGHT THEME — secondary, opt-in via .light on a root ancestor
+   (the app toggles .dark on <html>; light is the inverse Zinc-based palette)
+   ---------------------------------------------------------------------------- */
+
+.light {
+  --bg:           #f4f4f5;
+  --surface:      #ffffff;
+  --surface-high: #e4e4e7;
+  --border:       #d4d4d8;
+  --text:         #09090b;
+  --muted:        #71717a;
+  /* brand + semantic colors are shared across themes */
+}
+
+/* ----------------------------------------------------------------------------
+   3. SEMANTIC TYPE — the type scale actually used in the product.
+   Mobile-native sizing. Numbers/timers use tabular-nums for alignment.
+   ---------------------------------------------------------------------------- */
+
+.fs-display {            /* big stat numbers: weight, ring center, summary  */
+  font-family: var(--font-sans);
+  font-size: 30px;       /* text-3xl */
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.fs-stat {               /* 2xl numerics — current weight, modal totals     */
+  font-family: var(--font-num);
+  font-size: 24px;       /* text-2xl */
+  line-height: 1.15;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.fs-h1 {                 /* page greeting / title                           */
+  font-size: 20px;       /* text-xl */
+  line-height: 1.25;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.fs-h2 {                 /* header section label, sheet titles             */
+  font-size: 18px;       /* text-lg */
+  line-height: 1.3;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.fs-card-title {         /* card / list headings                           */
+  font-size: 16px;       /* text-base */
+  line-height: 1.3;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.fs-body {               /* default body & list rows                       */
+  font-size: 14px;       /* text-sm */
+  line-height: 1.45;
+  font-weight: 400;
+  color: var(--text);
+}
+
+.fs-body-medium {        /* emphasized body, buttons                       */
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.fs-caption {            /* secondary captions, meta, helper text          */
+  font-size: 12px;       /* text-xs */
+  line-height: 1.4;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.fs-nav {                /* bottom-nav tab labels                          */
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 500;
+}
+
+.fs-overline {           /* table column heads, tiny section labels        */
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+/* ----------------------------------------------------------------------------
+   4. SEMANTIC SURFACES & COMPONENTS — common building blocks
+   ---------------------------------------------------------------------------- */
+
+.fs-card {               /* the workhorse card                             */
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  padding: var(--space-4);
+}
+
+.fs-card--outlined {     /* card variant with a hairline outline           */
+  border: 1px solid var(--border);
+}
+
+.fs-field {              /* text input                                     */
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 12px 16px;
+  font-size: 14px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.fs-field:focus { border-color: var(--primary); }
+.fs-field::placeholder { color: var(--muted); }
+
+.fs-btn {                /* primary button                                 */
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 12px 20px;
+  border-radius: var(--r-md);
+  border: none;
+  transition: transform 0.1s ease, opacity 0.15s ease;
+}
+.fs-btn:active { transform: scale(0.97); }
+.fs-btn:disabled { opacity: 0.6; }
+
+.fs-btn--success { background: var(--success); }
+.fs-btn--ghost   { background: transparent; color: var(--primary); }
+
+.fs-chip {               /* inset chip / pill on surface-high              */
+  background: var(--surface-high);
+  border-radius: var(--r-sm);
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.fs-badge {              /* tinted status badge (10% accent wash)          */
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--r-full);
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.fs-badge--success { background: rgba(34,197,94,0.10);  color: var(--success); }
+.fs-badge--warning { background: rgba(245,158,11,0.10); color: var(--warning); }
+.fs-badge--danger  { background: rgba(239,68,68,0.10);  color: var(--danger);  }
+.fs-badge--primary { background: rgba(99,102,241,0.10); color: var(--primary); }

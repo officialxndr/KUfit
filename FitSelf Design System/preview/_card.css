@@ -1,0 +1,38 @@
+/* Shared styles for FitSelf design-system preview cards.
+   Each card is a standalone ~700px-wide HTML doc shown in the Design System tab. */
+
+@import url("../colors_and_type.css");
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  padding: 22px 24px;
+}
+
+.card-grid { display: flex; flex-direction: column; gap: 16px; }
+.row { display: flex; align-items: center; gap: 12px; }
+.row-wrap { display: flex; flex-wrap: wrap; gap: 12px; }
+.col { display: flex; flex-direction: column; }
+
+.swatch {
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 10px;
+  min-height: 84px;
+  flex: 1;
+}
+.swatch .name { font-size: 12px; font-weight: 600; }
+.swatch .hex { font-size: 11px; opacity: 0.7; font-variant-numeric: tabular-nums; }
+
+.label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+
+.spec { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }

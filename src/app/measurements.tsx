@@ -1,8 +1,10 @@
 import { useCallback, useState } from 'react';
 import { View, TextInput, StyleSheet, Pressable, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { X, Trash2 } from 'lucide-react-native';
+import { X } from 'lucide-react-native';
+import { SwipeToDelete } from '@/components/SwipeToDelete';
 
 import { FsText, Card, Button, SectionHeader } from '@/components/ui';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
@@ -62,6 +64,7 @@ export default function MeasurementsScreen() {
   const latest = entries[0];
 
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaView style={styles.screen} edges={['top']}>
       <View style={styles.header}>
         <FsText variant="h2">Measurements</FsText>
@@ -90,31 +93,32 @@ export default function MeasurementsScreen() {
           <Button title="Save Measurements" onPress={save} />
         </Card>
 
-        <Card>
-          <SectionHeader title="History" />
-          {entries.length === 0 ? (
-            <FsText variant="caption">No measurements logged yet.</FsText>
-          ) : (
-            entries.map((m) => {
-              const filled = SITES.filter((s) => m[s.key] != null);
-              return (
-                <View key={m.id} style={styles.entry}>
-                  <View style={{ flex: 1 }}>
-                    <FsText variant="bodyMedium">{m.date}</FsText>
-                    <FsText variant="caption" numberOfLines={2}>
-                      {filled.map((s) => `${s.label} ${fromCm(m[s.key] as number)}`).join('  ·  ') || '—'}
-                    </FsText>
-                  </View>
-                  <Pressable onPress={() => { healthRepo.deleteMeasurement(m.id); refresh(); }} hitSlop={10}>
-                    <Trash2 color={colors.muted} size={18} />
-                  </Pressable>
-                </View>
-              );
-            })
-          )}
-        </Card>
+        <SectionHeader title="History" />
+        {entries.length === 0 ? (
+          <Card><FsText variant="caption">No measurements logged yet.</FsText></Card>
+        ) : (
+          entries.map((m) => {
+            const filled = SITES.filter((s) => m[s.key] != null);
+            return (
+              <SwipeToDelete
+                key={m.id}
+                onDelete={() => { healthRepo.deleteMeasurement(m.id); refresh(); }}
+                confirmTitle="Delete measurement?"
+                confirmMessage={`Remove the ${m.date} measurement?`}
+              >
+                <Card style={{ marginBottom: space[3] }}>
+                  <FsText variant="bodyMedium">{m.date}</FsText>
+                  <FsText variant="caption" numberOfLines={2} style={{ marginTop: 2 }}>
+                    {filled.map((s) => `${s.label} ${fromCm(m[s.key] as number)}`).join('  ·  ') || '—'}
+                  </FsText>
+                </Card>
+              </SwipeToDelete>
+            );
+          })
+        )}
       </ScrollView>
     </SafeAreaView>
+    </GestureHandlerRootView>
   );
 }
 

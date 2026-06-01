@@ -2,9 +2,10 @@ export type UnitSystem = 'METRIC' | 'IMPERIAL'
 export type ActivityLevel = 'SEDENTARY' | 'LIGHT' | 'MODERATE' | 'ACTIVE' | 'VERY_ACTIVE'
 export type Sex = 'MALE' | 'FEMALE' | 'OTHER'
 export type GoalType = 'LOSE' | 'GAIN' | 'MAINTAIN'
+export type TrainingFocus = 'CUT' | 'MAINTAIN' | 'BULK' | 'RECOMP'
 export type MealType = 'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACK'
 export type MacroTargetMode = 'GRAMS' | 'PERCENT'
-export type FoodSource = 'MANUAL' | 'OPEN_FOOD_FACTS' | 'USDA'
+export type FoodSource = 'MANUAL' | 'OPEN_FOOD_FACTS' | 'USDA' | 'BASE'
 export type DataSource = 'MANUAL' | 'APPLE_HEALTH' | 'SHORTCUT'
 
 export interface UserProfile {
@@ -51,9 +52,37 @@ export interface FoodItem {
   fiber?: number | null
   sugar?: number | null
   sodium?: number | null
+  saturatedFat?: number | null
   source: FoodSource
   isCustom: boolean
+  isFavorite?: boolean
   createdAt: string
+  /** Rich Open Food Facts data (extended nutriments, scores, ingredients…). */
+  details?: FoodDetails | null
+}
+
+/** A single extended nutriment, value expressed per serving in grams (OFF base unit). */
+export interface NutrimentEntry {
+  key: string
+  value: number
+}
+
+/** Rich product data captured from Open Food Facts beyond the core macros. */
+export interface FoodDetails {
+  /** Extended nutriments (everything beyond the core 8), per serving, in grams. */
+  nutriments: NutrimentEntry[]
+  nutriScore?: string | null   // a–e
+  novaGroup?: number | null    // 1–4 processing level
+  ecoScore?: string | null     // a–e
+  /** Traffic-light levels for fat / saturated-fat / sugars / salt. */
+  nutrientLevels?: Record<string, 'low' | 'moderate' | 'high'> | null
+  ingredientsText?: string | null
+  /** Raw allergen tags (e.g. "en:gluten"). */
+  allergens?: string[] | null
+  /** Raw additive tags / E-numbers (e.g. "en:e330"). */
+  additives?: string[] | null
+  /** Raw label + ingredient-analysis tags for diet badges (vegan, gluten-free…). */
+  labels?: string[] | null
 }
 
 export interface RecipeIngredient {

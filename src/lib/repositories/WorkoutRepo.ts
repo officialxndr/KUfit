@@ -7,6 +7,13 @@ import type {
 
 const DEFAULT_REST_SECONDS = 120;
 
+export interface TemplateInput {
+  name: string;
+  description?: string;
+  label?: string | null;
+  exercises: Array<{ exerciseId: string; defaultSets: number; defaultReps?: number; defaultWeightKg?: number; restSeconds?: number; order: number }>;
+}
+
 // ── Mappers ───────────────────────────────────────────────────────────────────
 
 function parseJsonArray(val: any): string[] {
@@ -91,6 +98,24 @@ export class WorkoutRepo {
     return row?.n ?? 0;
   }
 
+  /** Distinct seeded exercises (by exerciseDbId). Used to detect a duplicate-bloated catalog. */
+  countDistinctSeededExercises(): number {
+    const row = db.getFirstSync(
+      `SELECT COUNT(DISTINCT exerciseDbId) AS n FROM exercises WHERE isCustom = 0 AND exerciseDbId IS NOT NULL`
+    ) as any;
+    return row?.n ?? 0;
+  }
+
+  countSeededExercises(): number {
+    const row = db.getFirstSync(`SELECT COUNT(*) AS n FROM exercises WHERE isCustom = 0`) as any;
+    return row?.n ?? 0;
+  }
+
+  /** Remove all bundled (non-custom) exercises — used to rebuild a stale/duplicated catalog. */
+  deleteSeededExercises(): void {
+    db.runSync(`DELETE FROM exercises WHERE isCustom = 0`);
+  }
+
   createCustomExercise(input: {
     name: string;
     muscleGroup?: string | null;
@@ -111,7 +136,9 @@ export class WorkoutRepo {
   upsertExercise(ex: Exercise & { serverId?: string; exerciseDbId?: string | null; localMediaPath?: string | null }): string {
     const existing = ex.serverId
       ? (db.getFirstSync(`SELECT localId FROM exercises WHERE serverId = ?`, [ex.serverId]) as any)
-      : (db.getFirstSync(`SELECT localId FROM exercises WHERE localId = ?`, [ex.id]) as any);
+      : ex.exerciseDbId
+        ? (db.getFirstSync(`SELECT localId FROM exercises WHERE exerciseDbId = ?`, [ex.exerciseDbId]) as any)
+        : (db.getFirstSync(`SELECT localId FROM exercises WHERE localId = ?`, [ex.id]) as any);
     const localId = existing?.localId ?? Crypto.randomUUID();
     db.runSync(
       `INSERT OR REPLACE INTO exercises
@@ -185,22 +212,36 @@ export class WorkoutRepo {
     });
   }
 
-  saveTemplate(template: { name: string; description?: string; exercises: Array<{ exerciseId: string; defaultSets: number; defaultReps?: number; defaultWeightKg?: number; restSeconds?: number; order: number }> }): string {
+  saveTemplate(template: TemplateInput): string {
     const localId = Crypto.randomUUID();
     db.runSync(
-      `INSERT INTO workout_templates (localId, name, description, syncStatus, updatedAt)
-       VALUES (?, ?, ?, 'pending', ?)`,
-      [localId, template.name, template.description ?? null, new Date().toISOString()]
+      `INSERT INTO workout_templates (localId, name, description, label, syncStatus, updatedAt)
+       VALUES (?, ?, ?, ?, 'pending', ?)`,
+      [localId, template.name, template.description ?? null, template.label ?? null, new Date().toISOString()]
     );
-    for (const ex of template.exercises) {
+    this.replaceTemplateExercises(localId, template.exercises);
+    return localId;
+  }
+
+  /** Update an existing template's name/label/description and replace its exercises. */
+  updateTemplate(localId: string, template: TemplateInput): void {
+    db.runSync(
+      `UPDATE workout_templates SET name = ?, description = ?, label = ?, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
+      [template.name, template.description ?? null, template.label ?? null, new Date().toISOString(), localId]
+    );
+    db.runSync(`DELETE FROM template_exercises WHERE templateLocalId = ?`, [localId]);
+    this.replaceTemplateExercises(localId, template.exercises);
+  }
+
+  private replaceTemplateExercises(templateLocalId: string, exercises: TemplateInput['exercises']): void {
+    for (const ex of exercises) {
       db.runSync(
         `INSERT INTO template_exercises
            (localId, templateLocalId, exerciseLocalId, defaultSets, defaultReps, defaultWeightKg, restSeconds, sortOrder)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [Crypto.randomUUID(), localId, ex.exerciseId, ex.defaultSets, ex.defaultReps ?? null, ex.defaultWeightKg ?? null, ex.restSeconds ?? null, ex.order]
+        [Crypto.randomUUID(), templateLocalId, ex.exerciseId, ex.defaultSets, ex.defaultReps ?? null, ex.defaultWeightKg ?? null, ex.restSeconds ?? null, ex.order]
       );
     }
-    return localId;
   }
 
   deleteTemplate(localId: string): void {
@@ -270,6 +311,18 @@ export class WorkoutRepo {
   }
 
   discardSession(localId: string): void {
+    db.runSync(`DELETE FROM workout_sessions WHERE localId = ?`, [localId]);
+  }
+
+  /** Delete a session and all of its exercises/sets (used from history). */
+  deleteSession(localId: string): void {
+    const ses = db.getAllSync(
+      `SELECT localId FROM session_exercises WHERE sessionLocalId = ?`, [localId]
+    ) as any[];
+    for (const se of ses) {
+      db.runSync(`DELETE FROM exercise_sets WHERE sessionExerciseLocalId = ?`, [se.localId]);
+    }
+    db.runSync(`DELETE FROM session_exercises WHERE sessionLocalId = ?`, [localId]);
     db.runSync(`DELETE FROM workout_sessions WHERE localId = ?`, [localId]);
   }
 
@@ -356,6 +409,51 @@ export class WorkoutRepo {
       [exerciseLocalId]
     ) as any;
     return row?.best ?? 0;
+  }
+
+  /** Exercises that have at least one set logged in a finished session. */
+  getExercisesWithHistory(): { id: string; name: string; muscleGroup: string | null; sessions: number; lastAt: string }[] {
+    return (db.getAllSync(
+      `SELECT ex.localId AS id, ex.name AS name, ex.muscleGroup AS muscleGroup,
+              COUNT(DISTINCT ws.localId) AS sessions, MAX(ws.startedAt) AS lastAt
+       FROM exercise_sets es
+       JOIN session_exercises se ON es.sessionExerciseLocalId = se.localId
+       JOIN workout_sessions ws ON se.sessionLocalId = ws.localId
+       JOIN exercises ex ON se.exerciseLocalId = ex.localId
+       WHERE ws.finishedAt IS NOT NULL AND ws.deleted = 0
+       GROUP BY ex.localId
+       ORDER BY lastAt DESC`
+    ) as any[]).map((r) => ({
+      id: r.id,
+      name: r.name,
+      muscleGroup: r.muscleGroup ?? null,
+      sessions: r.sessions ?? 0,
+      lastAt: r.lastAt,
+    }));
+  }
+
+  /** Per-session progress for one exercise (oldest → newest): est 1RM, volume, top weight, reps. */
+  getExerciseSessionHistory(exerciseLocalId: string): { date: string; est1RM: number; volume: number; topWeight: number; reps: number }[] {
+    return (db.getAllSync(
+      `SELECT ws.startedAt AS date,
+              MAX(es.weightKg * (1 + es.reps / 30.0)) AS est1RM,
+              SUM(es.weightKg * es.reps) AS volume,
+              MAX(es.weightKg) AS topWeight,
+              SUM(es.reps) AS reps
+       FROM exercise_sets es
+       JOIN session_exercises se ON es.sessionExerciseLocalId = se.localId
+       JOIN workout_sessions ws ON se.sessionLocalId = ws.localId
+       WHERE se.exerciseLocalId = ? AND ws.finishedAt IS NOT NULL AND ws.deleted = 0
+       GROUP BY ws.localId
+       ORDER BY ws.startedAt ASC`,
+      [exerciseLocalId]
+    ) as any[]).map((r) => ({
+      date: r.date,
+      est1RM: r.est1RM ?? 0,
+      volume: r.volume ?? 0,
+      topWeight: r.topWeight ?? 0,
+      reps: r.reps ?? 0,
+    }));
   }
 
   // Build LocalExercise list from a template for a new session

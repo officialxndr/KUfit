@@ -212,6 +212,19 @@ export class HealthRepo {
     );
   }
 
+  /** Patch individual sites (or notes/date) on a measurement; pass null to clear a site. */
+  updateMeasurement(localId: string, patch: Record<string, number | string | null>): void {
+    const allowed = new Set(['neck', 'shoulders', 'chest', 'leftArm', 'rightArm', 'waist', 'hips', 'leftThigh', 'rightThigh', 'leftCalf', 'rightCalf', 'notes', 'date']);
+    const keys = Object.keys(patch).filter((k) => allowed.has(k));
+    if (!keys.length) return;
+    const setSql = keys.map((k) => `${k} = ?`).join(', ');
+    const vals = keys.map((k) => patch[k] ?? null);
+    db.runSync(
+      `UPDATE body_measurements SET ${setSql}, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
+      [...vals, new Date().toISOString(), localId]
+    );
+  }
+
   deleteMeasurement(localId: string): void {
     db.runSync(
       `UPDATE body_measurements SET deleted = 1, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,

@@ -1,18 +1,51 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, TextInput, StyleSheet, Pressable, FlatList, ActivityIndicator, Alert,
+  View, TextInput, StyleSheet, Pressable, FlatList, ActivityIndicator, Alert, Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
-import { X, ScanLine, Search, Plus } from 'lucide-react-native';
+import { X, ScanLine, Search, Plus, Star, Utensils } from 'lucide-react-native';
 
 import { FsText, Button } from '@/components/ui';
+import { FoodQuantitySheet, type SheetFood } from '@/components/FoodQuantitySheet';
 import { searchFood, barcodeLookup, ensureFoodItem, type FoodCandidate } from '@/lib/foodSearch';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { colors, radius, space } from '@/theme/tokens';
-import { type } from '@/theme/text';
-import type { MealType } from '@/types';
+import type { FoodItem, MealType, Recipe } from '@/types';
+
+type Tab = 'search' | 'recent' | 'favorites';
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'search', label: 'Search' },
+  { key: 'recent', label: 'Recent' },
+  { key: 'favorites', label: 'Favorites' },
+];
+
+type Row = { kind: 'recipe'; recipe: Recipe } | { kind: 'food'; food: FoodCandidate };
+
+/** Map a stored FoodItem to a search candidate (carries favorite + rich details). */
+function toCandidate(fi: FoodItem): FoodCandidate {
+  return {
+    ...fi, localId: fi.id, barcode: fi.barcode ?? null, brand: fi.brand ?? null,
+    fiber: fi.fiber ?? null, sugar: fi.sugar ?? null, sodium: fi.sodium ?? null,
+    saturatedFat: fi.saturatedFat ?? null, isFavorite: fi.isFavorite ?? false, details: fi.details ?? null,
+  };
+}
+
+/** Build a SheetFood for a recipe from its per-serving macros + aggregated ingredient breakdown. */
+function recipeToSheetFood(r: Recipe): SheetFood | null {
+  if (!r.nutrition) return null;
+  const b = foodRepo.getRecipeBreakdown(r.id);
+  const n = r.nutrition;
+  return {
+    name: r.name,
+    brand: `${r.servings} serving${r.servings > 1 ? 's' : ''} · recipe`,
+    servingSize: 1, servingUnit: 'serving',
+    calories: n.perServingCalories, protein: n.perServingProtein, carbs: n.perServingCarbs, fat: n.perServingFat,
+    fiber: b?.core.fiber ?? null, sugar: b?.core.sugar ?? null, sodium: b?.core.sodium ?? null,
+    saturatedFat: b?.core.saturatedFat ?? null, details: b?.details ?? null,
+  };
+}
 
 export default function AddFoodModal() {
   const router = useRouter();
@@ -21,40 +54,80 @@ export default function AddFoodModal() {
   const date = params.date ?? new Date().toISOString().slice(0, 10);
 
   const [q, setQ] = useState('');
-  const [results, setResults] = useState<FoodCandidate[]>([]);
+  const [tab, setTab] = useState<Tab>('search');
+  const [foods, setFoods] = useState<FoodCandidate[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const [selected, setSelected] = useState<FoodCandidate | null>(null);
-  const [servings, setServings] = useState('1');
+  const [selected, setSelected] = useState<{ food: SheetFood; log: (qty: number) => void } | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
+  const allRecipes = useRef<Recipe[]>([]);
+  useEffect(() => { allRecipes.current = foodRepo.getRecipes(); setRecipes(allRecipes.current); }, []);
+
+  // Load results for the active tab + query.
+  const load = useCallback(() => {
     if (debounce.current) clearTimeout(debounce.current);
-    if (q.trim().length < 2) {
-      setResults(foodRepo.getRecentFoodItems(10).map((fi) => ({
-        ...fi, localId: fi.id, barcode: fi.barcode ?? null, brand: fi.brand ?? null,
-        fiber: fi.fiber ?? null, sugar: fi.sugar ?? null, sodium: fi.sodium ?? null,
-      })));
+    const ql = q.trim().toLowerCase();
+    const matchRecipes = ql.length >= 2 ? allRecipes.current.filter((r) => r.name.toLowerCase().includes(ql)) : allRecipes.current;
+
+    if (tab === 'favorites') {
+      setFoods(foodRepo.getFavoriteFoodItems().map(toCandidate));
+      setRecipes([]);
+      setLoading(false);
+      return;
+    }
+    if (tab === 'recent') {
+      setFoods(foodRepo.getRecentFoodItems(15).map(toCandidate));
+      setRecipes(matchRecipes);
+      setLoading(false);
+      return;
+    }
+    // search
+    setRecipes(matchRecipes);
+    if (ql.length < 2) {
+      setFoods(foodRepo.getRecentFoodItems(10).map(toCandidate));
       setLoading(false);
       return;
     }
     setLoading(true);
     debounce.current = setTimeout(async () => {
-      const r = await searchFood(q);
-      setResults(r);
+      setFoods(await searchFood(q));
       setLoading(false);
     }, 350);
-    return () => { if (debounce.current) clearTimeout(debounce.current); };
-  }, [q]);
+  }, [q, tab]);
+
+  useEffect(() => { load(); return () => { if (debounce.current) clearTimeout(debounce.current); }; }, [load]);
+
+  const rows: Row[] = useMemo(() => [
+    ...recipes.map((r) => ({ kind: 'recipe' as const, recipe: r })),
+    ...foods.map((f) => ({ kind: 'food' as const, food: f })),
+  ], [recipes, foods]);
+
+  const pickFood = (c: FoodCandidate) => {
+    Keyboard.dismiss();
+    setSelected({
+      food: c,
+      log: (qty) => { foodRepo.addLog({ date, meal, foodItemLocalId: ensureFoodItem(c), servingQty: qty }); router.back(); },
+    });
+  };
+  const pickRecipe = (r: Recipe) => {
+    const food = recipeToSheetFood(r);
+    if (!food) return;
+    Keyboard.dismiss();
+    setSelected({ food, log: (qty) => { foodRepo.addLog({ date, meal, recipeLocalId: r.id, servingQty: qty }); router.back(); } });
+  };
+  const toggleFav = (c: FoodCandidate) => {
+    if (!c.localId) return;
+    foodRepo.toggleFavorite(c.localId);
+    load();
+  };
 
   const openScanner = async () => {
     if (!permission?.granted) {
       const res = await requestPermission();
-      if (!res.granted) {
-        Alert.alert('Camera needed', 'Enable camera access to scan barcodes.');
-        return;
-      }
+      if (!res.granted) { Alert.alert('Camera needed', 'Enable camera access to scan barcodes.'); return; }
     }
     setScanning(true);
   };
@@ -64,21 +137,8 @@ export default function AddFoodModal() {
     setLoading(true);
     const found = await barcodeLookup(r.data);
     setLoading(false);
-    if (found) {
-      setSelected(found);
-      setServings('1');
-    } else {
-      Alert.alert('Not found', `No product found for barcode ${r.data}. Try searching by name.`);
-    }
-  };
-
-  const logSelected = () => {
-    if (!selected) return;
-    const qty = Number(servings);
-    if (!qty || qty <= 0) return;
-    const foodItemLocalId = ensureFoodItem(selected);
-    foodRepo.addLog({ date, meal, foodItemLocalId, servingQty: qty });
-    router.back();
+    if (found) pickFood(found);
+    else Alert.alert('Not found', `No product found for barcode ${r.data}. Try searching by name.`);
   };
 
   if (scanning) {
@@ -94,9 +154,7 @@ export default function AddFoodModal() {
           <Pressable onPress={() => setScanning(false)} style={styles.iconBtn} hitSlop={10}>
             <X color="#fff" size={26} />
           </Pressable>
-          <FsText variant="bodyMedium" style={{ color: '#fff', textAlign: 'center' }}>
-            Point at a barcode
-          </FsText>
+          <FsText variant="bodyMedium" style={{ color: '#fff', textAlign: 'center' }}>Point at a barcode</FsText>
         </SafeAreaView>
       </View>
     );
@@ -116,8 +174,8 @@ export default function AddFoodModal() {
           <Search color={colors.muted} size={18} />
           <TextInput
             value={q}
-            onChangeText={setQ}
-            placeholder="Search foods…"
+            onChangeText={(t) => { setQ(t); if (tab !== 'search' && t.trim().length >= 2) setTab('search'); }}
+            placeholder="Search foods & recipes…"
             placeholderTextColor={colors.muted}
             style={styles.input}
             autoFocus
@@ -129,76 +187,71 @@ export default function AddFoodModal() {
         </Pressable>
       </View>
 
+      <View style={styles.tabs}>
+        {TABS.map((t) => {
+          const active = t.key === tab;
+          return (
+            <Pressable key={t.key} style={[styles.tab, active && styles.tabOn]} onPress={() => setTab(t.key)}>
+              <FsText variant="caption" style={{ color: active ? colors.white : colors.muted, fontWeight: '600' }}>{t.label}</FsText>
+            </Pressable>
+          );
+        })}
+      </View>
+
       {loading && <ActivityIndicator color={colors.primary} style={{ marginTop: space[4] }} />}
 
       <FlatList
-        data={results}
-        keyExtractor={(item, i) => (item.localId ?? item.barcode ?? item.name) + i}
+        data={rows}
+        keyExtractor={(item, i) => (item.kind === 'recipe' ? `r${item.recipe.id}` : `f${item.food.localId ?? item.food.barcode ?? item.food.name}`) + i}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingHorizontal: space[4], paddingBottom: 200 }}
         ListEmptyComponent={
           !loading ? (
             <View style={{ marginTop: space[4], gap: space[3] }}>
               <FsText variant="caption">
-                {q.length < 2 ? 'Recent foods appear here. Search or scan to add.' : 'No matches.'}
+                {tab === 'favorites' ? 'Star foods to keep them here.' : q.length < 2 ? 'Recent foods & recipes appear here.' : 'No matches.'}
               </FsText>
-              <Button
-                title="Create custom food"
-                variant="ghost"
-                onPress={() => router.push({ pathname: '/custom-food', params: { meal, date } })}
-              />
+              <Button title="Create custom food" variant="ghost" onPress={() => router.push({ pathname: '/custom-food', params: { meal, date } })} />
             </View>
           ) : null
         }
-        renderItem={({ item }) => (
-          <Pressable
-            style={styles.resultRow}
-            onPress={() => { setSelected(item); setServings('1'); }}
-          >
+        renderItem={({ item }) => item.kind === 'recipe' ? (
+          <Pressable style={styles.resultRow} onPress={() => pickRecipe(item.recipe)}>
+            <Utensils color={colors.primary} size={16} />
             <View style={{ flex: 1 }}>
-              <FsText variant="bodyMedium" numberOfLines={1}>{item.name}</FsText>
+              <FsText variant="bodyMedium" numberOfLines={1}>{item.recipe.name}</FsText>
               <FsText variant="caption" numberOfLines={1}>
-                {item.brand ? `${item.brand} · ` : ''}{Math.round(item.calories)} kcal / {item.servingSize}{item.servingUnit}
-                {item.isCustom ? ' · custom' : ''}
+                {item.recipe.nutrition ? `${Math.round(item.recipe.nutrition.perServingCalories)} kcal / serving` : ''} · recipe
               </FsText>
             </View>
+            <Plus color={colors.primary} size={20} strokeWidth={2.4} />
+          </Pressable>
+        ) : (
+          <Pressable style={styles.resultRow} onPress={() => pickFood(item.food)}>
+            <View style={{ flex: 1 }}>
+              <FsText variant="bodyMedium" numberOfLines={1}>{item.food.name}</FsText>
+              <FsText variant="caption" numberOfLines={1}>
+                {item.food.brand ? `${item.food.brand} · ` : ''}{Math.round(item.food.calories)} kcal / {item.food.servingSize}{item.food.servingUnit}
+                {item.food.isCustom ? ' · custom' : ''}
+              </FsText>
+            </View>
+            {item.food.localId && (
+              <Pressable onPress={() => toggleFav(item.food)} hitSlop={10} style={{ padding: 4 }}>
+                <Star color={item.food.isFavorite ? colors.warning : colors.muted} size={18} fill={item.food.isFavorite ? colors.warning : 'transparent'} />
+              </Pressable>
+            )}
             <Plus color={colors.primary} size={20} strokeWidth={2.4} />
           </Pressable>
         )}
       />
 
-      {/* Quantity sheet */}
-      {selected && (
-        <View style={styles.sheet}>
-          <FsText variant="cardTitle" numberOfLines={1}>{selected.name}</FsText>
-          <FsText variant="caption" style={{ marginBottom: space[3] }}>
-            {Math.round(selected.calories)} kcal per {selected.servingSize}{selected.servingUnit} serving
-          </FsText>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3], marginBottom: space[3] }}>
-            <FsText variant="body">Servings</FsText>
-            <View style={styles.qtyField}>
-              <TextInput
-                value={servings}
-                onChangeText={setServings}
-                keyboardType="decimal-pad"
-                style={[styles.input, { textAlign: 'center' }]}
-                selectTextOnFocus
-              />
-            </View>
-            <FsText variant="caption">
-              = {Math.round(selected.calories * (Number(servings) || 0))} kcal
-            </FsText>
-          </View>
-          <View style={{ flexDirection: 'row', gap: space[2] }}>
-            <View style={{ flex: 1 }}>
-              <Button title="Cancel" variant="ghost" onPress={() => setSelected(null)} />
-            </View>
-            <View style={{ flex: 2 }}>
-              <Button title="Add to Log" onPress={logSelected} />
-            </View>
-          </View>
-        </View>
-      )}
+      {/* Quantity sheet + nutrition summary (shared with Today + recipes) */}
+      <FoodQuantitySheet
+        food={selected?.food ?? null}
+        date={date}
+        onSubmit={(qty) => selected?.log(qty)}
+        onClose={() => setSelected(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -219,17 +272,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary, borderRadius: radius.md,
   },
   input: { flex: 1, color: colors.text, paddingVertical: 12, fontSize: 14 },
+  tabs: { flexDirection: 'row', gap: space[1], paddingHorizontal: space[4], marginBottom: space[2] },
+  tab: { flex: 1, paddingVertical: 7, borderRadius: radius.sm, alignItems: 'center', backgroundColor: colors.surfaceHigh },
+  tabOn: { backgroundColor: colors.primary },
   resultRow: {
     flexDirection: 'row', alignItems: 'center', gap: space[3],
     paddingVertical: space[3], borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
-  sheet: {
-    position: 'absolute', left: 0, right: 0, bottom: 0,
-    backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
-    padding: space[4], borderTopWidth: 1, borderColor: colors.border,
-  },
-  qtyField: {
-    backgroundColor: colors.surfaceHigh, borderRadius: radius.md, width: 80, paddingHorizontal: 8,
   },
   scanOverlay: { padding: space[4], gap: space[4] },
   iconBtn: { alignSelf: 'flex-start' },

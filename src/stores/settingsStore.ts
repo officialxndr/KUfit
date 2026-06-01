@@ -2,8 +2,18 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
-  ActivityLevel, GoalType, MacroTargetMode, Sex, UnitSystem,
+  ActivityLevel, GoalType, MacroTargetMode, Sex, TrainingFocus, UnitSystem,
 } from '@/types';
+
+/** A user-tracked secondary nutrient goal (beyond calories/macros). */
+export interface NutrientGoal {
+  /** A NUTRIENT_DEFS key (e.g. "potassium") or a core key: fiber/sugar/sodium/saturatedFat. */
+  key: string;
+  /** Daily target in the nutrient's display unit (g for most, mg for sodium, etc.). */
+  target: number;
+  /** "limit" = stay under (sodium/sugar…), "goal" = reach at least (fiber/protein…). */
+  direction: 'limit' | 'goal';
+}
 
 /**
  * Local-first user profile. In the no-server mode this IS the source of truth
@@ -12,6 +22,7 @@ import type {
  */
 export interface Profile {
   name: string | null;
+  avatarUri: string | null;
   birthDate: string | null; // ISO date
   heightCm: number | null;
   sex: Sex | null;
@@ -19,6 +30,8 @@ export interface Profile {
   unitSystem: UnitSystem;
   goalType: GoalType;
   goalWeightKg: number | null;
+  /** Maintain buffer (± kg) around goalWeightKg; null = single target. */
+  goalRangeKg: number | null;
   goalBodyFat: number | null;
   goalDate: string | null;
   calorieGoal: number | null; // manual override; null = auto from TDEE
@@ -27,10 +40,16 @@ export interface Profile {
   fatTarget: number | null;
   macroTargetMode: MacroTargetMode;
   countActiveCalories: boolean;
+  // Training goals (Workout section)
+  weeklySessionTarget: number | null;
+  trainingFocus: TrainingFocus | null;
+  // Custom secondary nutrient goals (Nutrition section)
+  nutrientGoals: NutrientGoal[];
 }
 
 const DEFAULT_PROFILE: Profile = {
   name: null,
+  avatarUri: null,
   birthDate: null,
   heightCm: null,
   sex: null,
@@ -38,6 +57,7 @@ const DEFAULT_PROFILE: Profile = {
   unitSystem: 'IMPERIAL',
   goalType: 'MAINTAIN',
   goalWeightKg: null,
+  goalRangeKg: null,
   goalBodyFat: null,
   goalDate: null,
   calorieGoal: null,
@@ -46,6 +66,9 @@ const DEFAULT_PROFILE: Profile = {
   fatTarget: null,
   macroTargetMode: 'GRAMS',
   countActiveCalories: false,
+  weeklySessionTarget: null,
+  trainingFocus: null,
+  nutrientGoals: [],
 };
 
 interface SettingsState {
@@ -71,6 +94,15 @@ export const useSettingsStore = create<SettingsState>()(
       name: 'fitself-settings',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({ profile: s.profile, onboarded: s.onboarded }),
+      // Backfill any profile fields added after a user's data was persisted.
+      merge: (persisted, current) => {
+        const p = (persisted as { profile?: Partial<Profile>; onboarded?: boolean }) ?? {};
+        return {
+          ...current,
+          ...p,
+          profile: { ...DEFAULT_PROFILE, ...(p.profile ?? {}) },
+        };
+      },
       onRehydrateStorage: () => (state) => {
         if (state) state.hydrated = true;
       },

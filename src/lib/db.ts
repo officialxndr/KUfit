@@ -23,6 +23,9 @@ export function initDb() {
       fiber REAL,
       sugar REAL,
       sodium REAL,
+      saturatedFat REAL,
+      detailsJson TEXT,
+      isFavorite INTEGER DEFAULT 0,
       source TEXT DEFAULT 'MANUAL',
       isCustom INTEGER DEFAULT 0,
       deleted INTEGER DEFAULT 0,
@@ -194,9 +197,43 @@ export function initDb() {
       deleted INTEGER DEFAULT 0
     );
 
+    CREATE TABLE IF NOT EXISTS app_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
+
     CREATE INDEX IF NOT EXISTS idx_food_logs_date ON food_logs(date);
     CREATE INDEX IF NOT EXISTS idx_weight_date ON weight_entries(date);
     CREATE INDEX IF NOT EXISTS idx_exercises_name ON exercises(name);
     CREATE INDEX IF NOT EXISTS idx_exercises_muscle ON exercises(muscleGroup);
   `);
+
+  runMigrations();
+}
+
+/** Small key/value store for seed versions and other app-level flags. */
+export function getMeta(key: string): string | null {
+  const row = db.getFirstSync(`SELECT value FROM app_meta WHERE key = ?`, [key]) as { value: string } | null;
+  return row?.value ?? null;
+}
+export function setMeta(key: string, value: string): void {
+  db.runSync(`INSERT OR REPLACE INTO app_meta (key, value) VALUES (?, ?)`, [key, value]);
+}
+
+/**
+ * Lightweight forward-only migrations for columns added after a DB already exists.
+ * `CREATE TABLE IF NOT EXISTS` never alters an existing table, so new columns must
+ * be ADDed explicitly. Each `ensureColumn` is a no-op once the column is present.
+ */
+function runMigrations() {
+  ensureColumn('food_items', 'saturatedFat', 'REAL');
+  ensureColumn('food_items', 'detailsJson', 'TEXT');
+  ensureColumn('food_items', 'isFavorite', 'INTEGER DEFAULT 0');
+}
+
+function ensureColumn(table: string, column: string, decl: string) {
+  const cols = db.getAllSync(`PRAGMA table_info(${table})`) as { name: string }[];
+  if (!cols.some((c) => c.name === column)) {
+    db.execSync(`ALTER TABLE ${table} ADD COLUMN ${column} ${decl}`);
+  }
 }

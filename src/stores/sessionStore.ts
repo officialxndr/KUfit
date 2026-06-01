@@ -23,6 +23,7 @@ interface SessionState {
   updateSet: (exLocalId: string, setLocalId: string, patch: Partial<LocalSet>) => void;
   removeSet: (exLocalId: string, setLocalId: string) => void;
   setNotes: (exLocalId: string, notes: string) => void;
+  setRestSeconds: (exLocalId: string, restSeconds: number) => void;
   setName: (name: string) => void;
   finish: () => string | null;
   discard: () => void;
@@ -109,6 +110,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   setNotes: (exLocalId, notes) =>
     set((s) => ({
       exercises: s.exercises.map((e) => (e.localId === exLocalId ? { ...e, notes } : e)),
+    })),
+
+  setRestSeconds: (exLocalId, restSeconds) =>
+    set((s) => ({
+      exercises: s.exercises.map((e) => (e.localId === exLocalId ? { ...e, restSeconds } : e)),
     })),
 
   setName: (name) => set({ name }),

@@ -189,10 +189,10 @@ const styles = StyleSheet.create({
   chip: {
     backgroundColor: colors.surfaceHigh,
     borderRadius: radius.sm,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
   },
-  chipText: { fontSize: 13, color: colors.text, fontWeight: '500' },
+  chipText: { fontSize: 13, lineHeight: 18, color: colors.text, fontWeight: '500' },
   btn: {
     borderRadius: radius.md,
     paddingVertical: 13,

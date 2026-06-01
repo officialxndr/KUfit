@@ -62,6 +62,7 @@ export default function ExercisesScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.chipsScroll}
         contentContainerStyle={styles.chips}
       >
         <Chip label="All" selected={!muscle} onPress={() => setMuscle(undefined)} />
@@ -104,7 +105,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, marginHorizontal: space[4],
   },
   input: { flex: 1, color: colors.text, paddingVertical: 12, fontSize: 14 },
-  chips: { gap: space[2], paddingHorizontal: space[4], paddingVertical: space[3] },
+  chipsScroll: { flexGrow: 0, flexShrink: 0 },
+  chips: { gap: space[2], paddingHorizontal: space[4], paddingVertical: space[3], alignItems: 'center' },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: space[2],
     paddingVertical: space[3], borderBottomWidth: 1, borderBottomColor: colors.border,

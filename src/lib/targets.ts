@@ -36,10 +36,19 @@ export function resolveTargets(profile: Profile): ResolvedTargets {
   const goalDate = phase?.endDate ?? profile.goalDate;
   const source = phase ? phase.name : 'Profile default';
 
-  // Macro targets: phase overrides → profile → null
-  const proteinTarget = phase?.proteinTarget ?? profile.proteinTarget ?? null;
-  const carbsTarget = phase?.carbsTarget ?? profile.carbsTarget ?? null;
-  const fatTarget = phase?.fatTarget ?? profile.fatTarget ?? null;
+  // Macro targets: phase overrides → profile → derived from calories (below).
+  let proteinTarget = phase?.proteinTarget ?? profile.proteinTarget ?? null;
+  let carbsTarget = phase?.carbsTarget ?? profile.carbsTarget ?? null;
+  let fatTarget = phase?.fatTarget ?? profile.fatTarget ?? null;
+
+  // Fill any unset macro targets from the calorie target (30% protein / 40% carbs / 30% fat),
+  // so all three macro bars always show an "out of total".
+  const withMacroDefaults = (cal: number | null) => {
+    if (cal == null) return;
+    if (proteinTarget == null) proteinTarget = Math.round((cal * 0.3) / 4);
+    if (carbsTarget == null) carbsTarget = Math.round((cal * 0.4) / 4);
+    if (fatTarget == null) fatTarget = Math.round((cal * 0.3) / 9);
+  };
 
   // Manual override on phase or profile wins
   const manualCalorie = phase?.calorieTarget ?? profile.calorieGoal ?? null;
@@ -49,6 +58,7 @@ export function resolveTargets(profile: Profile): ResolvedTargets {
     currentWeightKg != null && profile.heightCm != null && profile.sex != null && age != null;
 
   if (!canCompute) {
+    withMacroDefaults(manualCalorie);
     return {
       calorieTarget: manualCalorie,
       proteinTarget,
@@ -71,6 +81,7 @@ export function resolveTargets(profile: Profile): ResolvedTargets {
   const bmr = calcBMR(inputs);
 
   if (manualCalorie != null) {
+    withMacroDefaults(manualCalorie);
     return { calorieTarget: manualCalorie, proteinTarget, carbsTarget, fatTarget, tdee, warning: null, source };
   }
 
@@ -83,5 +94,6 @@ export function resolveTargets(profile: Profile): ResolvedTargets {
     goalDate,
   });
 
+  withMacroDefaults(target);
   return { calorieTarget: target, proteinTarget, carbsTarget, fatTarget, tdee, warning, source };
 }
