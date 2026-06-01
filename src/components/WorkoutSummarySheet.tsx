@@ -4,7 +4,7 @@ import { Timer, Dumbbell, Layers, Flame, Trophy, X } from 'lucide-react-native';
 import { FsText, Card, Badge } from '@/components/ui';
 import { BottomSheet } from '@/components/BottomSheet';
 import { formatWeight, formatVolume } from '@/lib/units';
-import { colors, space } from '@/theme/tokens';
+import { colors, space, themedStyles } from '@/theme/tokens';
 import type { UnitSystem, WorkoutSession } from '@/types';
 
 const SCREEN_H = Dimensions.get('window').height;
@@ -87,10 +87,10 @@ function Stat({ icon: Icon, label, value }: { icon: typeof Timer; label: string;
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: space[3] },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
   statCard: { width: '48%', flexGrow: 1, alignItems: 'center', gap: 2 },
   prCard: { flexDirection: 'row', alignItems: 'center', gap: space[3], marginTop: space[3] },
   setRow: { flexDirection: 'row', alignItems: 'center', gap: space[2], paddingVertical: 2 },
-});
+}));

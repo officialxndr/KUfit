@@ -5,7 +5,7 @@ import { ChevronDown, UserCircle, type LucideIcon } from 'lucide-react-native';
 
 import { FsText } from '@/components/ui';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { colors, space, radius, shadow } from '@/theme/tokens';
+import { colors, space, radius, shadow, themedStyles } from '@/theme/tokens';
 import { SECTIONS, type SectionKey } from './config';
 
 /**
@@ -86,7 +86,7 @@ export function AppHeader({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   header: {
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
@@ -126,4 +126,4 @@ const styles = StyleSheet.create({
   },
   menuItemActive: { backgroundColor: colors.surfaceHigh },
   avatar: { width: 30, height: 30, borderRadius: radius.full, backgroundColor: colors.surfaceHigh },
-});
+}));

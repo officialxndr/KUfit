@@ -3,7 +3,7 @@ import { View, Pressable, StyleSheet } from 'react-native';
 import Body, { type ExtendedBodyPart, type Slug } from 'react-native-body-highlighter';
 
 import { FsText } from '@/components/ui';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 
 /**
  * Anatomical muscle heatmap (react-native-body-highlighter). Each muscle group's
@@ -74,7 +74,7 @@ export function MuscleMap({ counts, target = 12 }: { counts: Record<string, numb
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   toggle: {
     flexDirection: 'row',
     gap: 4,
@@ -85,4 +85,4 @@ const styles = StyleSheet.create({
   },
   toggleBtn: { paddingVertical: 6, paddingHorizontal: 20, borderRadius: radius.sm },
   toggleOn: { backgroundColor: colors.primary },
-});
+}));

@@ -9,7 +9,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { ACTIVITY_DESCRIPTIONS } from '@/lib/tdee';
 import { toKg, UNIT_LABELS } from '@/lib/units';
 import { haptic } from '@/lib/haptics';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { ActivityLevel, GoalType, Sex, UnitSystem } from '@/types';
 
 const SEXES: Sex[] = ['MALE', 'FEMALE', 'OTHER'];
@@ -162,7 +162,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space[4], paddingBottom: space[3] },
   dots: { flexDirection: 'row', gap: 6 },
@@ -177,4 +177,4 @@ const styles = StyleSheet.create({
   option: { padding: space[3], borderRadius: radius.md, backgroundColor: colors.surfaceHigh, borderWidth: 1, borderColor: 'transparent' },
   optionOn: { borderColor: colors.primary },
   footer: { paddingHorizontal: space[4], paddingTop: space[3], borderTopWidth: 1, borderTopColor: colors.border },
-});
+}));

@@ -2,7 +2,7 @@ import { View, StyleSheet } from 'react-native';
 
 import { CalorieRing } from '@/components/CalorieRing';
 import { MacroBars } from '@/components/MacroBar';
-import { space } from '@/theme/tokens';
+import { space, themedStyles } from '@/theme/tokens';
 
 /**
  * The shared "calories + macros" summary block — a circular calorie ring beside
@@ -36,6 +36,6 @@ export function CalorieMacroCard({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: space[6] },
-});
+}));

@@ -6,7 +6,7 @@ import { X, Search, Plus, Minus, Trash2 } from 'lucide-react-native';
 
 import { FsText, Button, Card } from '@/components/ui';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { FoodItem } from '@/types';
 
 interface Ingredient {
@@ -207,7 +207,7 @@ export default function NewRecipe() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',
@@ -253,4 +253,4 @@ const styles = StyleSheet.create({
     marginBottom: space[2],
   },
   resultRow: { flexDirection: 'row', alignItems: 'center', gap: space[2], marginBottom: space[2] },
-});
+}));

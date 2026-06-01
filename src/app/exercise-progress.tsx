@@ -10,9 +10,8 @@ import { LineChart, type Series } from '@/components/LineChart';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { formatWeight } from '@/lib/units';
-import { colors, space } from '@/theme/tokens';
+import { colors, space, themedStyles } from '@/theme/tokens';
 
-const COMPARE_COLOR = colors.macroFat;
 const CHART_H = 80;
 const fmtVol = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v)));
 
@@ -53,7 +52,7 @@ export default function ExerciseProgress() {
   const maxVol = Math.max(...history.map((h) => h.volume), 1);
 
   const oneRMSeries: Series[] = [{ points: history.map((h) => h.est1RM), color: colors.primary }];
-  if (compareHistory.length) oneRMSeries.push({ points: compareHistory.map((h) => h.est1RM), color: COMPARE_COLOR });
+  if (compareHistory.length) oneRMSeries.push({ points: compareHistory.map((h) => h.est1RM), color: colors.macroFat });
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -82,7 +81,7 @@ export default function ExerciseProgress() {
                 {compareId ? (
                   <View style={{ flexDirection: 'row', gap: space[3] }}>
                     <Legend color={colors.primary} label={primaryName} />
-                    <Legend color={COMPARE_COLOR} label={compareName} />
+                    <Legend color={colors.macroFat} label={compareName} />
                   </View>
                 ) : null}
               </View>
@@ -151,7 +150,7 @@ function Legend({ color, label }: { color: string; label: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: space[2],
@@ -168,4 +167,4 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: space[2],
     paddingVertical: space[3], borderTopWidth: 1, borderTopColor: colors.border,
   },
-});
+}));

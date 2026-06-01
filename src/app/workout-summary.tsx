@@ -11,7 +11,7 @@ import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useNavStore } from '@/stores/navStore';
 import { formatVolume } from '@/lib/units';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 
 const { height: SCREEN_H, width: SCREEN_W } = Dimensions.get('window');
 const DAY_MS = 86_400_000;
@@ -157,7 +157,7 @@ function Stat({ icon: Icon, label, value }: { icon: typeof Timer; label: string;
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   liquidBlock: {
     position: 'absolute',
@@ -184,4 +184,4 @@ const styles = StyleSheet.create({
   prCard: { flexDirection: 'row', alignItems: 'center', gap: space[3], marginTop: space[3] },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space[2] },
   track: { height: 10, borderRadius: radius.full, backgroundColor: colors.surfaceHigh, overflow: 'hidden' },
-});
+}));

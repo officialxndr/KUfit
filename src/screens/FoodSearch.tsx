@@ -6,7 +6,7 @@ import { Card, FsText } from '@/components/ui';
 import { FoodQuantitySheet } from '@/components/FoodQuantitySheet';
 import { searchFood, ensureFoodItem, type FoodCandidate } from '@/lib/foodSearch';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { MealType } from '@/types';
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -137,7 +137,7 @@ export function FoodSearch() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   searchField: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: colors.surfaceHigh, borderRadius: radius.md, paddingHorizontal: 14, marginBottom: space[3],
@@ -147,4 +147,4 @@ const styles = StyleSheet.create({
   mealChip: { flex: 1, paddingVertical: 7, borderRadius: radius.sm, alignItems: 'center', backgroundColor: colors.surfaceHigh },
   mealChipOn: { backgroundColor: colors.primary },
   resultRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], marginBottom: space[2] },
-});
+}));

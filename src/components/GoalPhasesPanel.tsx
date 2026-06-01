@@ -6,7 +6,7 @@ import { FsText, Button, Card, Chip, Badge } from '@/components/ui';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { toKg, formatWeight, UNIT_LABELS } from '@/lib/units';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { GoalPhase, GoalType } from '@/types';
 
 const GOALS: GoalType[] = ['LOSE', 'MAINTAIN', 'GAIN'];
@@ -191,7 +191,7 @@ function Input({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: space[4], paddingVertical: space[3],
@@ -207,4 +207,4 @@ const styles = StyleSheet.create({
     width: 56, height: 56, borderRadius: radius.lg, backgroundColor: 'rgba(99,102,241,0.12)',
     alignItems: 'center', justifyContent: 'center',
   },
-});
+}));

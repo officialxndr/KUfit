@@ -8,7 +8,7 @@ import { ChevronLeft, Dumbbell } from 'lucide-react-native';
 import { Screen, FsText, Badge, Card, SectionHeader } from '@/components/ui';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { resolveMediaSource, cacheGif, type MediaSource } from '@/lib/exerciseMedia';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { Exercise } from '@/types';
 
 export default function ExerciseDetail() {
@@ -113,7 +113,7 @@ export default function ExerciseDetail() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   back: { paddingHorizontal: space[3], paddingTop: space[2] },
   media: {
@@ -131,4 +131,4 @@ const styles = StyleSheet.create({
     width: 22, height: 22, borderRadius: radius.full, backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center', marginTop: 1,
   },
-});
+}));

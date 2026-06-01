@@ -15,7 +15,7 @@ import { resolveTargets } from '@/lib/targets';
 import { useSettingsStore, type NutrientGoal } from '@/stores/settingsStore';
 import { NUTRIENT_DEFS } from '@/lib/offNutrients';
 import { toDisplay, toKg, formatWeight, UNIT_LABELS } from '@/lib/units';
-import { colors, space, radius } from '@/theme/tokens';
+import { colors, space, radius, themedStyles } from '@/theme/tokens';
 import type { GoalPhase, GoalType, TrainingFocus } from '@/types';
 
 const GOAL_TYPES: { key: GoalType; label: string }[] = [
@@ -374,7 +374,7 @@ function Segmented<T extends string>({ options, value, onSelect }: {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   groupHeader: {
     flexDirection: 'row', alignItems: 'center', gap: space[2],
     marginTop: space[3], marginBottom: space[2], paddingHorizontal: space[1],
@@ -408,4 +408,4 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingVertical: space[3], borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-});
+}));

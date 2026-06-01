@@ -7,7 +7,7 @@ import { Card, FsText, Badge } from '@/components/ui';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { formatWeight } from '@/lib/units';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { WeightEntry } from '@/types';
 
 function bfBand(bf: number): { label: string; tone: 'success' | 'warning' | 'danger' | 'primary' } {
@@ -121,7 +121,7 @@ function Legend({ color, label, value }: { color: string; label: string; value: 
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   rangeBar: { height: 12, borderRadius: radius.full, backgroundColor: colors.surfaceHigh, overflow: 'hidden', marginTop: space[3] },
   rangeLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: space[2] },
@@ -133,4 +133,4 @@ const styles = StyleSheet.create({
     width: 56, height: 56, borderRadius: radius.lg, backgroundColor: colors.surface,
     alignItems: 'center', justifyContent: 'center', marginBottom: space[2],
   },
-});
+}));

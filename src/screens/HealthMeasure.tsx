@@ -10,7 +10,7 @@ import { BottomSheet } from '@/components/BottomSheet';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { UNIT_LABELS, inchesToCm } from '@/lib/units';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { BodyMeasurement } from '@/types';
 
 type SiteKey = keyof BodyMeasurement;
@@ -382,7 +382,7 @@ function MeasurementDetail({ visible, entry, entries, fmt, toLen, fromLen, onClo
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space[3] },
   rowHead: {
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: space[4], paddingVertical: space[2],
@@ -408,4 +408,4 @@ const styles = StyleSheet.create({
   },
   sheetHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space[2] },
   milestones: { marginTop: space[3], gap: 3, padding: space[3], backgroundColor: colors.surfaceHigh, borderRadius: radius.md },
-});
+}));

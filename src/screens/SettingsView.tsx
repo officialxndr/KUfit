@@ -14,7 +14,8 @@ import { testServerConnection } from '@/lib/sync';
 import { health, healthPlatformLabel } from '@/lib/health';
 import { ACTIVITY_DESCRIPTIONS } from '@/lib/tdee';
 import { downloadAllMedia } from '@/lib/exerciseMedia';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles, SURFACE_PRESETS, ACCENT_PRESETS } from '@/theme/tokens';
+import { useThemeStore } from '@/stores/themeStore';
 import type { ActivityLevel, Sex, UnitSystem } from '@/types';
 
 const SEXES: Sex[] = ['MALE', 'FEMALE', 'OTHER'];
@@ -134,6 +135,8 @@ export function SettingsView() {
         </View>
       </Card>
 
+      <Appearance />
+
       <Card style={{ marginBottom: space[3] }}>
         <SectionHeader title="Profile" />
         <Pressable onPress={changeAvatar} style={styles.avatarRow}>
@@ -243,7 +246,82 @@ export function SettingsView() {
   );
 }
 
-const styles = StyleSheet.create({
+const HEX_RE = /^#?[0-9a-fA-F]{6}$/;
+
+/** Theme picker: surface preset + accent (presets or a custom hex). Applies live. */
+function Appearance() {
+  const preset = useThemeStore((s) => s.preset);
+  const accent = useThemeStore((s) => s.accent);
+  const setPreset = useThemeStore((s) => s.setPreset);
+  const setAccent = useThemeStore((s) => s.setAccent);
+  const [hex, setHex] = useState('');
+  const hexValid = HEX_RE.test(hex);
+  const applyHex = () => { if (hexValid) setAccent(hex.startsWith('#') ? hex.toLowerCase() : `#${hex.toLowerCase()}`); };
+
+  return (
+    <Card style={{ marginBottom: space[3] }}>
+      <SectionHeader title="Appearance" />
+      <FsText variant="caption" style={{ marginBottom: space[2] }}>Theme</FsText>
+      <View style={styles.themeRow}>
+        {Object.values(SURFACE_PRESETS).map((p) => {
+          const on = preset === p.key;
+          return (
+            <Pressable
+              key={p.key}
+              onPress={() => setPreset(p.key)}
+              style={[styles.themeSwatch, { backgroundColor: p.surface.surface, borderColor: on ? colors.primary : p.surface.border }]}
+            >
+              <View style={{ flexDirection: 'row', gap: 4 }}>
+                <View style={[styles.themeDot, { backgroundColor: p.surface.bg }]} />
+                <View style={[styles.themeDot, { backgroundColor: p.surface.surfaceHigh }]} />
+                <View style={[styles.themeDot, { backgroundColor: colors.primary }]} />
+              </View>
+              <FsText variant="caption" style={{ color: p.surface.text, marginTop: 6, fontWeight: on ? '700' : '400' }}>{p.label}</FsText>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <FsText variant="caption" style={{ marginTop: space[3], marginBottom: space[2] }}>Accent</FsText>
+      <View style={styles.accentRow}>
+        {ACCENT_PRESETS.map((a) => {
+          const on = accent === a.key;
+          return (
+            <Pressable key={a.key} onPress={() => setAccent(a.key)} style={[styles.accentSwatch, { backgroundColor: a.hex, borderColor: on ? colors.text : 'transparent' }]} />
+          );
+        })}
+      </View>
+      <View style={styles.hexRow}>
+        <View style={[styles.accentSwatch, { backgroundColor: hexValid ? (hex.startsWith('#') ? hex : `#${hex}`) : colors.surfaceHigh, borderColor: colors.border }]} />
+        <TextInput
+          value={hex}
+          onChangeText={setHex}
+          placeholder="custom #hex"
+          placeholderTextColor={colors.muted}
+          autoCapitalize="none"
+          autoCorrect={false}
+          style={styles.hexInput}
+        />
+        <Button title="Set" variant="ghost" onPress={applyHex} disabled={!hexValid} />
+      </View>
+    </Card>
+  );
+}
+
+const styles = themedStyles(() => StyleSheet.create({
+  themeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
+  themeSwatch: {
+    paddingHorizontal: space[3], paddingVertical: space[3], borderRadius: radius.md,
+    borderWidth: 2, alignItems: 'center', minWidth: 84,
+  },
+  themeDot: { width: 12, height: 12, borderRadius: 6 },
+  accentRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space[3], marginBottom: space[3] },
+  accentSwatch: { width: 30, height: 30, borderRadius: radius.full, borderWidth: 2 },
+  hexRow: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+  hexInput: {
+    flex: 1, color: colors.text, backgroundColor: colors.surfaceHigh, borderRadius: radius.md,
+    paddingHorizontal: 12, paddingVertical: 10, fontSize: 14,
+  },
   avatarRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], marginBottom: space[3] },
   avatar: { width: 56, height: 56, borderRadius: radius.full, backgroundColor: colors.surfaceHigh },
   avatarPlaceholder: { alignItems: 'center', justifyContent: 'center' },
@@ -266,4 +344,4 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   optionRowActive: { borderColor: colors.primary },
-});
+}));

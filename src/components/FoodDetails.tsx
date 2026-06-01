@@ -6,7 +6,7 @@ import { FsText, Badge } from '@/components/ui';
 import {
   formatNutriment, foodBadges, NUTRIENT_GROUP_ORDER, type NutrientGroup,
 } from '@/lib/offNutrients';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { FoodDetails } from '@/types';
 
 const COMPACT_COUNT = 6;
@@ -159,7 +159,7 @@ function ScorePill({ label, color }: { label: string; color: string }) {
 const prettyLevelKey = (k: string) =>
   k === 'saturated-fat' ? 'Sat fat' : k.charAt(0).toUpperCase() + k.slice(1).replace(/-/g, ' ');
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginBottom: space[3] },
   levelRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
   scorePill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.full },
@@ -169,4 +169,4 @@ const styles = StyleSheet.create({
     paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   expandBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: space[2], marginTop: 2 },
-});
+}));

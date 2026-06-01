@@ -3,7 +3,7 @@ import { UtensilsCrossed } from 'lucide-react-native';
 
 import { Card, FsText } from '@/components/ui';
 import { activitySuggestions } from '@/lib/activities';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 
 /**
  * "How to hit it" — given a daily calorie gap to close and the user's weight,
@@ -52,11 +52,11 @@ export function ActivitySuggestions({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[2] },
   trimRow: { borderTopWidth: 1, borderTopColor: colors.border, marginTop: space[1], paddingTop: space[3] },
   iconWrap: {
     width: 32, height: 32, borderRadius: radius.sm,
     backgroundColor: 'rgba(99,102,241,0.12)', alignItems: 'center', justifyContent: 'center',
   },
-});
+}));

@@ -4,7 +4,7 @@ import { Card, FsText } from '@/components/ui';
 import { StepperField } from '@/components/StepperField';
 import { resolveTargets } from '@/lib/targets';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 
 /** Nutrition goals editor (Food section). Persists live to the calorie/macro engine. */
 export function FoodGoals() {
@@ -94,7 +94,7 @@ function StepperCard({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   bar: {
     flexDirection: 'row',
     height: 10,
@@ -119,4 +119,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
+}));

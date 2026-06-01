@@ -11,7 +11,7 @@ import { FsText, Button } from '@/components/ui';
 import { FoodQuantitySheet, type SheetFood } from '@/components/FoodQuantitySheet';
 import { searchFood, barcodeLookup, ensureFoodItem, type FoodCandidate } from '@/lib/foodSearch';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { FoodItem, MealType, Recipe } from '@/types';
 
 type Tab = 'search' | 'recent' | 'favorites';
@@ -279,7 +279,7 @@ export default function AddFoodModal() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -304,4 +304,4 @@ const styles = StyleSheet.create({
   },
   scanOverlay: { padding: space[4], gap: space[4] },
   iconBtn: { alignSelf: 'flex-start' },
-});
+}));

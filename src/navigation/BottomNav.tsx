@@ -4,7 +4,7 @@ import { Plus } from 'lucide-react-native';
 
 import { FsText } from '@/components/ui';
 import { haptic } from '@/lib/haptics';
-import { colors, space, radius, shadow } from '@/theme/tokens';
+import { colors, space, radius, shadow, themedStyles } from '@/theme/tokens';
 import type { NavItem } from './config';
 
 const FAB_SIZE = 56;
@@ -66,7 +66,7 @@ export function BottomNav({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   bar: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -99,4 +99,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...shadow.fab,
   },
-});
+}));

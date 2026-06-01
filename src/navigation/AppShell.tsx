@@ -1,8 +1,9 @@
 import { View, ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 
-import { colors, space, PAGE_PADDING } from '@/theme/tokens';
+import { colors, space, PAGE_PADDING, themedStyles } from '@/theme/tokens';
 import { useNavStore } from '@/stores/navStore';
+import { useThemeStore } from '@/stores/themeStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useRoutineStore, getNextTemplateId } from '@/stores/routineStore';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
@@ -48,6 +49,8 @@ export function AppShell() {
   const router = useRouter();
   const { section, subTab, setSection, setSubTab } = useNavStore();
   const session = useSessionStore();
+  // Remount the shell when the theme changes so every style/colour recomputes.
+  const themeVersion = useThemeStore((s) => s.version);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [goalsOpen, setGoalsOpen] = useState(false);
 
@@ -120,7 +123,7 @@ export function AppShell() {
   };
 
   return (
-    <View style={styles.root}>
+    <View style={styles.root} key={themeVersion}>
       <AppHeader
         section={section}
         onSwitch={(s: SectionKey) => setSection(s)}
@@ -188,7 +191,7 @@ function SectionContent({ section, activeSub }: { section: SectionKey; activeSub
   }
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   scroll: { flex: 1 },
   content: {
@@ -196,4 +199,4 @@ const styles = StyleSheet.create({
     paddingTop: space[4],
     paddingBottom: space[8] * 2,
   },
-});
+}));

@@ -11,7 +11,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useNavStore } from '@/stores/navStore';
 import { toDisplay, toKg, UNIT_LABELS } from '@/lib/units';
 import { haptic } from '@/lib/haptics';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { LocalExercise, LocalSet } from '@/types';
 
 type Field = 'w' | 'r';
@@ -393,7 +393,7 @@ function Key({ label, icon, onPress }: { label?: string; icon?: React.ReactNode;
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -463,5 +463,5 @@ const styles = StyleSheet.create({
     width: 90, textAlign: 'right', backgroundColor: colors.surfaceHigh, borderRadius: radius.sm,
     paddingHorizontal: 12, paddingVertical: 8, color: colors.text, fontSize: 14,
   },
-});
+}));
 

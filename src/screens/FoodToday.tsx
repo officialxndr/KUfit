@@ -22,7 +22,7 @@ import { FoodQuantitySheet, type SheetFood } from '@/components/FoodQuantityShee
 import { foodRepo, type DayNutrients } from '@/lib/repositories/FoodRepo';
 import { resolveTargets } from '@/lib/targets';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { colors, radius, space, PAGE_PADDING } from '@/theme/tokens';
+import { colors, radius, space, PAGE_PADDING, themedStyles } from '@/theme/tokens';
 import type { FoodLog, MealType } from '@/types';
 
 /** Normalize a logged item (food or recipe) into the shared quantity sheet's shape. */
@@ -277,7 +277,7 @@ function NutrientBar({ label, value, target, unit, color }: { label: string; val
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   dateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space[4], paddingTop: space[3], paddingBottom: space[2] },
   arrow: { padding: 4 },
   dateCenter: { alignItems: 'center', gap: 2 },
@@ -292,4 +292,4 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: space[4] },
   calCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: space[4] },
   todayBtn: { marginTop: space[3], backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 11, alignItems: 'center' },
-});
+}));

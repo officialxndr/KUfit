@@ -10,7 +10,7 @@ import { FsText, Card, Button, SectionHeader } from '@/components/ui';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { inchesToCm } from '@/lib/units';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { BodyMeasurement } from '@/types';
 
 const SITES: { key: keyof BodyMeasurement; label: string }[] = [
@@ -122,7 +122,7 @@ export default function MeasurementsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -138,4 +138,4 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: space[2],
     paddingVertical: space[2], borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-});
+}));

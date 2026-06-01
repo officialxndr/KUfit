@@ -5,7 +5,7 @@ import { Search, ChevronDown, ChevronRight } from 'lucide-react-native';
 
 import { Card, FsText, Button } from '@/components/ui';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { Exercise } from '@/types';
 
 export function WorkoutExercises() {
@@ -102,7 +102,7 @@ export function WorkoutExercises() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   topRow: { flexDirection: 'row', alignItems: 'center', gap: space[2], marginBottom: space[3] },
   searchRow: {
     flex: 1,
@@ -129,4 +129,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: space[4],
   },
   divider: { borderTopWidth: 1, borderTopColor: colors.border },
-});
+}));

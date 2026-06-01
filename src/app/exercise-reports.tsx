@@ -6,7 +6,7 @@ import { X, Search, ChevronRight, BarChart2 } from 'lucide-react-native';
 
 import { FsText, Card } from '@/components/ui';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 
 export default function ExerciseReports() {
   const router = useRouter();
@@ -69,7 +69,7 @@ export default function ExerciseReports() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -87,4 +87,4 @@ const styles = StyleSheet.create({
     width: 56, height: 56, borderRadius: radius.lg, backgroundColor: colors.surface,
     alignItems: 'center', justifyContent: 'center', marginBottom: space[2],
   },
-});
+}));

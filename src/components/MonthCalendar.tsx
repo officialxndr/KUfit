@@ -2,7 +2,7 @@ import { View, Pressable, StyleSheet } from 'react-native';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 
 import { FsText } from '@/components/ui';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -87,7 +87,7 @@ export function MonthCalendar({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space[3] },
   arrow: { padding: 4 },
   weekRow: { flexDirection: 'row', marginBottom: space[1] },
@@ -97,4 +97,4 @@ const styles = StyleSheet.create({
   day: { width: 34, height: 34, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
   todayRing: { borderWidth: 1, borderColor: colors.border },
   dot: { position: 'absolute', bottom: 4, width: 5, height: 5, borderRadius: 3, backgroundColor: colors.primary },
-});
+}));

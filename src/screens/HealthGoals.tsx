@@ -8,7 +8,7 @@ import { StepperField } from '@/components/StepperField';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { toDisplay, toKg, formatWeight, UNIT_LABELS } from '@/lib/units';
-import { colors, radius, space, tintBg } from '@/theme/tokens';
+import { colors, radius, space, tintBg, themedStyles } from '@/theme/tokens';
 
 const DAY_MS = 86_400_000;
 
@@ -131,7 +131,7 @@ export function HealthGoals() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   stepBtn: {
     width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.surfaceHigh,
     alignItems: 'center', justifyContent: 'center',
@@ -139,4 +139,4 @@ const styles = StyleSheet.create({
   rateRow: { flexDirection: 'row', gap: space[2] },
   rateBtn: { flex: 1, paddingVertical: 10, borderRadius: radius.sm, alignItems: 'center', backgroundColor: colors.surfaceHigh },
   rateActive: { backgroundColor: colors.primary },
-});
+}));

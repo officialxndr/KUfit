@@ -9,7 +9,7 @@ import { calcTDEE, ACTIVITY_DESCRIPTIONS, type TDEEInputs } from '@/lib/tdee';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { toDisplay, toKg, UNIT_LABELS } from '@/lib/units';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { ActivityLevel, Sex } from '@/types';
 
 const ACTIVITIES: ActivityLevel[] = ['SEDENTARY', 'LIGHT', 'MODERATE', 'ACTIVE', 'VERY_ACTIVE'];
@@ -132,7 +132,7 @@ function NumCol({ label, value, onChange }: { label: string; value: string; onCh
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -150,4 +150,4 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8,
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-});
+}));

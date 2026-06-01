@@ -8,7 +8,7 @@ import { FsText, Chip } from '@/components/ui';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useTemplateDraftStore } from '@/stores/templateDraftStore';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { Exercise } from '@/types';
 
 export default function ExercisesScreen() {
@@ -93,7 +93,7 @@ export default function ExercisesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -111,4 +111,4 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: space[2],
     paddingVertical: space[3], borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-});
+}));

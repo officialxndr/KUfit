@@ -3,7 +3,7 @@ import { View, TextInput, Pressable, StyleSheet } from 'react-native';
 import { Plus, Minus } from 'lucide-react-native';
 
 import { FsText } from '@/components/ui';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 
 /**
  * A number control with −/+ buttons and a **tappable, editable value** so the
@@ -61,7 +61,7 @@ export function StepperField({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
   btn: {
     width: 32,
@@ -90,4 +90,4 @@ const styles = StyleSheet.create({
     minWidth: 28,
     paddingVertical: 0,
   },
-});
+}));

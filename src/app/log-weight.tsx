@@ -9,7 +9,7 @@ import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { toKg, formatWeight, UNIT_LABELS } from '@/lib/units';
 import { haptic } from '@/lib/haptics';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -71,7 +71,7 @@ export default function LogWeight() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -83,4 +83,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceHigh, borderRadius: radius.md, paddingHorizontal: 14,
   },
   input: { flex: 1, color: colors.text, paddingVertical: 14, fontSize: 18 },
-});
+}));

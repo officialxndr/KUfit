@@ -10,7 +10,7 @@ import { useNavStore } from '@/stores/navStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { toDisplay, toKg, UNIT_LABELS } from '@/lib/units';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 
 export default function NewTemplate() {
   const router = useRouter();
@@ -139,7 +139,7 @@ function NumField({ label, value, onChange }: { label: string; value: number; on
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -152,4 +152,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceHigh, borderRadius: radius.md,
     paddingHorizontal: 14, paddingVertical: 12, color: colors.text, fontSize: 14,
   },
-});
+}));

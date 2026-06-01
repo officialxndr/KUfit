@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, Pressable, Modal, Animated, PanResponder, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 
 const SCREEN_H = Dimensions.get('window').height;
 
@@ -101,7 +101,7 @@ export function BottomSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#000' },
   backdropTouch: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   wrap: { flex: 1, justifyContent: 'flex-end' },
@@ -111,4 +111,4 @@ const styles = StyleSheet.create({
   },
   grabStrip: { alignItems: 'center', paddingTop: space[1], paddingBottom: space[3] },
   grabber: { width: 44, height: 5, borderRadius: radius.full, backgroundColor: colors.border },
-});
+}));

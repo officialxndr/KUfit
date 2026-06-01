@@ -10,7 +10,7 @@ import { WorkoutSummarySheet } from '@/components/WorkoutSummarySheet';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { formatVolume } from '@/lib/units';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { WorkoutSession } from '@/types';
 
 const isoDay = (s: string) => new Date(s).toISOString().slice(0, 10);
@@ -167,7 +167,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   monthNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space[1] },
   navArrow: {
     width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.surface,
@@ -191,4 +191,4 @@ const styles = StyleSheet.create({
   },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: space[4] },
   calCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: space[4] },
-});
+}));

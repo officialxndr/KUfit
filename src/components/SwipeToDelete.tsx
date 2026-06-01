@@ -4,7 +4,7 @@ import { Trash2 } from 'lucide-react-native';
 
 import { FsText } from '@/components/ui';
 import { haptic } from '@/lib/haptics';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 
 /**
  * Wraps a row/card so swiping left reveals a red Delete button that confirms
@@ -48,7 +48,7 @@ export function SwipeToDelete({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   action: {
     flex: 1,
     width: 80,
@@ -59,4 +59,4 @@ const styles = StyleSheet.create({
     gap: 3,
     marginLeft: space[2],
   },
-});
+}));

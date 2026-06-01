@@ -6,7 +6,7 @@ import { X } from 'lucide-react-native';
 
 import { FsText, Card, Button, SectionHeader } from '@/components/ui';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { MealType } from '@/types';
 
 export default function CustomFood() {
@@ -138,7 +138,7 @@ function Field({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -148,4 +148,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceHigh, borderRadius: radius.md,
     paddingHorizontal: 14, paddingVertical: 12, color: colors.text, fontSize: 14,
   },
-});
+}));

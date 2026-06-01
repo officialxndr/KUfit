@@ -9,7 +9,7 @@ import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useTemplateDraftStore } from '@/stores/templateDraftStore';
 import { useRoutineStore, getNextTemplateId, type Routine } from '@/stores/routineStore';
-import { colors, radius, space, tintBg } from '@/theme/tokens';
+import { colors, radius, space, tintBg, themedStyles } from '@/theme/tokens';
 import type { WorkoutTemplate } from '@/types';
 
 export function WorkoutLibrary() {
@@ -354,7 +354,7 @@ export function WorkoutLibrary() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   input: {
     backgroundColor: colors.surfaceHigh,
@@ -427,4 +427,4 @@ const styles = StyleSheet.create({
   filterChipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   tplActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: space[3], marginTop: space[2], paddingTop: space[2], borderTopWidth: 1, borderTopColor: colors.border },
   tplActionBtn: { padding: 2 },
-});
+}));

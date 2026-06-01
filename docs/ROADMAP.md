@@ -131,14 +131,15 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       `QuickActionsSheet`, `WorkoutSummarySheet`, the Measure site/snapshot pop-ups, and the
       `exercise-progress` "Compare" picker; `FoodQuantitySheet` matches the same pattern (incl. the
       reliable scroll fix — a concrete ScrollView `maxHeight`). Centered dialogs/popovers left as-is.
+- [x] **Custom app themes** — Settings → Appearance: surface **presets** (Charcoal/Slate/Mocha/Light)
+      + **accent** (presets or custom `#hex`), applied live. Implemented as runtime-mutable `colors`
+      with a `themedStyles()` Proxy wrapping every `StyleSheet.create` (codemod, ~51 files), a
+      `themeStore`, and a shell remount; persisted in SQLite and re-applied at module load. (Replaces
+      the old "dark/light theme toggle — deferred" note below.) See ARCHITECTURE → Theming.
+- [x] **Settings de-duped** — removed the redundant Goal/Targets cards (they live in the unified Goals
+      editor); Settings now links out to Goals. Recipe edit shows **grams per serving** when set.
 
 ## Not built yet (planned)
-- [ ] **Dark/light theme toggle** — deferred. The app is dark-first and the type scale + ~40 screen
-      `StyleSheet.create` blocks bake `colors` at module load, so a runtime light theme needs a
-      dedicated refactor (palette-as-hook + de-baking `theme/text.ts` + converting screen styles).
-      Plan: `darkColors`/`lightColors` in `tokens.ts`, a `themeStore` (system/light/dark), a
-      `useColors()` hook, then convert the UI kit + shell + screens. Held off to avoid breaking the
-      polished dark UI without device verification.
 - [ ] **Server sync engine** — `lib/sync.ts` does a real **connection test** (Settings → Server
       backup); the full bidirectional push/pull must match the `apps/api` route contract and be
       validated against a running server. Schema is already sync-ready (localId/serverId/syncStatus).

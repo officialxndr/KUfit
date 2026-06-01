@@ -6,7 +6,7 @@ import { Search, Users, BookOpen, Plus, Trash2, Pencil } from 'lucide-react-nati
 import { Card, FsText, Badge, Button } from '@/components/ui';
 import { FoodQuantitySheet, type SheetFood } from '@/components/FoodQuantitySheet';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { MealType, Recipe } from '@/types';
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -172,7 +172,7 @@ export function FoodRecipes() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   topRow: { flexDirection: 'row', alignItems: 'center', gap: space[2], marginBottom: space[3] },
   searchRow: {
     flex: 1,
@@ -231,4 +231,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 2,
   },
-});
+}));

@@ -7,7 +7,7 @@ import { Card, FsText, SectionHeader } from '@/components/ui';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { formatWeight, toDisplay, UNIT_LABELS } from '@/lib/units';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { BodyMeasurement, WeightEntry } from '@/types';
 
 const DAY_MS = 86_400_000;
@@ -118,7 +118,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: str
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   toggle: { flexDirection: 'row', gap: space[1], backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: 4, marginBottom: space[3] },
   toggleBtn: { flex: 1, paddingVertical: 7, borderRadius: radius.sm, alignItems: 'center' },
   toggleActive: { backgroundColor: colors.primary },
@@ -127,4 +127,4 @@ const styles = StyleSheet.create({
   statCell: { width: '50%', marginBottom: space[3], gap: 2 },
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: space[4], paddingVertical: space[3] },
   divider: { borderTopWidth: 1, borderTopColor: colors.border },
-});
+}));

@@ -4,7 +4,7 @@ import {
   ViewStyle, TextStyle, ActivityIndicator, PressableProps,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, radius, space, tintBg, PAGE_PADDING } from '@/theme/tokens';
+import { colors, radius, space, tintBg, PAGE_PADDING, themedStyles } from '@/theme/tokens';
 import { type } from '@/theme/text';
 
 // ── Screen — page wrapper with safe area + scroll ─────────────────────────────
@@ -169,7 +169,7 @@ export function SectionHeader({ title, action }: { title: string; action?: React
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   card: {
     backgroundColor: colors.surface,
@@ -207,4 +207,4 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: space[3],
   },
-});
+}));

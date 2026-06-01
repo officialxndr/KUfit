@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import { type } from '@/theme/text';
 
 const MACRO_COLORS = {
@@ -61,7 +61,7 @@ export function MacroBars({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   row: { gap: 5 },
   labelRow: { flexDirection: 'row', justifyContent: 'space-between' },
   track: {
@@ -71,4 +71,4 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   fill: { height: '100%', borderRadius: radius.full },
-});
+}));

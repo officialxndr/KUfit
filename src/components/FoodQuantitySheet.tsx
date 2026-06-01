@@ -12,7 +12,7 @@ import { FoodBadgeRow, FoodDetailSections } from '@/components/FoodDetails';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { resolveTargets } from '@/lib/targets';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { colors, radius, space, shadow } from '@/theme/tokens';
+import { colors, radius, space, shadow, themedStyles } from '@/theme/tokens';
 import type { FoodDetails } from '@/types';
 
 const SCREEN_H = Dimensions.get('window').height;
@@ -352,7 +352,7 @@ function Macro({ label, v, c }: { label: string; v: number; c: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   unitSelect: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: colors.surfaceHigh, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 11,
@@ -390,4 +390,4 @@ const styles = StyleSheet.create({
   barHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space[1] },
   track: { height: 8, borderRadius: radius.full, backgroundColor: colors.surfaceHigh, overflow: 'hidden' },
   input: { flex: 1, color: colors.text, paddingVertical: 12, fontSize: 14 },
-});
+}));

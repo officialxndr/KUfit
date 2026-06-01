@@ -13,7 +13,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useNavStore } from '@/stores/navStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { formatWeight } from '@/lib/units';
-import { colors, space, radius } from '@/theme/tokens';
+import { colors, space, radius, themedStyles } from '@/theme/tokens';
 import type { HealthStats, WorkoutSession } from '@/types';
 
 const DAY_MS = 86_400_000;
@@ -292,7 +292,7 @@ export function DashboardOverview() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   greetRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -334,4 +334,4 @@ const styles = StyleSheet.create({
   },
   recentDivider: { borderTopWidth: 1, borderTopColor: colors.border },
   quick: { alignItems: 'flex-start', gap: space[2] },
-});
+}));

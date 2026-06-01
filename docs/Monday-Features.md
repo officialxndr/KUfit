@@ -125,17 +125,21 @@ built once and reused). Full plan rationale lives in the planning notes.
 
 ---
 
-# Round 4 (planned)
+# Round 4
 
-## Batch S — Custom app themes (Settings)
-- [ ] Theme store + centralized theme so `colors` can change at runtime; theme picker in Settings.
-- [ ] Scope TBD (preset themes / accent picker / full custom) — see the planning question.
+## Batch S — Custom app themes (Settings → Appearance) ✅
+- [x] Runtime theming with **no per-file hooks**: `colors`/`tintBg`/`shadow` are mutable and rebuilt
+  by `applyTheme()`; every `StyleSheet.create` is wrapped in `themedStyles(() => …)` (a transparent
+  Proxy that recomputes after a theme bump) — done via a one-shot codemod across 51 files.
+- [x] `stores/themeStore.ts` (preset + accent + version); the shell **remounts on version change**.
+- [x] **Preset themes** (Charcoal / Slate / Mocha / Light) **+ accent picker** (6 presets + custom
+  `#hex`) in a Settings → **Appearance** card. Persisted to SQLite (`app_meta` key `theme`) and
+  re-applied synchronously at module load, so first paint is themed. Applies live.
 
-## Batch T — De-duplicate goal settings
-- [ ] Remove the redundant **Goal** (type/weight/date) and **Targets** (calories/macros) cards from
-  `SettingsView` — they already live in the unified Goals editor.
-- [ ] Leave a small pointer in Settings to open Goals (Dashboard → Goals).
+## Batch T — De-duplicate goal settings ✅
+- [x] Removed the redundant **Goal** (type/weight/date) and **Targets** (calories/macros) cards from
+  `SettingsView` — they live in the unified Goals editor.
+- [x] Left a **Goals** card in Settings with an "Edit goals" button → Dashboard → Goals.
 
-## Batch U — Recipe grams-per-serving display
-- [ ] Recipe edit already sets `servingWeightG`; also **show the grams-per-serving** in the
-  per-serving nutrition preview when set.
+## Batch U — Recipe grams-per-serving display ✅
+- [x] The per-serving preview shows **g / serving** (and total grams) when `servingWeightG` is set.

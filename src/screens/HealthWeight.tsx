@@ -10,7 +10,7 @@ import { ActivitySuggestions } from '@/components/ActivitySuggestions';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { toDisplay, formatWeight, UNIT_LABELS } from '@/lib/units';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { HealthStats, WeightEntry } from '@/types';
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -265,7 +265,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: str
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   fieldRow: {
     flexDirection: 'row',
@@ -290,4 +290,4 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-});
+}));

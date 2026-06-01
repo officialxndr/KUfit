@@ -8,7 +8,7 @@ import { MacroBars } from '@/components/MacroBar';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { resolveTargets } from '@/lib/targets';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 
 const DAY_MS = 86_400_000;
 const isoDate = (d: Date) => d.toISOString().slice(0, 10);
@@ -213,7 +213,7 @@ function NutrientBar({ label, value, target, unit, color }: { label: string; val
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   toggle: {
     flexDirection: 'row',
     gap: space[1],
@@ -251,4 +251,4 @@ const styles = StyleSheet.create({
   navArrow: { width: 36, height: 36, borderRadius: radius.md, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
   barHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   nutrientTrack: { height: 8, borderRadius: radius.full, backgroundColor: colors.surfaceHigh, overflow: 'hidden' },
-});
+}));

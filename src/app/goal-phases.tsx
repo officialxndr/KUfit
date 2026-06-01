@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { StyleSheet } from 'react-native';
 
 import { GoalPhasesPanel } from '@/components/GoalPhasesPanel';
-import { colors } from '@/theme/tokens';
+import { colors, themedStyles } from '@/theme/tokens';
 
 /** Standalone route wrapper around the shared Goal Phases editor. */
 export default function GoalPhasesScreen() {
@@ -15,6 +15,6 @@ export default function GoalPhasesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-});
+}));

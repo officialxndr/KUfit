@@ -3,7 +3,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import { Hammer } from 'lucide-react-native';
 
 import { FsText } from '@/components/ui';
-import { colors, space, radius } from '@/theme/tokens';
+import { colors, space, radius, themedStyles } from '@/theme/tokens';
 
 /** On-brand placeholder for sub-tabs whose feature isn't built yet. */
 export function ComingSoon({
@@ -28,7 +28,7 @@ export function ComingSoon({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   wrap: {
     alignItems: 'center',
     paddingVertical: space[8] * 2,
@@ -44,4 +44,4 @@ const styles = StyleSheet.create({
     marginBottom: space[2],
   },
   desc: { textAlign: 'center', maxWidth: 260 },
-});
+}));

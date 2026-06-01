@@ -6,7 +6,7 @@ import { X } from 'lucide-react-native';
 
 import { FsText, Button, Chip } from '@/components/ui';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 
 const COMMON_EQUIPMENT = ['Barbell', 'Dumbbell', 'Machine', 'Cable', 'Bodyweight', 'Kettlebell', 'Band'];
 
@@ -92,7 +92,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -104,4 +104,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 12, color: colors.text, fontSize: 15,
   },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginTop: space[2] },
-});
+}));

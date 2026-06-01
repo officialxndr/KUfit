@@ -2,7 +2,7 @@ import { View, Pressable, StyleSheet } from 'react-native';
 
 import { FsText } from '@/components/ui';
 import { BottomSheet } from '@/components/BottomSheet';
-import { colors, space, radius } from '@/theme/tokens';
+import { colors, space, radius, themedStyles } from '@/theme/tokens';
 import type { FabAction } from './config';
 
 /**
@@ -43,7 +43,7 @@ export function QuickActionsSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   sheet: { gap: space[2] },
   title: { textAlign: 'center', marginBottom: space[2] },
   action: {
@@ -63,4 +63,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
+}));

@@ -156,9 +156,20 @@ intentionally **not** bottom sheets and keep their `animationType="fade"` modals
 
 ## Theming (`src/theme`)
 - `tokens.ts` — colors, radii, spacing, shadows (ported from `../../FitSelf Design System/colors_and_type.css`).
-- `text.ts` — the semantic type scale (`type.display`, `type.h1`, …).
+- `text.ts` — the semantic type scale (`type.display`, `type.h1`, …); colour-free, so not themed.
 - `src/components/ui/index.tsx` — primitives: `Screen`, `Card`, `Button`, `Badge`, `Chip`,
-  `FsText`, `SectionHeader`. Dark-first, one indigo accent, lucide icons, no emoji in chrome.
+  `FsText`, `SectionHeader`. Dark-first, one accent, lucide icons, no emoji in chrome.
+- **Runtime themes (Settings → Appearance).** A theme is a **surface preset** (Charcoal/Slate/Mocha/
+  **Light**) plus an **accent** (6 presets or a custom `#hex`). `colors`/`tintBg`/`shadow` are
+  **mutable** and rebuilt in place by `applyTheme()`; the choice persists to SQLite (`app_meta` key
+  `theme`) and is re-applied **synchronously at module load**, so the first paint is themed. To make
+  the ~50 existing `StyleSheet.create` blocks react without per-file hooks, each is wrapped in
+  **`themedStyles(() => StyleSheet.create({…}))`** — a transparent `Proxy` that re-runs the factory
+  after a theme bump, so `styles.x` access is unchanged. `stores/themeStore.ts` holds the selection +
+  a `version`; `AppShell` **keys a remount** off that version so the whole UI re-renders with the new
+  palette (inline `colors.x` reads refresh too). **New screens must wrap their styles in
+  `themedStyles`** (and avoid module-level `const X = colors.y`, which would snapshot) to stay
+  theme-correct.
 
 ## Calc libs (pure TS, ported from web — keep parity)
 - `tdee.ts` (Mifflin-St Jeor BMR/TDEE + goal-aware target), `epley.ts` (1RM), `activities.ts`

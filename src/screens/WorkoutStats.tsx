@@ -8,7 +8,7 @@ import { MuscleMap } from '@/components/MuscleMap';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { formatWeight, formatVolume, toDisplay, UNIT_LABELS } from '@/lib/units';
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { WorkoutSession } from '@/types';
 
 const DAY_MS = 86_400_000;
@@ -197,7 +197,7 @@ function StatCard({ icon: Icon, label, value }: { icon: typeof Dumbbell; label: 
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
   empty: { alignItems: 'center', paddingVertical: space[8], gap: space[2] },
   emptyIcon: {
     width: 56, height: 56, borderRadius: radius.lg, backgroundColor: colors.surface,
@@ -211,4 +211,4 @@ const styles = StyleSheet.create({
   barLabels: { flexDirection: 'row', marginTop: space[2], gap: space[2] },
   prRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: space[2] },
   divider: { borderTopWidth: 1, borderTopColor: colors.border },
-});
+}));
