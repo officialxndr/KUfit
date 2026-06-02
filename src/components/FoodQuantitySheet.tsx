@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   View, TextInput, StyleSheet, Pressable, Modal, ScrollView, Dimensions,
-  KeyboardAvoidingView, Platform, Animated, PanResponder,
+  Platform, Animated, PanResponder, Keyboard,
 } from 'react-native';
 import { ChevronDown, Star } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,6 +32,9 @@ export interface SheetFood {
   sodium?: number | null;
   saturatedFat?: number | null;
   details?: FoodDetails | null;
+  /** Last amount + unit this item was logged at — prefills the quantity field (add mode only). */
+  lastAmount?: number | null;
+  lastUnit?: string | null;
 }
 
 // Conversions to a canonical base (grams for mass, ml for volume).
@@ -77,7 +80,9 @@ interface Props {
   baselineQty?: number;
   /** Primary action label (e.g. "Add to Log" / "Save"). */
   submitLabel?: string;
-  onSubmit: (servings: number) => void;
+  /** `servings` is the canonical multiplier; `entry` is the raw amount + unit the
+   *  user typed (so callers can remember it for next time). */
+  onSubmit: (servings: number, entry: { amount: number; unit: string }) => void;
   onClose: () => void;
   /** When provided, a Delete button appears alongside Cancel. */
   onDelete?: () => void;
@@ -95,20 +100,36 @@ export function FoodQuantitySheet({
 }: Props) {
   const profile = useSettingsStore((s) => s.profile);
   const insets = useSafeAreaInsets();
-  // Cap the whole sheet so its top edge stays a clear gap below the notch/camera
-  // cutout, then bound the inner ScrollView (absolute points) so it reliably
-  // scrolls. Reserving chrome (grabber + title + pinned actions + paddings) keeps
-  // the action buttons pinned and tall content scrollable.
-  const sheetMaxHeight = SCREEN_H - insets.top - 24;
-  const scrollMaxHeight = sheetMaxHeight - insets.bottom - 180;
   const [amount, setAmount] = useState(String(initialServings));
   const [unit, setUnit] = useState('serving');
   const [unitMenuOpen, setUnitMenuOpen] = useState(false);
+  const [kbHeight, setKbHeight] = useState(0);
+
+  // Track keyboard height so the sheet can shrink to stay fully on-screen while
+  // typing. The KeyboardAvoidingView lifts the sheet above the keyboard; without
+  // also capping the height, a tall sheet (lots of food details) gets pushed off
+  // the top and hides the amount field being edited.
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(showEvt, (e) => setKbHeight(e.endCoordinates?.height ?? 0));
+    const hide = Keyboard.addListener(hideEvt, () => setKbHeight(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+
+  // Cap the whole sheet so its top edge stays a clear gap below the notch/camera
+  // cutout (and above the keyboard when open), then bound the inner ScrollView
+  // (absolute points) so it reliably scrolls. Reserving chrome (grabber + title +
+  // pinned actions + paddings) keeps the action buttons pinned and tall content
+  // scrollable.
+  const sheetMaxHeight = SCREEN_H - insets.top - 24 - kbHeight;
+  const scrollMaxHeight = sheetMaxHeight - (kbHeight > 0 ? 0 : insets.bottom) - 180;
 
   // Drag-to-dismiss: the sheet rides a translateY driver. The handle region owns a
   // PanResponder for the swipe-down gesture; the content ScrollView (no longer
   // wrapped in a Pressable) scrolls independently.
   const translateY = useRef(new Animated.Value(SCREEN_H)).current;
+  const scrollRef = useRef<ScrollView>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   // Full-screen dim fades in as the sheet slides up (and lightens as you drag down).
@@ -118,16 +139,25 @@ export function FoodQuantitySheet({
     extrapolate: 'clamp',
   });
 
-  // Reset + slide in whenever a new food is selected.
+  // Reset + slide in whenever a new food is selected. In add mode (no baseline),
+  // prefill the last amount + unit this item was logged at, if we have one and it's
+  // valid for this food; otherwise fall back to the default serving entry.
   useEffect(() => {
     if (food) {
-      setAmount(String(initialServings));
-      setUnit('serving');
+      const validUnits = unitsFor(food.servingUnit);
+      const remembered = baselineQty === 0 && food.lastAmount != null && food.lastUnit && validUnits.includes(food.lastUnit);
+      if (remembered) {
+        setAmount(String(food.lastAmount));
+        setUnit(food.lastUnit!);
+      } else {
+        setAmount(String(initialServings));
+        setUnit('serving');
+      }
       setUnitMenuOpen(false);
       translateY.setValue(SCREEN_H);
       Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 3, speed: 14 }).start();
     }
-  }, [food, initialServings, translateY]);
+  }, [food, initialServings, baselineQty, translateY]);
 
   const animateClose = () => {
     Animated.timing(translateY, { toValue: SCREEN_H, duration: 220, useNativeDriver: true })
@@ -167,9 +197,10 @@ export function FoodQuantitySheet({
 
   const submit = () => {
     if (!food) return;
-    const qty = amountToServings(food, Number(amount) || 0, unit);
+    const amt = Number(amount) || 0;
+    const qty = amountToServings(food, amt, unit);
     if (!qty || qty <= 0) return;
-    onSubmit(qty);
+    onSubmit(qty, { amount: amt, unit });
   };
 
   return (
@@ -178,13 +209,8 @@ export function FoodQuantitySheet({
         {/* Dim backdrop (fades with the sheet's travel) + transparent tap layer. */}
         <Animated.View style={[styles.modalBackdrop, { opacity: backdropOpacity }]} pointerEvents="none" />
         <Pressable style={styles.backdropTouch} onPress={animateClose} />
-        <View style={styles.sheetWrap} pointerEvents="box-none">
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={{ width: '100%' }}
-            pointerEvents="box-none"
-          >
-            <Animated.View style={[styles.sheet, { maxHeight: sheetMaxHeight, paddingBottom: insets.bottom + space[4], transform: [{ translateY }] }]}>
+        <View style={[styles.sheetWrap, { paddingBottom: kbHeight }]} pointerEvents="box-none">
+            <Animated.View style={[styles.sheet, { maxHeight: sheetMaxHeight, paddingBottom: (kbHeight > 0 ? space[4] : insets.bottom + space[4]), transform: [{ translateY }] }]}>
               {food && (() => {
               const availableUnits = unitsFor(food.servingUnit);
               const qty = amountToServings(food, Number(amount) || 0, unit);
@@ -227,6 +253,7 @@ export function FoodQuantitySheet({
                   </View>
 
                   <ScrollView
+                    ref={scrollRef}
                     style={{ maxHeight: scrollMaxHeight }}
                     showsVerticalScrollIndicator
                     keyboardShouldPersistTaps="handled"
@@ -242,6 +269,7 @@ export function FoodQuantitySheet({
                         keyboardType="decimal-pad"
                         style={[styles.input, { textAlign: 'center' }]}
                         selectTextOnFocus
+                        onFocus={() => requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: 0, animated: true }))}
                       />
                     </View>
                     {availableUnits.length > 1 ? (
@@ -336,7 +364,6 @@ export function FoodQuantitySheet({
               );
             })()}
             </Animated.View>
-          </KeyboardAvoidingView>
         </View>
       </View>
     </Modal>
@@ -358,7 +385,7 @@ const styles = themedStyles(() => StyleSheet.create({
     backgroundColor: colors.surfaceHigh, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 11,
   },
   unitMenu: {
-    position: 'absolute', bottom: '100%', left: 0, right: 0, marginBottom: 4,
+    position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4,
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
     overflow: 'hidden', zIndex: 20, ...shadow.pop,
   },

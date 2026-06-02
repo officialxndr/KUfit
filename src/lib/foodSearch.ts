@@ -44,6 +44,8 @@ export interface FoodCandidate {
   isCustom: boolean;
   isFavorite?: boolean;
   details?: FoodDetails | null;
+  lastAmount?: number | null;
+  lastUnit?: string | null;
 }
 
 function fromLocal(fi: FoodItem): FoodCandidate {

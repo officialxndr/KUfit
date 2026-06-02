@@ -38,6 +38,9 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       `scripts/enrich-base-ingredients.py`; re-seeds in place via `app_meta` `baseFoodsVersion` +
       `foodRepo.upsertBaseFood`.
 - [x] **Quick-add / recent foods + inline edit-serving** — tap a logged item to adjust servings/delete.
+- [x] **Remembered quantity per food** — the add-food sheet prefills the last amount + unit you logged
+      an item at (`food_items.lastAmount`/`lastUnit`, set on log via `foodRepo.setFoodItemLastEntry`);
+      editing an existing log doesn't overwrite it. The unit dropdown opens **downward** below the field.
 - [x] **Goal Phases & cycles UI** — `goal-phases` create/list with active-phase detection feeding
       `resolveTargets`.
 - [x] **MET "how to hit it" suggestions** — `ActivitySuggestions` when behind pace.
@@ -50,6 +53,18 @@ Honest status of the rebuild. **Update this when features land or plans change.*
 - [x] **Active set-logger redesign** — per-set rows, ghost/previous values, ✓ + between-set rest
       timers, per-exercise notes + rest config (30/60/90/120/180 + custom), swipe-to-delete with
       confirms, tap exercise → detail, and a **custom numpad** (Next: lbs → reps → complete + rest → next).
+- [x] **Supersets** — group adjacent exercises (in-session via the **Superset** button on an exercise,
+      or baked into templates), labelled A1/A2 with an accent band. Sets run **alternating rounds**
+      (A1→B1→rest→A2→B2…); rest only fires after the last exercise in a round. Logic in `lib/supersets.ts`;
+      `supersetGroup` column on `template_exercises`/`session_exercises`.
+- [x] **Numpad overwrite-on-focus** — a freshly focused weight/reps cell is overwritten by the first
+      digit typed (then appends), instead of appending to the existing value. **Next** now also carries
+      focus into the following exercise's first set instead of dismissing the keypad.
+- [x] **Workout calories burned** — measured from Apple Health / Health Connect active energy for the
+      session window (`health.getActiveEnergyBurned`), falling back to a **MET time estimate**
+      (`caloriesBurnedFromDuration`, ~5.0 MET). Live estimate in the session header, final value on the
+      summary, stored on `workout_sessions.caloriesBurned`. Opt-in **eat-back** (`countActiveCalories`
+      toggle in Settings) adds today's burned calories to the daily budget via `resolveTargets`.
 - [x] **Workout history** — month navigator (‹ ›), calendar day picker (`MonthCalendar`),
       swipe-to-delete sessions.
 - [x] **Routines** — create/**edit**/delete, **default** toggle, and a "Start {routine}" FAB action.
@@ -150,6 +165,8 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       To activate: `npx expo install react-native-health-connect @kingstinct/react-native-healthkit
       react-native-nitro-modules`, add their config plugins + permissions, implement the providers in
       `health.ts` (guarded `require`s), then `expo prebuild` + a native build and test on-device.
+      The seam now also reads **active energy burned** (`getActiveEnergyBurned`) for workout calories —
+      it lights up with the same native rebuild; in Expo Go it returns `null` and the MET estimate is used.
 - [ ] **Drag-to-reorder (gesture)** — template exercises reorder via up/down today; true drag needs
       the reanimated **worklets babel plugin** enabled (then `react-native-draggable-flatlist`).
 - [ ] **Home Assistant add-on** — lives in the web/api repos, **not this mobile app**; expose

@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View, TextInput, StyleSheet, Pressable, ScrollView, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { X, Trash2, ChevronUp, ChevronDown, Dumbbell } from 'lucide-react-native';
+import { X, Trash2, ChevronUp, ChevronDown, Dumbbell, Link2, Link2Off } from 'lucide-react-native';
 
 import { FsText, Button, Card } from '@/components/ui';
+import { KebabMenu } from '@/components/KebabMenu';
 import { useTemplateDraftStore } from '@/stores/templateDraftStore';
 import { useNavStore } from '@/stores/navStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -17,10 +18,36 @@ export default function NewTemplate() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id?: string; mode?: string }>();
   const unit = useSettingsStore((s) => s.profile.unitSystem);
-  const { editingId, name, label, exercises, setName, setLabel, removeExercise, moveExercise, patch, loadTemplate, save } = useTemplateDraftStore();
+  const { editingId, name, label, exercises, setName, setLabel, removeExercise, moveExercise, patch, startSuperset, ungroup, loadTemplate, save } = useTemplateDraftStore();
 
   const wizard = params.mode === 'wizard' && !editingId;
   const [step, setStep] = useState<1 | 2>(1);
+
+  // Superset labels (A1/A2…) for adjacent exercises sharing a group, keyed by exercise id.
+  const ssLabels = useMemo(() => {
+    const out: Record<string, string> = {};
+    let letterIdx = 0;
+    let i = 0;
+    while (i < exercises.length) {
+      const g = exercises[i].supersetGroup;
+      let j = i;
+      while (j < exercises.length && g && exercises[j].supersetGroup === g) j++;
+      const run = exercises.slice(i, j);
+      if (g && run.length > 1) {
+        const letter = String.fromCharCode(65 + (letterIdx % 26));
+        run.forEach((e, k) => { out[e.exercise.id] = `${letter}${k + 1}`; });
+        letterIdx++;
+      }
+      i = Math.max(j, i + 1);
+    }
+    return out;
+  }, [exercises]);
+
+  const onSupersetPress = (exerciseId: string, grouped: boolean) => {
+    if (grouped) { ungroup(exerciseId); return; }
+    startSuperset(exerciseId);
+    router.push('/exercises?pick=template');
+  };
 
   // Deep-link / fallback: load the template if we arrived with an id but the draft isn't primed.
   useEffect(() => {
@@ -84,7 +111,7 @@ export default function NewTemplate() {
         )}
 
         {exercises.map((d, i) => (
-          <Card key={d.exercise.id} style={{ marginBottom: space[3] }}>
+          <Card key={d.exercise.id} style={{ marginBottom: space[3], ...(d.supersetGroup ? styles.ssCard : {}) }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: showConfig ? space[2] : 0, gap: space[2] }}>
               <View style={styles.moveCol}>
                 <Pressable onPress={() => moveExercise(d.exercise.id, -1)} disabled={i === 0} hitSlop={6} style={i === 0 && { opacity: 0.3 }}>
@@ -95,12 +122,22 @@ export default function NewTemplate() {
                 </Pressable>
               </View>
               <View style={{ flex: 1 }}>
-                <FsText variant="cardTitle" numberOfLines={1}>{d.exercise.name}</FsText>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  {ssLabels[d.exercise.id] && (
+                    <View style={styles.ssBadge}><FsText variant="caption" style={{ color: colors.white, fontWeight: '700' }}>{ssLabels[d.exercise.id]}</FsText></View>
+                  )}
+                  <FsText variant="cardTitle" numberOfLines={1}>{d.exercise.name}</FsText>
+                </View>
                 {d.exercise.muscleGroup ? <FsText variant="caption">{d.exercise.muscleGroup}</FsText> : null}
               </View>
-              <Pressable onPress={() => removeExercise(d.exercise.id)} hitSlop={8}>
-                <Trash2 color={colors.muted} size={18} />
-              </Pressable>
+              <KebabMenu
+                items={[
+                  d.supersetGroup
+                    ? { icon: Link2Off, label: 'Remove from superset', onPress: () => onSupersetPress(d.exercise.id, true) }
+                    : { icon: Link2, label: 'Superset', onPress: () => onSupersetPress(d.exercise.id, false) },
+                  { icon: Trash2, label: 'Remove exercise', danger: true, onPress: () => removeExercise(d.exercise.id) },
+                ]}
+              />
             </View>
             {showConfig && (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[2] }}>
@@ -147,6 +184,8 @@ const styles = themedStyles(() => StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   moveCol: { alignItems: 'center' },
+  ssCard: { borderLeftWidth: 3, borderLeftColor: colors.primary },
+  ssBadge: { backgroundColor: colors.primary, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 1 },
   field: { marginBottom: space[3] },
   input: {
     backgroundColor: colors.surfaceHigh, borderRadius: radius.md,

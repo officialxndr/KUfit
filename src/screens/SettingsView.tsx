@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, TextInput, StyleSheet, Pressable, Alert } from 'react-native';
+import { View, TextInput, StyleSheet, Pressable, Alert, Switch } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { Image } from 'react-native';
@@ -226,6 +226,17 @@ export function SettingsView() {
           health plugin enabled (cross-platform: Apple Health on iOS, Health Connect on Android).
         </FsText>
         <Button title={`Connect ${healthPlatformLabel}`} variant="ghost" onPress={connectHealth} />
+        <View style={styles.toggleRow}>
+          <View style={{ flex: 1, marginRight: space[3] }}>
+            <FsText variant="bodyMedium">Count workout calories</FsText>
+            <FsText variant="caption">Add calories burned in workouts (from {healthPlatformLabel} or an activity estimate) back to your daily calorie budget.</FsText>
+          </View>
+          <Switch
+            value={profile.countActiveCalories}
+            onValueChange={(v) => setProfile({ countActiveCalories: v })}
+            trackColor={{ true: colors.primary, false: colors.border }}
+          />
+        </View>
       </Card>
 
       <Card style={{ marginBottom: space[3] }}>
@@ -309,6 +320,7 @@ function Appearance() {
 }
 
 const styles = themedStyles(() => StyleSheet.create({
+  toggleRow: { flexDirection: 'row', alignItems: 'center', marginTop: space[3] },
   themeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
   themeSwatch: {
     paddingHorizontal: space[3], paddingVertical: space[3], borderRadius: radius.md,

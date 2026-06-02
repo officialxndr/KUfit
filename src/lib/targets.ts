@@ -1,5 +1,6 @@
 import { calcBMR, calcTDEE, calcGoalCalories } from '@/lib/tdee';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
+import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import type { Profile } from '@/stores/settingsStore';
 import type { GoalPhase } from '@/types';
 
@@ -23,10 +24,20 @@ function ageFromBirthDate(birthDate: string | null): number | null {
 
 /**
  * Resolves the effective daily calorie + macro targets, following the active
- * GoalPhase if one covers today, otherwise the profile defaults. Pure read —
- * safe to call on every render.
+ * GoalPhase if one covers today, otherwise the profile defaults. When the user
+ * has opted in (`countActiveCalories`), today's workout calories burned are
+ * added back to the calorie budget. Pure read — safe to call on every render.
  */
 export function resolveTargets(profile: Profile): ResolvedTargets {
+  const base = resolveBaseTargets(profile);
+  if (profile.countActiveCalories && base.calorieTarget != null) {
+    const burned = workoutRepo.getCaloriesBurnedToday();
+    if (burned > 0) return { ...base, calorieTarget: base.calorieTarget + burned };
+  }
+  return base;
+}
+
+function resolveBaseTargets(profile: Profile): ResolvedTargets {
   const phase: GoalPhase | null = healthRepo.getActiveGoalPhase();
   const latest = healthRepo.getLatestWeightEntry();
   const currentWeightKg = latest?.weightKg ?? null;

@@ -14,6 +14,8 @@ interface SessionState {
   startedAt: string | null;
   exercises: LocalExercise[];
   counter: number;
+  /** When set, the next added exercise joins this superset group right after `afterLocalId`. */
+  pendingSuperset: { group: string; afterLocalId: string } | null;
 
   startEmpty: () => void;
   startFromTemplate: (templateLocalId: string, name: string) => void;
@@ -24,8 +26,12 @@ interface SessionState {
   removeSet: (exLocalId: string, setLocalId: string) => void;
   setNotes: (exLocalId: string, notes: string) => void;
   setRestSeconds: (exLocalId: string, restSeconds: number) => void;
+  /** Begin a superset on `exLocalId`; the next added exercise joins its group. */
+  startSuperset: (exLocalId: string) => void;
+  /** Remove an exercise from its superset group. */
+  ungroup: (exLocalId: string) => void;
   setName: (name: string) => void;
-  finish: () => string | null;
+  finish: (caloriesBurned?: number | null) => string | null;
   discard: () => void;
 }
 
@@ -38,28 +44,70 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   startedAt: null,
   exercises: [],
   counter: 0,
+  pendingSuperset: null,
 
   startEmpty: () => {
     const name = 'Workout';
     const sessionLocalId = workoutRepo.startSession(name);
-    set({ active: true, sessionLocalId, name, startedAt: nowIso(), exercises: [], counter: 0 });
+    set({ active: true, sessionLocalId, name, startedAt: nowIso(), exercises: [], counter: 0, pendingSuperset: null });
   },
 
   startFromTemplate: (templateLocalId, name) => {
     const sessionLocalId = workoutRepo.startSession(name, templateLocalId);
     const exercises = workoutRepo.buildLocalExercisesFromTemplate(templateLocalId);
-    set({ active: true, sessionLocalId, name, startedAt: nowIso(), exercises, counter: 1000 });
+    set({ active: true, sessionLocalId, name, startedAt: nowIso(), exercises, counter: 1000, pendingSuperset: null });
   },
 
   addExercise: (exercise) => {
     const counter = { n: get().counter };
     const le = workoutRepo.buildEmptyLocalExercise(exercise, counter);
-    le.order = get().exercises.length;
-    set((s) => ({ exercises: [...s.exercises, le], counter: counter.n }));
+    const pending = get().pendingSuperset;
+    set((s) => {
+      let next: LocalExercise[];
+      if (pending) {
+        le.supersetGroup = pending.group;
+        // Commit the group on the source exercise too (kept off until a partner lands,
+        // so cancelling the picker leaves it solo).
+        const base = s.exercises.map((e) =>
+          e.localId === pending.afterLocalId ? { ...e, supersetGroup: pending.group } : e
+        );
+        const at = base.findIndex((e) => e.localId === pending.afterLocalId);
+        next = at < 0
+          ? [...base, le]
+          : [...base.slice(0, at + 1), le, ...base.slice(at + 1)];
+      } else {
+        next = [...s.exercises, le];
+      }
+      return {
+        exercises: next.map((e, i) => ({ ...e, order: i })),
+        counter: counter.n,
+        pendingSuperset: null,
+      };
+    });
   },
 
   removeExercise: (localId) =>
-    set((s) => ({ exercises: s.exercises.filter((e) => e.localId !== localId) })),
+    set((s) => ({
+      exercises: s.exercises.filter((e) => e.localId !== localId).map((e, i) => ({ ...e, order: i })),
+    })),
+
+  startSuperset: (exLocalId) =>
+    set((s) => {
+      const ex = s.exercises.find((e) => e.localId === exLocalId);
+      if (!ex) return s;
+      // Reuse the existing group if the exercise is already in a superset; the
+      // group is only committed to the exercises once a partner is added.
+      const group = ex.supersetGroup ?? `sg-${s.counter + 1}`;
+      return {
+        counter: s.counter + 1,
+        pendingSuperset: { group, afterLocalId: exLocalId },
+      };
+    }),
+
+  ungroup: (exLocalId) =>
+    set((s) => ({
+      exercises: s.exercises.map((e) => (e.localId === exLocalId ? { ...e, supersetGroup: null } : e)),
+    })),
 
   addSet: (exLocalId) =>
     set((s) => ({
@@ -119,7 +167,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   setName: (name) => set({ name }),
 
-  finish: () => {
+  finish: (caloriesBurned) => {
     const { sessionLocalId, exercises } = get();
     if (!sessionLocalId) return null;
 
@@ -135,18 +183,18 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           if (isPersonalBest) newBest = e1rm;
           return { setNumber: st.setNumber, weightKg: st.weightKg, reps: st.reps, rpe: st.rpe, isPersonalBest };
         });
-      return { exerciseLocalId: e.exerciseId, notes: e.notes || undefined, order: e.order, sets };
+      return { exerciseLocalId: e.exerciseId, notes: e.notes || undefined, order: e.order, supersetGroup: e.supersetGroup ?? null, sets };
     }).filter((e) => e.sets.length > 0);
 
-    workoutRepo.finishSession(sessionLocalId, payload, nowIso());
+    workoutRepo.finishSession(sessionLocalId, payload, nowIso(), caloriesBurned ?? null);
     const id = sessionLocalId;
-    set({ active: false, sessionLocalId: null, name: '', startedAt: null, exercises: [], counter: 0 });
+    set({ active: false, sessionLocalId: null, name: '', startedAt: null, exercises: [], counter: 0, pendingSuperset: null });
     return id;
   },
 
   discard: () => {
     const { sessionLocalId } = get();
     if (sessionLocalId) workoutRepo.discardSession(sessionLocalId);
-    set({ active: false, sessionLocalId: null, name: '', startedAt: null, exercises: [], counter: 0 });
+    set({ active: false, sessionLocalId: null, name: '', startedAt: null, exercises: [], counter: 0, pendingSuperset: null });
   },
 }));

@@ -59,6 +59,9 @@ export interface FoodItem {
   createdAt: string
   /** Rich Open Food Facts data (extended nutriments, scores, ingredients…). */
   details?: FoodDetails | null
+  /** Last amount + unit logged for this item (prefills the quantity sheet). */
+  lastAmount?: number | null
+  lastUnit?: string | null
 }
 
 /** A single extended nutriment, value expressed per serving in grams (OFF base unit). */
@@ -195,6 +198,8 @@ export interface WorkoutSession {
   finishedAt?: string | null
   notes?: string | null
   totalVolume?: number | null
+  /** kcal burned during this workout (measured from Health, else MET estimate). */
+  caloriesBurned?: number | null
   exercises: SessionExercise[]
   template?: { name: string } | null
   createdAt: string
@@ -213,6 +218,8 @@ export interface WorkoutTemplate {
     defaultWeightKg?: number | null
     restSeconds?: number | null
     order: number
+    /** Group key shared by adjacent exercises in a superset (null = solo). */
+    supersetGroup?: string | null
   }[]
   lastPerformedAt?: string | null
   createdAt: string
@@ -288,4 +295,6 @@ export interface LocalExercise {
   sets: LocalSet[]
   lastSets: ExerciseSet[]
   restSeconds: number
+  /** Group key shared by adjacent exercises in a superset (null/undefined = solo). */
+  supersetGroup?: string | null
 }

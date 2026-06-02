@@ -8,6 +8,8 @@ export interface DraftExercise {
   defaultReps: number;
   defaultWeightKg: number | null;
   restSeconds: number;
+  /** Group key shared by adjacent exercises in a superset (null = solo). */
+  supersetGroup: string | null;
 }
 
 interface TemplateDraftState {
@@ -16,6 +18,8 @@ interface TemplateDraftState {
   description: string;
   label: string;
   exercises: DraftExercise[];
+  /** When set, the next added exercise joins this superset group after `afterId`. */
+  pendingSuperset: { group: string; afterId: string } | null;
   reset: () => void;
   loadTemplate: (t: WorkoutTemplate) => void;
   setName: (name: string) => void;
@@ -24,6 +28,8 @@ interface TemplateDraftState {
   removeExercise: (exerciseId: string) => void;
   moveExercise: (exerciseId: string, dir: -1 | 1) => void;
   patch: (exerciseId: string, p: Partial<DraftExercise>) => void;
+  startSuperset: (exerciseId: string) => void;
+  ungroup: (exerciseId: string) => void;
   save: () => string | null;
 }
 
@@ -33,12 +39,14 @@ export const useTemplateDraftStore = create<TemplateDraftState>((set, get) => ({
   description: '',
   label: '',
   exercises: [],
-  reset: () => set({ editingId: null, name: '', description: '', label: '', exercises: [] }),
+  pendingSuperset: null,
+  reset: () => set({ editingId: null, name: '', description: '', label: '', exercises: [], pendingSuperset: null }),
   loadTemplate: (t) => set({
     editingId: t.id,
     name: t.name,
     description: t.description ?? '',
     label: t.label ?? '',
+    pendingSuperset: null,
     exercises: t.exercises
       .slice()
       .sort((a, b) => a.order - b.order)
@@ -48,21 +56,28 @@ export const useTemplateDraftStore = create<TemplateDraftState>((set, get) => ({
         defaultReps: te.defaultReps ?? 8,
         defaultWeightKg: te.defaultWeightKg ?? null,
         restSeconds: te.restSeconds ?? 120,
+        supersetGroup: te.supersetGroup ?? null,
       })),
   }),
   setName: (name) => set({ name }),
   setLabel: (label) => set({ label }),
   addExercise: (exercise) =>
-    set((s) =>
-      s.exercises.some((e) => e.exercise.id === exercise.id)
-        ? s
-        : {
-            exercises: [
-              ...s.exercises,
-              { exercise, defaultSets: 3, defaultReps: 8, defaultWeightKg: null, restSeconds: 120 },
-            ],
-          }
-    ),
+    set((s) => {
+      if (s.exercises.some((e) => e.exercise.id === exercise.id)) return s;
+      const pending = s.pendingSuperset;
+      const draft: DraftExercise = {
+        exercise, defaultSets: 3, defaultReps: 8, defaultWeightKg: null, restSeconds: 120,
+        supersetGroup: pending?.group ?? null,
+      };
+      if (!pending) return { exercises: [...s.exercises, draft] };
+      // Commit the group on the source exercise and insert the new one right after it.
+      const base = s.exercises.map((e) =>
+        e.exercise.id === pending.afterId ? { ...e, supersetGroup: pending.group } : e
+      );
+      const at = base.findIndex((e) => e.exercise.id === pending.afterId);
+      const next = at < 0 ? [...base, draft] : [...base.slice(0, at + 1), draft, ...base.slice(at + 1)];
+      return { exercises: next, pendingSuperset: null };
+    }),
   removeExercise: (exerciseId) =>
     set((s) => ({ exercises: s.exercises.filter((e) => e.exercise.id !== exerciseId) })),
   moveExercise: (exerciseId, dir) =>
@@ -78,6 +93,17 @@ export const useTemplateDraftStore = create<TemplateDraftState>((set, get) => ({
     set((s) => ({
       exercises: s.exercises.map((e) => (e.exercise.id === exerciseId ? { ...e, ...p } : e)),
     })),
+  startSuperset: (exerciseId) =>
+    set((s) => {
+      const ex = s.exercises.find((e) => e.exercise.id === exerciseId);
+      if (!ex) return s;
+      const group = ex.supersetGroup ?? `sg-${Math.random().toString(36).slice(2, 8)}`;
+      return { pendingSuperset: { group, afterId: exerciseId } };
+    }),
+  ungroup: (exerciseId) =>
+    set((s) => ({
+      exercises: s.exercises.map((e) => (e.exercise.id === exerciseId ? { ...e, supersetGroup: null } : e)),
+    })),
   save: () => {
     const { editingId, name, description, label, exercises } = get();
     if (!name.trim() || exercises.length === 0) return null;
@@ -92,12 +118,13 @@ export const useTemplateDraftStore = create<TemplateDraftState>((set, get) => ({
         defaultWeightKg: e.defaultWeightKg ?? undefined,
         restSeconds: e.restSeconds,
         order: i,
+        supersetGroup: e.supersetGroup ?? null,
       })),
     };
     let id: string;
     if (editingId) { workoutRepo.updateTemplate(editingId, input); id = editingId; }
     else { id = workoutRepo.saveTemplate(input); }
-    set({ editingId: null, name: '', description: '', label: '', exercises: [] });
+    set({ editingId: null, name: '', description: '', label: '', exercises: [], pendingSuperset: null });
     return id;
   },
 }));

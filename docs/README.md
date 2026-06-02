@@ -105,3 +105,6 @@ every 7 days on the same Wi-Fi). Android: install the `preview` `.apk` directly.
   add the provider libs in a native build — `@kingstinct/react-native-healthkit` (iOS / Apple Health)
   and `react-native-health-connect` (Android / Health Connect) — wire them into the `HealthService`
   implementation, add the required config plugins + permissions, then `eas build` / `expo prebuild`.
+- **Workout calories**: active energy from Apple Watch / Health Connect only resolves in a native/dev
+  build (the same activation as above). In Expo Go the workout falls back to a MET time-based estimate.
+  Settings → "Health" → **Count workout calories** opts in to adding the burned calories to the daily budget.

@@ -230,8 +230,16 @@ function runMigrations() {
   ensureColumn('food_items', 'saturatedFat', 'REAL');
   ensureColumn('food_items', 'detailsJson', 'TEXT');
   ensureColumn('food_items', 'isFavorite', 'INTEGER DEFAULT 0');
+  // Last amount + unit the user logged this item at, to prefill the quantity sheet.
+  ensureColumn('food_items', 'lastAmount', 'REAL');
+  ensureColumn('food_items', 'lastUnit', 'TEXT');
   ensureColumn('recipes', 'isFavorite', 'INTEGER DEFAULT 0');
   ensureColumn('recipes', 'servingWeightG', 'REAL');
+  // Supersets: a group key shared by adjacent exercises (null = solo).
+  ensureColumn('template_exercises', 'supersetGroup', 'TEXT');
+  ensureColumn('session_exercises', 'supersetGroup', 'TEXT');
+  // Calories burned during a workout (measured from HealthKit/Health Connect, else MET estimate).
+  ensureColumn('workout_sessions', 'caloriesBurned', 'REAL');
 }
 
 function ensureColumn(table: string, column: string, decl: string) {

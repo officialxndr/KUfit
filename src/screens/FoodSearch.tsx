@@ -39,7 +39,15 @@ export function FoodSearch() {
   const [favActive, setFavActive] = useState(false);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const pick = (item: FoodCandidate) => { Keyboard.dismiss(); setFavActive(!!item.isFavorite); setSelected(item); };
+  const pick = (item: FoodCandidate) => {
+    Keyboard.dismiss();
+    setFavActive(!!item.isFavorite);
+    // Carry the item's last-logged amount + unit so the sheet can prefill it.
+    const existing = item.localId
+      ? foodRepo.getFoodItemById(item.localId)
+      : item.barcode ? foodRepo.getFoodItemByBarcode(item.barcode) : null;
+    setSelected({ ...item, lastAmount: existing?.lastAmount ?? null, lastUnit: existing?.lastUnit ?? null });
+  };
   const toggleFav = () => {
     if (!selected) return;
     const id = selected.localId ?? ensureFoodItem(selected);
@@ -68,9 +76,11 @@ export function FoodSearch() {
     return () => { if (debounce.current) clearTimeout(debounce.current); };
   }, [q]);
 
-  const logSelected = (qty: number) => {
+  const logSelected = (qty: number, entry: { amount: number; unit: string }) => {
     if (!selected) return;
-    foodRepo.addLog({ date: today(), meal, foodItemLocalId: ensureFoodItem(selected), servingQty: qty });
+    const id = ensureFoodItem(selected);
+    foodRepo.addLog({ date: today(), meal, foodItemLocalId: id, servingQty: qty });
+    foodRepo.setFoodItemLastEntry(id, entry.amount, entry.unit);
     setSelected(null);
   };
 

@@ -1,16 +1,22 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, Pressable, ScrollView, Alert, Modal, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
-import { Check, Plus, Minus, Trash2, X, Timer, Delete, ChevronDown, StickyNote, Info } from 'lucide-react-native';
+import { Check, Plus, Minus, Trash2, X, Timer, Delete, ChevronDown, StickyNote, Info, Link2, Link2Off, Flame } from 'lucide-react-native';
 
 import { FsText, Button, Card } from '@/components/ui';
+import { KebabMenu } from '@/components/KebabMenu';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useNavStore } from '@/stores/navStore';
 import { toDisplay, toKg, UNIT_LABELS } from '@/lib/units';
 import { haptic } from '@/lib/haptics';
+import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
+import { healthRepo } from '@/lib/repositories/HealthRepo';
+import { health } from '@/lib/health';
+import { caloriesBurnedFromDuration } from '@/lib/activities';
+import { nextSetCell, restAfterSet, supersetRuns, supersetLabels } from '@/lib/supersets';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { LocalExercise, LocalSet } from '@/types';
 
@@ -31,14 +37,19 @@ export default function SessionScreen() {
   const weightLabel = UNIT_LABELS[unit].weight;
   const {
     active, name, startedAt, exercises,
-    addSet, updateSet, removeSet, removeExercise, setNotes, setRestSeconds, finish, discard,
+    addSet, updateSet, removeSet, removeExercise, setNotes, setRestSeconds,
+    startSuperset, ungroup, finish, discard,
   } = useSessionStore();
 
   const REST_PRESETS = [30, 60, 90, 120, 180];
 
+  const bodyWeightKg = useMemo(() => healthRepo.getLatestWeightEntry()?.weightKg ?? 75, []);
+
   const [, force] = useState(0);
   const finishing = useRef(false);
   const [focus, setFocus] = useState<Focus | null>(null);
+  const [pristine, setPristine] = useState(true);
+  const focusCell = (next: Focus) => { setFocus(next); setPristine(true); };
   const [rest, setRest] = useState<Rest>({ exId: null, setId: null, remaining: 0, total: 0 });
   const [notesEx, setNotesEx] = useState<{ id: string; text: string } | null>(null);
   const [restEx, setRestEx] = useState<{ id: string; seconds: number } | null>(null);
@@ -74,7 +85,20 @@ export default function SessionScreen() {
       return;
     }
     finishing.current = true;
-    const id = finish();
+    const start = startedAt;
+    const endIso = new Date().toISOString();
+    const durationMin = start
+      ? Math.max(1, Math.round((Date.now() - new Date(start).getTime()) / 60000))
+      : 0;
+    const estimate = caloriesBurnedFromDuration(durationMin, bodyWeightKg);
+    const id = finish(estimate);
+    // Reconcile with measured active energy (Apple Watch / Health Connect) once it returns.
+    if (id && start) {
+      health
+        .getActiveEnergyBurned(start, endIso)
+        .then((measured) => { if (measured && measured > 0) workoutRepo.setSessionCalories(id, Math.round(measured)); })
+        .catch(() => {});
+    }
     if (id) router.replace({ pathname: '/workout-summary', params: { id } });
     else backToWorkout('history');
   };
@@ -101,27 +125,31 @@ export default function SessionScreen() {
     if (!ex || !st) return;
 
     if (key === 'next') {
-      if (focus.field === 'w') { haptic.tap(); setFocus({ ...focus, field: 'r' }); return; }
+      if (focus.field === 'w') { haptic.tap(); focusCell({ ...focus, field: 'r' }); return; }
       updateSet(ex.localId, st.localId, { done: true });
       haptic.success();
-      startRest(ex.localId, st.localId, ex.restSeconds || 90);
-      const idx = ex.sets.findIndex((s) => s.localId === st.localId);
-      const nextSet = ex.sets[idx + 1];
-      setFocus(nextSet ? { ex: ex.localId, set: nextSet.localId, field: 'w' } : null);
+      // Rest only after the last exercise of a superset round (always, for solo exercises).
+      if (restAfterSet(exercises, ex.localId, st.localId)) startRest(ex.localId, st.localId, ex.restSeconds || 90);
+      // Advance through the round-interleaved sequence — carries into the next exercise.
+      const nx = nextSetCell(exercises, ex.localId, st.localId);
+      if (nx) focusCell({ ex: nx.exLocalId, set: nx.setLocalId, field: 'w' });
+      else setFocus(null);
       return;
     }
 
+    // Digit / delete entry. Delete always backspaces the real value; a digit on a
+    // freshly focused field overwrites it, then subsequent digits append.
+    const curStr = focus.field === 'w'
+      ? (wDisp(st.weightKg) > 0 ? String(wDisp(st.weightKg)) : '')
+      : (st.reps > 0 ? String(st.reps) : '');
+    const ns = key === 'del' ? curStr.slice(0, -1) : (pristine ? '' : curStr) + key;
+    const value = parseInt(ns || '0', 10) || 0;
     if (focus.field === 'w') {
-      const cur = wDisp(st.weightKg);
-      const s = cur > 0 ? String(cur) : '';
-      const ns = key === 'del' ? s.slice(0, -1) : s + key;
-      updateSet(ex.localId, st.localId, { weightKg: toKg(parseInt(ns || '0', 10) || 0, unit) });
+      updateSet(ex.localId, st.localId, { weightKg: toKg(value, unit) });
     } else {
-      const cur = st.reps;
-      const s = cur > 0 ? String(cur) : '';
-      const ns = key === 'del' ? s.slice(0, -1) : s + key;
-      updateSet(ex.localId, st.localId, { reps: parseInt(ns || '0', 10) || 0 });
+      updateSet(ex.localId, st.localId, { reps: value });
     }
+    setPristine(false);
   };
 
   const step = (dir: number) => {
@@ -134,10 +162,11 @@ export default function SessionScreen() {
     } else {
       updateSet(ex.localId, st.localId, { reps: Math.max(0, st.reps + dir) });
     }
+    setPristine(false);
   };
 
   const Cell = ({ exId, setId, field, value, focused }: { exId: string; setId: string; field: Field; value: number; focused: boolean }) => (
-    <Pressable onPress={() => setFocus({ ex: exId, set: setId, field })} style={[styles.cell, focused && styles.cellFocused]}>
+    <Pressable onPress={() => focusCell({ ex: exId, set: setId, field })} style={[styles.cell, focused && styles.cellFocused]}>
       <FsText variant="bodyMedium" style={{ color: value > 0 ? colors.text : colors.muted, fontVariant: ['tabular-nums'] }}>
         {value > 0 ? value : 0}
       </FsText>
@@ -161,13 +190,121 @@ export default function SessionScreen() {
     </View>
   );
 
+  const onSupersetPress = (ex: LocalExercise) => {
+    if (ex.supersetGroup) { ungroup(ex.localId); return; }
+    startSuperset(ex.localId);
+    router.push('/exercises?pick=session');
+  };
+
+  const renderExercise = (ex: LocalExercise, label?: string) => (
+    <Card key={ex.localId} style={{ marginBottom: space[3] }}>
+      <View style={styles.exHeader}>
+        <Pressable style={{ flex: 1 }} onPress={() => router.push(`/exercise/${ex.exercise.id}`)} hitSlop={6}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {!!label && (
+              <View style={styles.ssBadge}><FsText variant="caption" style={{ color: colors.white, fontWeight: '700' }}>{label}</FsText></View>
+            )}
+            <FsText variant="cardTitle" style={{ color: colors.primary }} numberOfLines={1}>{ex.exercise.name}</FsText>
+            <Info color={colors.muted} size={14} />
+          </View>
+          {!!ex.exercise.muscleGroup && <FsText variant="caption">{ex.exercise.muscleGroup}</FsText>}
+        </Pressable>
+        <KebabMenu
+          items={[
+            ex.supersetGroup
+              ? { icon: Link2Off, label: 'Remove from superset', onPress: () => onSupersetPress(ex) }
+              : { icon: Link2, label: 'Superset', onPress: () => onSupersetPress(ex) },
+            { icon: StickyNote, label: ex.notes ? 'Edit notes' : 'Add notes', onPress: () => setNotesEx({ id: ex.localId, text: ex.notes ?? '' }) },
+            { icon: Timer, label: 'Rest timer', onPress: () => { setRestEx({ id: ex.localId, seconds: ex.restSeconds || 90 }); setCustomRest(''); } },
+            { icon: Trash2, label: 'Delete exercise', danger: true, onPress: () => confirmRemoveExercise(ex.localId, ex.exercise.name) },
+          ]}
+        />
+      </View>
+
+      {!!ex.notes && (
+        <View style={styles.noteChip}>
+          <StickyNote color={colors.muted} size={13} />
+          <FsText variant="caption" style={{ flex: 1 }}>{ex.notes}</FsText>
+        </View>
+      )}
+
+      <View style={styles.gridHead}>
+        <FsText variant="overline" style={styles.colSet}>Set</FsText>
+        <FsText variant="overline" style={styles.colPrev}>Previous</FsText>
+        <FsText variant="overline" style={styles.colCell}>{weightLabel}</FsText>
+        <FsText variant="overline" style={styles.colCell}>Reps</FsText>
+        <View style={styles.colCheck}><Check color={colors.muted} size={13} /></View>
+      </View>
+
+      {ex.sets.map((st, i) => {
+        const ghost = ex.lastSets.find((l) => l.setNumber === st.setNumber);
+        const wFocused = focus?.ex === ex.localId && focus?.set === st.localId && focus?.field === 'w';
+        const rFocused = focus?.ex === ex.localId && focus?.set === st.localId && focus?.field === 'r';
+        const restHere = rest.setId === st.localId && rest.remaining > 0;
+        return (
+          <Fragment key={st.localId}>
+            <Swipeable renderRightActions={() => renderSwipeActions(ex, st)} overshootRight={false}>
+              <View style={[styles.setRow, st.done && styles.setRowDone]}>
+                <View style={styles.colSet}><View style={styles.setChip}><FsText variant="bodyMedium" style={{ fontVariant: ['tabular-nums'] }}>{st.setNumber}</FsText></View></View>
+                <FsText variant="caption" style={[styles.colPrev, { textAlign: 'center', fontVariant: ['tabular-nums'] }]}>
+                  {ghost ? `${wDisp(ghost.weightKg)} × ${ghost.reps}` : '—'}
+                </FsText>
+                <View style={styles.colCell}><Cell exId={ex.localId} setId={st.localId} field="w" value={wDisp(st.weightKg)} focused={wFocused} /></View>
+                <View style={styles.colCell}><Cell exId={ex.localId} setId={st.localId} field="r" value={st.reps} focused={rFocused} /></View>
+                <View style={styles.colCheck}>
+                  <Pressable
+                    onPress={() => {
+                      const nextDone = !st.done;
+                      updateSet(ex.localId, st.localId, { done: nextDone });
+                      if (nextDone) { haptic.success(); if (restAfterSet(exercises, ex.localId, st.localId)) startRest(ex.localId, st.localId, ex.restSeconds || 90); }
+                    }}
+                    style={[styles.check, st.done && { backgroundColor: colors.success, borderColor: colors.success }]}
+                    hitSlop={6}
+                  >
+                    {st.done && <Check color={colors.white} size={15} strokeWidth={3} />}
+                  </Pressable>
+                </View>
+              </View>
+            </Swipeable>
+            {i < ex.sets.length - 1 && (
+              <View style={styles.restDivider}>
+                <View style={[styles.restLine, restHere && { backgroundColor: colors.primary }]} />
+                <View style={styles.restPill}>
+                  <Timer color={restHere ? colors.primary : colors.muted} size={12} />
+                  <FsText variant="caption" style={{ color: restHere ? colors.primary : colors.muted, fontVariant: ['tabular-nums'], fontWeight: restHere ? '700' : '400' }}>
+                    {restHere ? mmss(rest.remaining) : mmss(ex.restSeconds || 90)}
+                  </FsText>
+                </View>
+                <View style={[styles.restLine, restHere && { backgroundColor: colors.primary }]} />
+              </View>
+            )}
+          </Fragment>
+        );
+      })}
+
+      <Pressable onPress={() => addSet(ex.localId)} style={styles.addSet}>
+        <Plus color={colors.primary} size={16} strokeWidth={2.4} />
+        <FsText variant="caption" style={{ color: colors.primary }}>Add set</FsText>
+      </Pressable>
+    </Card>
+  );
+
   return (
     <GestureHandlerRootView style={styles.screen}>
       <View style={[styles.header, { paddingTop: insets.top + space[3] }]}>
         <Pressable onPress={onDiscard} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
         <View style={{ alignItems: 'center' }}>
           <FsText variant="cardTitle" numberOfLines={1}>{name}</FsText>
-          <FsText variant="caption" style={{ fontVariant: ['tabular-nums'] }}>{elapsed(startedAt)}</FsText>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <FsText variant="caption" style={{ fontVariant: ['tabular-nums'] }}>{elapsed(startedAt)}</FsText>
+            <Flame color={colors.muted} size={11} />
+            <FsText variant="caption" style={{ fontVariant: ['tabular-nums'] }}>
+              {caloriesBurnedFromDuration(
+                startedAt ? (Date.now() - new Date(startedAt).getTime()) / 60000 : 0,
+                bodyWeightKg
+              )} kcal
+            </FsText>
+          </View>
         </View>
         <Pressable onPress={onFinish} hitSlop={10}>
           <FsText variant="bodyMedium" style={{ color: colors.success }}>Finish</FsText>
@@ -177,94 +314,22 @@ export default function SessionScreen() {
       <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: focus ? 340 : rest.remaining > 0 ? 160 : 120 }}>
         {exercises.length === 0 && <FsText variant="caption">Add an exercise to begin.</FsText>}
 
-        {exercises.map((ex) => (
-          <Card key={ex.localId} style={{ marginBottom: space[3] }}>
-            <View style={styles.exHeader}>
-              <Pressable style={{ flex: 1 }} onPress={() => router.push(`/exercise/${ex.exercise.id}`)} hitSlop={6}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <FsText variant="cardTitle" style={{ color: colors.primary }} numberOfLines={1}>{ex.exercise.name}</FsText>
-                  <Info color={colors.muted} size={14} />
+        {(() => {
+          const labels = supersetLabels(exercises);
+          return supersetRuns(exercises).map((run) =>
+            run.length > 1 ? (
+              <View key={`ss-${run[0].localId}`} style={styles.supersetWrap}>
+                <View style={styles.supersetTag}>
+                  <Link2 color={colors.primary} size={13} />
+                  <FsText variant="overline" style={{ color: colors.primary }}>Superset</FsText>
                 </View>
-                {!!ex.exercise.muscleGroup && <FsText variant="caption">{ex.exercise.muscleGroup}</FsText>}
-              </Pressable>
-              <Pressable onPress={() => setNotesEx({ id: ex.localId, text: ex.notes ?? '' })} hitSlop={8} style={styles.exBtn}>
-                <StickyNote color={ex.notes ? colors.primary : colors.muted} size={18} />
-              </Pressable>
-              <Pressable onPress={() => { setRestEx({ id: ex.localId, seconds: ex.restSeconds || 90 }); setCustomRest(''); }} hitSlop={8} style={styles.exBtn}>
-                <Timer color={colors.muted} size={18} />
-              </Pressable>
-              <Pressable onPress={() => confirmRemoveExercise(ex.localId, ex.exercise.name)} hitSlop={8} style={styles.exBtn}>
-                <Trash2 color={colors.danger} size={18} />
-              </Pressable>
-            </View>
-
-            {!!ex.notes && (
-              <View style={styles.noteChip}>
-                <StickyNote color={colors.muted} size={13} />
-                <FsText variant="caption" style={{ flex: 1 }}>{ex.notes}</FsText>
+                {run.map((ex) => renderExercise(ex, labels[ex.localId]))}
               </View>
-            )}
-
-            <View style={styles.gridHead}>
-              <FsText variant="overline" style={styles.colSet}>Set</FsText>
-              <FsText variant="overline" style={styles.colPrev}>Previous</FsText>
-              <FsText variant="overline" style={styles.colCell}>{weightLabel}</FsText>
-              <FsText variant="overline" style={styles.colCell}>Reps</FsText>
-              <View style={styles.colCheck}><Check color={colors.muted} size={13} /></View>
-            </View>
-
-            {ex.sets.map((st, i) => {
-              const ghost = ex.lastSets.find((l) => l.setNumber === st.setNumber);
-              const wFocused = focus?.ex === ex.localId && focus?.set === st.localId && focus?.field === 'w';
-              const rFocused = focus?.ex === ex.localId && focus?.set === st.localId && focus?.field === 'r';
-              const restHere = rest.setId === st.localId && rest.remaining > 0;
-              return (
-                <Fragment key={st.localId}>
-                  <Swipeable renderRightActions={() => renderSwipeActions(ex, st)} overshootRight={false}>
-                    <View style={[styles.setRow, st.done && styles.setRowDone]}>
-                      <View style={styles.colSet}><View style={styles.setChip}><FsText variant="bodyMedium" style={{ fontVariant: ['tabular-nums'] }}>{st.setNumber}</FsText></View></View>
-                      <FsText variant="caption" style={[styles.colPrev, { textAlign: 'center', fontVariant: ['tabular-nums'] }]}>
-                        {ghost ? `${wDisp(ghost.weightKg)} × ${ghost.reps}` : '—'}
-                      </FsText>
-                      <View style={styles.colCell}><Cell exId={ex.localId} setId={st.localId} field="w" value={wDisp(st.weightKg)} focused={wFocused} /></View>
-                      <View style={styles.colCell}><Cell exId={ex.localId} setId={st.localId} field="r" value={st.reps} focused={rFocused} /></View>
-                      <View style={styles.colCheck}>
-                        <Pressable
-                          onPress={() => {
-                            const nextDone = !st.done;
-                            updateSet(ex.localId, st.localId, { done: nextDone });
-                            if (nextDone) { haptic.success(); startRest(ex.localId, st.localId, ex.restSeconds || 90); }
-                          }}
-                          style={[styles.check, st.done && { backgroundColor: colors.success, borderColor: colors.success }]}
-                          hitSlop={6}
-                        >
-                          {st.done && <Check color={colors.white} size={15} strokeWidth={3} />}
-                        </Pressable>
-                      </View>
-                    </View>
-                  </Swipeable>
-                  {i < ex.sets.length - 1 && (
-                    <View style={styles.restDivider}>
-                      <View style={[styles.restLine, restHere && { backgroundColor: colors.primary }]} />
-                      <View style={styles.restPill}>
-                        <Timer color={restHere ? colors.primary : colors.muted} size={12} />
-                        <FsText variant="caption" style={{ color: restHere ? colors.primary : colors.muted, fontVariant: ['tabular-nums'], fontWeight: restHere ? '700' : '400' }}>
-                          {restHere ? mmss(rest.remaining) : mmss(ex.restSeconds || 90)}
-                        </FsText>
-                      </View>
-                      <View style={[styles.restLine, restHere && { backgroundColor: colors.primary }]} />
-                    </View>
-                  )}
-                </Fragment>
-              );
-            })}
-
-            <Pressable onPress={() => addSet(ex.localId)} style={styles.addSet}>
-              <Plus color={colors.primary} size={16} strokeWidth={2.4} />
-              <FsText variant="caption" style={{ color: colors.primary }}>Add set</FsText>
-            </Pressable>
-          </Card>
-        ))}
+            ) : (
+              renderExercise(run[0])
+            )
+          );
+        })()}
 
         <Button title="Add Exercise" variant="ghost" onPress={() => router.push('/exercises?pick=session')} />
         <FsText variant="caption" style={{ textAlign: 'center', marginTop: space[3] }}>Swipe a set left to delete it.</FsText>
@@ -401,7 +466,13 @@ const styles = themedStyles(() => StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   exHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: space[2], gap: space[1] },
-  exBtn: { padding: 4 },
+  supersetWrap: {
+    borderLeftWidth: 3, borderLeftColor: colors.primary,
+    borderRadius: radius.md, backgroundColor: 'rgba(99,102,241,0.05)',
+    paddingLeft: space[2], paddingTop: space[2], marginBottom: space[3],
+  },
+  supersetTag: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: space[2], paddingBottom: space[1] },
+  ssBadge: { backgroundColor: colors.primary, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 1 },
   noteChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: colors.surfaceHigh, borderRadius: radius.sm,

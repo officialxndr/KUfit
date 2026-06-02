@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
-import { Trophy, Timer, Dumbbell, Layers, Flame } from 'lucide-react-native';
+import { Trophy, Timer, Dumbbell, Layers, Flame, Hash } from 'lucide-react-native';
 
 import { FsText, Button, Card, Badge } from '@/components/ui';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
@@ -107,9 +107,10 @@ export default function WorkoutSummary() {
 
           <View style={styles.grid}>
             <Stat icon={Timer} label="Duration" value={durationMin != null ? `${durationMin} min` : '—'} />
+            <Stat icon={Flame} label="Calories" value={session?.caloriesBurned != null ? `${Math.round(session.caloriesBurned)} kcal` : '—'} />
             <Stat icon={Dumbbell} label="Volume" value={volume} />
             <Stat icon={Layers} label="Sets" value={String(sets)} />
-            <Stat icon={Flame} label="Exercises" value={String(session?.exercises.length ?? 0)} />
+            <Stat icon={Hash} label="Exercises" value={String(session?.exercises.length ?? 0)} />
           </View>
 
           {prs > 0 && (

@@ -43,6 +43,8 @@ function mapFoodItem(row: any): FoodItem {
     isFavorite: !!row.isFavorite,
     createdAt: row.updatedAt ?? new Date().toISOString(),
     details: parseDetails(row.detailsJson),
+    lastAmount: row.lastAmount ?? null,
+    lastUnit: row.lastUnit ?? null,
   };
 }
 
@@ -160,6 +162,14 @@ export class FoodRepo {
         payload.servingQty,
         new Date().toISOString(),
       ]
+    );
+  }
+
+  /** Remember the amount + unit a food item was last logged at (for sheet prefill). */
+  setFoodItemLastEntry(foodItemLocalId: string, amount: number, unit: string): void {
+    db.runSync(
+      `UPDATE food_items SET lastAmount = ?, lastUnit = ?, updatedAt = ? WHERE localId = ?`,
+      [amount, unit, new Date().toISOString(), foodItemLocalId]
     );
   }
 

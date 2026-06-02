@@ -45,9 +45,12 @@ External network (Open Food Facts, ExerciseDB CDN) is called directly from the d
   training goals `weeklySessionTarget`/`trainingFocus`, the maintain-buffer `goalRangeKg`, and custom
   `nutrientGoals[]`). Persisted via AsyncStorage with a `merge` that backfills new profile fields onto
   older stored data. Source of truth in no-server mode; mirrors the server `UserProfile`.
-- `sessionStore` — in-memory active workout; persisted to SQLite only on `finish()`.
+- `sessionStore` — in-memory active workout; persisted to SQLite only on `finish()` (which also takes
+  the workout's `caloriesBurned`). Holds `pendingSuperset` so the next exercise added from the picker
+  joins a superset (`startSuperset`/`ungroup` toggle `supersetGroup` on exercises).
 - `templateDraftStore` — in-progress template being built; supports **editing** an existing template
-  (`loadTemplate` + `editingId` → `WorkoutRepo.updateTemplate`) and a `label`.
+  (`loadTemplate` + `editingId` → `WorkoutRepo.updateTemplate`), a `label`, and supersets (same
+  `pendingSuperset`/`startSuperset`/`ungroup` pattern, persisted as `supersetGroup`).
 - `navStore` — shell navigation state: active `section` + `subTab` (local-only).
 - `routineStore` — workout **routines** (named template rotations, auto-pick least-recently-done,
   a **default** routine for the FAB quick-action); local-only, persisted via AsyncStorage.
@@ -73,7 +76,14 @@ to the shell.
   `syncNow()` is a documented stub (full push/pull pending the `apps/api` contract).
 - `lib/health.ts` — **cross-platform health seam** (`HealthService` interface + `healthPlatformLabel`).
   Default impl reports unavailable; a native/dev build wires Apple HealthKit (iOS) / Health Connect
-  (Android). Surfaced in Settings → "Health".
+  (Android). Surfaced in Settings → "Health". Reads weight history plus `getActiveEnergyBurned(start,
+  end)` (active calories for a workout window; `null` when unavailable → MET fallback).
+- `lib/supersets.ts` — pure superset ordering for the active session: `supersetRuns` (maximal runs of
+  adjacent same-`supersetGroup` exercises), `buildSetSequence`/`nextSetCell` (round-interleaved set
+  order — A1→B1→A2→B2…, which also gives "Next carries into the next exercise" for solo runs),
+  `restAfterSet` (rest only after the last exercise in a round), and `supersetLabels` (A1/A2…).
+- `lib/activities.ts` — MET table plus `caloriesBurnedFromDuration(min, kg, met=STRENGTH_MET)`, the
+  no-watch fallback estimate for workout calories.
 
 ## Components added
 - `components/MuscleMap.tsx` — anatomical front/back body (`react-native-body-highlighter`) shaded by
@@ -173,8 +183,9 @@ intentionally **not** bottom sheets and keep their `animationType="fade"` modals
 
 ## Calc libs (pure TS, ported from web — keep parity)
 - `tdee.ts` (Mifflin-St Jeor BMR/TDEE + goal-aware target), `epley.ts` (1RM), `activities.ts`
-  (MET table), `units.ts` (conversions), `targets.ts` (resolves daily calorie/macro targets from
-  active GoalPhase → profile → TDEE).
+  (MET table + `caloriesBurnedFromDuration`), `units.ts` (conversions), `targets.ts` (resolves daily
+  calorie/macro targets from active GoalPhase → profile → TDEE, then — when `countActiveCalories` is
+  on — adds today's workout calories burned back to the budget via `WorkoutRepo.getCaloriesBurnedToday`).
 
 ## Ported feature 1 — Open Food Facts search (`src/lib/foodSearch.ts`)
 Faithful port of `../../apps/api/src/routes/food.ts`, run client-side:

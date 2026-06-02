@@ -11,7 +11,7 @@ export interface TemplateInput {
   name: string;
   description?: string;
   label?: string | null;
-  exercises: Array<{ exerciseId: string; defaultSets: number; defaultReps?: number; defaultWeightKg?: number; restSeconds?: number; order: number }>;
+  exercises: Array<{ exerciseId: string; defaultSets: number; defaultReps?: number; defaultWeightKg?: number; restSeconds?: number; order: number; supersetGroup?: string | null }>;
 }
 
 // ── Mappers ───────────────────────────────────────────────────────────────────
@@ -62,6 +62,7 @@ function mapSession(row: any, exercises: SessionExercise[]): WorkoutSession {
     finishedAt: row.finishedAt ?? null,
     notes: row.notes ?? null,
     totalVolume: row.totalVolume ?? null,
+    caloriesBurned: row.caloriesBurned ?? null,
     exercises,
     template: row.templateName ? { name: row.templateName } : null,
     createdAt: row.updatedAt ?? row.startedAt,
@@ -207,6 +208,7 @@ export class WorkoutRepo {
         defaultWeightKg: er.defaultWeightKg ?? null,
         restSeconds: er.restSeconds ?? null,
         order: er.sortOrder,
+        supersetGroup: er.supersetGroup ?? null,
       }));
       return mapTemplate(row, exercises);
     });
@@ -237,9 +239,9 @@ export class WorkoutRepo {
     for (const ex of exercises) {
       db.runSync(
         `INSERT INTO template_exercises
-           (localId, templateLocalId, exerciseLocalId, defaultSets, defaultReps, defaultWeightKg, restSeconds, sortOrder)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [Crypto.randomUUID(), templateLocalId, ex.exerciseId, ex.defaultSets, ex.defaultReps ?? null, ex.defaultWeightKg ?? null, ex.restSeconds ?? null, ex.order]
+           (localId, templateLocalId, exerciseLocalId, defaultSets, defaultReps, defaultWeightKg, restSeconds, sortOrder, supersetGroup)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [Crypto.randomUUID(), templateLocalId, ex.exerciseId, ex.defaultSets, ex.defaultReps ?? null, ex.defaultWeightKg ?? null, ex.restSeconds ?? null, ex.order, ex.supersetGroup ?? null]
       );
     }
   }
@@ -275,9 +277,11 @@ export class WorkoutRepo {
       exerciseLocalId: string;
       notes?: string;
       order: number;
+      supersetGroup?: string | null;
       sets: Array<{ setNumber: number; weightKg: number; reps: number; rpe?: number; isPersonalBest?: boolean }>;
     }>,
-    finishedAt: string
+    finishedAt: string,
+    caloriesBurned?: number | null
   ): void {
     // Calculate total volume
     const totalVolume = exercises.reduce(
@@ -286,8 +290,8 @@ export class WorkoutRepo {
     );
 
     db.runSync(
-      `UPDATE workout_sessions SET finishedAt = ?, totalVolume = ?, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
-      [finishedAt, totalVolume, new Date().toISOString(), localId]
+      `UPDATE workout_sessions SET finishedAt = ?, totalVolume = ?, caloriesBurned = ?, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
+      [finishedAt, totalVolume, caloriesBurned ?? null, new Date().toISOString(), localId]
     );
 
     // Delete old session exercises if re-finishing
@@ -296,9 +300,9 @@ export class WorkoutRepo {
     for (const ex of exercises) {
       const seLocalId = Crypto.randomUUID();
       db.runSync(
-        `INSERT INTO session_exercises (localId, sessionLocalId, exerciseLocalId, notes, sortOrder)
-         VALUES (?, ?, ?, ?, ?)`,
-        [seLocalId, localId, ex.exerciseLocalId, ex.notes ?? null, ex.order]
+        `INSERT INTO session_exercises (localId, sessionLocalId, exerciseLocalId, notes, sortOrder, supersetGroup)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [seLocalId, localId, ex.exerciseLocalId, ex.notes ?? null, ex.order, ex.supersetGroup ?? null]
       );
       for (const set of ex.sets) {
         db.runSync(
@@ -485,6 +489,7 @@ export class WorkoutRepo {
         sets,
         lastSets,
         restSeconds: te.restSeconds ?? DEFAULT_REST_SECONDS,
+        supersetGroup: te.supersetGroup ?? null,
       };
     });
   }
@@ -512,6 +517,27 @@ export class WorkoutRepo {
       lastSets,
       restSeconds: DEFAULT_REST_SECONDS,
     };
+  }
+
+  /** Overwrite a session's caloriesBurned (used when a measured Health value arrives after finish). */
+  setSessionCalories(localId: string, caloriesBurned: number): void {
+    db.runSync(
+      `UPDATE workout_sessions SET caloriesBurned = ?, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
+      [caloriesBurned, new Date().toISOString(), localId]
+    );
+  }
+
+  /** Sum of caloriesBurned across sessions finished today (local day). For opt-in calorie eat-back. */
+  getCaloriesBurnedToday(): number {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const row = db.getFirstSync(
+      `SELECT COALESCE(SUM(caloriesBurned), 0) AS total
+       FROM workout_sessions
+       WHERE finishedAt IS NOT NULL AND deleted = 0 AND finishedAt >= ?`,
+      [start.toISOString()]
+    ) as any;
+    return Math.round(row?.total ?? 0);
   }
 
   // Volume data for stats/charts

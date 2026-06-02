@@ -60,7 +60,7 @@ export default function AddFoodModal() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const [selected, setSelected] = useState<{ food: SheetFood; log: (qty: number) => void; fav: FavTarget } | null>(null);
+  const [selected, setSelected] = useState<{ food: SheetFood; log: (qty: number, entry: { amount: number; unit: string }) => void; fav: FavTarget } | null>(null);
   const [favActive, setFavActive] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -111,10 +111,20 @@ export default function AddFoodModal() {
   const pickFood = (c: FoodCandidate) => {
     Keyboard.dismiss();
     setFavActive(!!c.isFavorite);
+    // Prefill the sheet with the item's last-logged amount + unit, if known.
+    const existing = c.localId
+      ? foodRepo.getFoodItemById(c.localId)
+      : c.barcode ? foodRepo.getFoodItemByBarcode(c.barcode) : null;
+    const food: SheetFood = { ...c, lastAmount: existing?.lastAmount ?? null, lastUnit: existing?.lastUnit ?? null };
     setSelected({
-      food: c,
+      food,
       fav: { kind: 'food', candidate: c },
-      log: (qty) => { foodRepo.addLog({ date, meal, foodItemLocalId: ensureFoodItem(c), servingQty: qty }); router.back(); },
+      log: (qty, entry) => {
+        const id = ensureFoodItem(c);
+        foodRepo.addLog({ date, meal, foodItemLocalId: id, servingQty: qty });
+        foodRepo.setFoodItemLastEntry(id, entry.amount, entry.unit);
+        router.back();
+      },
     });
   };
   const pickRecipe = (r: Recipe) => {
@@ -272,7 +282,7 @@ export default function AddFoodModal() {
         food={selected?.food ?? null}
         date={date}
         favorite={selected ? { active: favActive, onToggle: toggleSelectedFav } : undefined}
-        onSubmit={(qty) => selected?.log(qty)}
+        onSubmit={(qty, entry) => selected?.log(qty, entry)}
         onClose={() => setSelected(null)}
       />
     </SafeAreaView>

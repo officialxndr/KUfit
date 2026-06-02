@@ -23,6 +23,18 @@ export function minutesToBurnCalories(activity: Activity, weightKg: number, targ
   return Math.ceil(targetCals / calsPerMinute);
 }
 
+/** Default MET for resistance training — matches the "Bodyweight circuit" intensity. */
+export const STRENGTH_MET = 5.0;
+
+/**
+ * Estimate calories burned over a duration via the MET formula
+ * (kcal/min = MET × 3.5 × kg / 200). Used as the no-watch fallback for workouts.
+ */
+export function caloriesBurnedFromDuration(minutes: number, weightKg: number, met = STRENGTH_MET): number {
+  if (minutes <= 0 || weightKg <= 0) return 0;
+  return Math.round(((met * 3.5 * weightKg) / 200) * minutes);
+}
+
 export function activitySuggestions(
   targetCals: number,
   weightKg: number
