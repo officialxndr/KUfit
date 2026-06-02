@@ -88,6 +88,7 @@ export function WorkoutHistory() {
               <Stat label="Sets" value={String(sets)} />
               <Stat label="Volume" value={formatVolume(s.totalVolume ?? 0, unit)} />
               <Stat label="Exercises" value={String(s.exercises.length)} />
+              {s.avgHeartRate != null && <Stat label="Avg HR" value={`${Math.round(s.avgHeartRate)}`} />}
             </View>
           </Card>
         </Pressable>

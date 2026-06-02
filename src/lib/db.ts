@@ -240,6 +240,11 @@ function runMigrations() {
   ensureColumn('session_exercises', 'supersetGroup', 'TEXT');
   // Calories burned during a workout (measured from HealthKit/Health Connect, else MET estimate).
   ensureColumn('workout_sessions', 'caloriesBurned', 'REAL');
+  // Heart-rate summary + downsampled series (from Health) for the workout window.
+  ensureColumn('workout_sessions', 'avgHeartRate', 'REAL');
+  ensureColumn('workout_sessions', 'minHeartRate', 'REAL');
+  ensureColumn('workout_sessions', 'maxHeartRate', 'REAL');
+  ensureColumn('workout_sessions', 'heartRateSamplesJson', 'TEXT');
 }
 
 function ensureColumn(table: string, column: string, decl: string) {

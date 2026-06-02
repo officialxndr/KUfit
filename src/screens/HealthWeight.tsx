@@ -7,7 +7,9 @@ import Svg, { Path, Line, Circle, Text as SvgText } from 'react-native-svg';
 import { Card, FsText, Button, SectionHeader, Badge } from '@/components/ui';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { ActivitySuggestions } from '@/components/ActivitySuggestions';
+import { GoalWarning } from '@/components/GoalWarning';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
+import { goalSafetyWarning, describePace } from '@/lib/targets';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { toDisplay, formatWeight, UNIT_LABELS } from '@/lib/units';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
@@ -49,6 +51,9 @@ export function HealthWeight() {
   const weeklyChange = stats?.weeklyChange ?? null;
   const ChangeIcon = (weeklyChange ?? 0) < 0 ? TrendingDown : TrendingUp;
   const changeColor = weeklyChange == null ? colors.muted : weeklyChange < 0 ? colors.success : weeklyChange > 0 ? colors.danger : colors.muted;
+
+  // Always-on safety caution (independent of coaching nudges).
+  const safetyWarning = goalSafetyWarning(profile, stats?.current?.weightKg ?? null);
 
   return (
     <>
@@ -94,6 +99,8 @@ export function HealthWeight() {
       {/* Log weight → popup */}
       <Button title="＋ Log Weight" onPress={() => router.push('/log-weight')} style={{ marginBottom: space[3] }} />
 
+      <GoalWarning message={safetyWarning} />
+
       {/* Trend stats */}
       <Card style={{ marginBottom: space[3] }}>
         <SectionHeader title="Trend" />
@@ -107,19 +114,18 @@ export function HealthWeight() {
           />
           <Stat label="Goal ETA" value={stats?.goalEta ?? '—'} />
         </View>
-        {stats?.dailyCalorieDelta != null && !stats.onTrack && (
-          <View style={{ marginTop: space[3] }}>
-            <FsText variant="caption" style={{ color: colors.warning }}>
-              {stats.dailyCalorieDelta > 0
-                ? `You're behind pace. Cut ~${Math.abs(stats.dailyCalorieDelta)} kcal/day to reach your goal on time.`
-                : `You're ahead of pace. You could eat ~${Math.abs(stats.dailyCalorieDelta)} more kcal/day.`}
-            </FsText>
-          </View>
-        )}
+        {stats?.dailyCalorieDelta != null && !stats.onTrack && profile.showCoachingNudges && (() => {
+          const pace = describePace(stats.dailyCalorieDelta, (stats.requiredWeeklyRate ?? 0) >= 0 ? 'lose' : 'gain');
+          return (
+            <View style={{ marginTop: space[3] }}>
+              <FsText variant="caption" style={{ color: colors.warning }}>{pace.title} — {pace.message}</FsText>
+            </View>
+          );
+        })()}
       </Card>
 
       {/* How to hit it — MET-based activity suggestions when behind pace */}
-      {stats?.dailyCalorieDelta != null && !stats.onTrack && stats.dailyCalorieDelta > 0 && stats.current && (
+      {stats?.dailyCalorieDelta != null && !stats.onTrack && stats.dailyCalorieDelta > 0 && stats.current && profile.showCoachingNudges && (
         <View style={{ marginBottom: space[3] }}>
           <ActivitySuggestions calories={stats.dailyCalorieDelta} weightKg={stats.current.weightKg} />
         </View>

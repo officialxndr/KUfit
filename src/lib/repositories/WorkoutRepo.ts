@@ -63,10 +63,24 @@ function mapSession(row: any, exercises: SessionExercise[]): WorkoutSession {
     notes: row.notes ?? null,
     totalVolume: row.totalVolume ?? null,
     caloriesBurned: row.caloriesBurned ?? null,
+    avgHeartRate: row.avgHeartRate ?? null,
+    minHeartRate: row.minHeartRate ?? null,
+    maxHeartRate: row.maxHeartRate ?? null,
+    heartRateSamples: parseHrSamples(row.heartRateSamplesJson),
     exercises,
     template: row.templateName ? { name: row.templateName } : null,
     createdAt: row.updatedAt ?? row.startedAt,
   };
+}
+
+function parseHrSamples(json: unknown): number[] | null {
+  if (typeof json !== 'string') return null;
+  try {
+    const arr = JSON.parse(json);
+    return Array.isArray(arr) && arr.length ? arr.filter((n) => typeof n === 'number') : null;
+  } catch {
+    return null;
+  }
 }
 
 // ── Repository ────────────────────────────────────────────────────────────────
@@ -527,12 +541,27 @@ export class WorkoutRepo {
     );
   }
 
-  /** Sum of caloriesBurned across sessions finished today (local day). For opt-in calorie eat-back. */
+  /** Store a session's heart-rate summary + series (arrives from Health after finish). */
+  setSessionHeartRate(
+    localId: string,
+    hr: { avg: number; min: number; max: number; samples: number[] }
+  ): void {
+    db.runSync(
+      `UPDATE workout_sessions SET avgHeartRate = ?, minHeartRate = ?, maxHeartRate = ?, heartRateSamplesJson = ?, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
+      [hr.avg, hr.min, hr.max, JSON.stringify(hr.samples), new Date().toISOString(), localId]
+    );
+  }
+
+  /**
+   * Sum of caloriesBurned across sessions finished today (local day), with each
+   * session clamped to a sane ceiling so a corrupt/oversized row (e.g. a workout
+   * left running across days) can't blow up the daily eat-back. For opt-in eat-back.
+   */
   getCaloriesBurnedToday(): number {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
     const row = db.getFirstSync(
-      `SELECT COALESCE(SUM(caloriesBurned), 0) AS total
+      `SELECT COALESCE(SUM(MIN(COALESCE(caloriesBurned, 0), 2500)), 0) AS total
        FROM workout_sessions
        WHERE finishedAt IS NOT NULL AND deleted = 0 AND finishedAt >= ?`,
       [start.toISOString()]

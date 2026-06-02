@@ -100,15 +100,17 @@ export function Chip({
   label,
   selected,
   onPress,
+  style,
 }: {
   label: string;
   selected?: boolean;
   onPress?: () => void;
+  style?: ViewStyle;
 }) {
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.chip, selected && { backgroundColor: colors.primary }]}
+      style={[styles.chip, selected && { backgroundColor: colors.primary }, style]}
     >
       <Text style={[styles.chipText, selected && { color: colors.white }]}>{label}</Text>
     </Pressable>

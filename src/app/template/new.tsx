@@ -1,24 +1,30 @@
-import { useEffect, useMemo, useState } from 'react';
-import { View, TextInput, StyleSheet, Pressable, ScrollView, Alert } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, TextInput, StyleSheet, Pressable, Alert } from 'react-native';
+import Animated, { useAnimatedRef } from 'react-native-reanimated';
+import Sortable, { type SortableGridRenderItem, type SortableGridDragEndParams } from 'react-native-sortables';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { X, Trash2, ChevronUp, ChevronDown, Dumbbell, Link2, Link2Off } from 'lucide-react-native';
+import { X, Trash2, GripVertical, Dumbbell, Link2, Link2Off } from 'lucide-react-native';
 
 import { FsText, Button, Card } from '@/components/ui';
 import { KebabMenu } from '@/components/KebabMenu';
-import { useTemplateDraftStore } from '@/stores/templateDraftStore';
+import { useTemplateDraftStore, type DraftExercise } from '@/stores/templateDraftStore';
 import { useNavStore } from '@/stores/navStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { toDisplay, toKg, UNIT_LABELS } from '@/lib/units';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 
+/** A draggable unit in the editor: one solo exercise, or a contiguous superset run. */
+type Block = { key: string; group: string | null; items: DraftExercise[] };
+
 export default function NewTemplate() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id?: string; mode?: string }>();
   const unit = useSettingsStore((s) => s.profile.unitSystem);
-  const { editingId, name, label, exercises, setName, setLabel, removeExercise, moveExercise, patch, startSuperset, ungroup, loadTemplate, save } = useTemplateDraftStore();
+  const { editingId, name, label, exercises, setName, setLabel, removeExercise, setExercises, patch, startSuperset, ungroup, loadTemplate, save } = useTemplateDraftStore();
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
 
   const wizard = params.mode === 'wizard' && !editingId;
   const [step, setStep] = useState<1 | 2>(1);
@@ -42,6 +48,31 @@ export default function NewTemplate() {
     }
     return out;
   }, [exercises]);
+
+  // Group adjacent superset members into one draggable block so a superset moves
+  // as a single locked unit; solo exercises are blocks of one.
+  const blocks = useMemo<Block[]>(() => {
+    const out: Block[] = [];
+    let i = 0;
+    while (i < exercises.length) {
+      const g = exercises[i].supersetGroup;
+      if (g) {
+        let j = i;
+        while (j < exercises.length && exercises[j].supersetGroup === g) j++;
+        out.push({ key: `g:${g}`, group: g, items: exercises.slice(i, j) });
+        i = j;
+      } else {
+        out.push({ key: `e:${exercises[i].exercise.id}`, group: null, items: [exercises[i]] });
+        i++;
+      }
+    }
+    return out;
+  }, [exercises]);
+
+  const onDragEnd = useCallback(
+    ({ data }: SortableGridDragEndParams<Block>) => setExercises(data.flatMap((b) => b.items)),
+    [setExercises]
+  );
 
   const onSupersetPress = (exerciseId: string, grouped: boolean) => {
     if (grouped) { ungroup(exerciseId); return; }
@@ -71,6 +102,60 @@ export default function NewTemplate() {
   const showConfig = !wizard || step === 2;
   const showAddBtn = !wizard || step === 1;
 
+  // One exercise's header + (optionally) its set/rep/weight config.
+  const renderRow = (d: DraftExercise) => (
+    <View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: showConfig ? space[2] : 0, gap: space[2] }}>
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {ssLabels[d.exercise.id] && (
+              <View style={styles.ssBadge}><FsText variant="caption" style={{ color: colors.white, fontWeight: '700' }}>{ssLabels[d.exercise.id]}</FsText></View>
+            )}
+            <FsText variant="cardTitle" numberOfLines={1}>{d.exercise.name}</FsText>
+          </View>
+          {d.exercise.muscleGroup ? <FsText variant="caption">{d.exercise.muscleGroup}</FsText> : null}
+        </View>
+        <KebabMenu
+          items={[
+            d.supersetGroup
+              ? { icon: Link2Off, label: 'Remove from superset', onPress: () => onSupersetPress(d.exercise.id, true) }
+              : { icon: Link2, label: 'Superset', onPress: () => onSupersetPress(d.exercise.id, false) },
+            { icon: Trash2, label: 'Remove exercise', danger: true, onPress: () => removeExercise(d.exercise.id) },
+          ]}
+        />
+      </View>
+      {showConfig && (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[2] }}>
+          <NumField label="Sets" value={d.defaultSets} onChange={(n) => patch(d.exercise.id, { defaultSets: n })} />
+          <NumField label="Reps" value={d.defaultReps} onChange={(n) => patch(d.exercise.id, { defaultReps: n })} />
+          <NumField
+            label={`Weight (${UNIT_LABELS[unit].weight})`}
+            value={d.defaultWeightKg != null ? toDisplay(d.defaultWeightKg, unit) : 0}
+            onChange={(n) => patch(d.exercise.id, { defaultWeightKg: n > 0 ? toKg(n, unit) : null })}
+          />
+          <NumField label="Rest (s)" value={d.restSeconds} onChange={(n) => patch(d.exercise.id, { restSeconds: n })} />
+        </View>
+      )}
+    </View>
+  );
+
+  // A draggable block: a drag handle beside one exercise (solo) or a stacked
+  // superset run sharing a single card with the indigo accent.
+  const renderBlock: SortableGridRenderItem<Block> = ({ item }) => (
+    <Card style={{ marginBottom: space[3], flexDirection: 'row', alignItems: 'flex-start', gap: space[2], ...(item.group ? styles.ssCard : {}) }}>
+      <Sortable.Handle>
+        <View style={styles.handle}><GripVertical color={colors.muted} size={18} /></View>
+      </Sortable.Handle>
+      <View style={{ flex: 1, gap: space[3] }}>
+        {item.items.map((d, k) => (
+          <View key={d.exercise.id} style={k > 0 ? { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: space[3] } : undefined}>
+            {renderRow(d)}
+          </View>
+        ))}
+      </View>
+    </Card>
+  );
+
   return (
     <View style={styles.screen}>
       <View style={[styles.header, { paddingTop: insets.top + space[3] }]}>
@@ -89,7 +174,7 @@ export default function NewTemplate() {
         )}
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: 120 }}>
+      <Animated.ScrollView ref={scrollRef} contentContainerStyle={{ padding: space[4], paddingBottom: 120 }}>
         {(!wizard || step === 1) && (
           <>
             <View style={styles.field}>
@@ -110,54 +195,21 @@ export default function NewTemplate() {
           </Card>
         )}
 
-        {exercises.map((d, i) => (
-          <Card key={d.exercise.id} style={{ marginBottom: space[3], ...(d.supersetGroup ? styles.ssCard : {}) }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: showConfig ? space[2] : 0, gap: space[2] }}>
-              <View style={styles.moveCol}>
-                <Pressable onPress={() => moveExercise(d.exercise.id, -1)} disabled={i === 0} hitSlop={6} style={i === 0 && { opacity: 0.3 }}>
-                  <ChevronUp color={colors.muted} size={18} />
-                </Pressable>
-                <Pressable onPress={() => moveExercise(d.exercise.id, 1)} disabled={i === exercises.length - 1} hitSlop={6} style={i === exercises.length - 1 && { opacity: 0.3 }}>
-                  <ChevronDown color={colors.muted} size={18} />
-                </Pressable>
-              </View>
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  {ssLabels[d.exercise.id] && (
-                    <View style={styles.ssBadge}><FsText variant="caption" style={{ color: colors.white, fontWeight: '700' }}>{ssLabels[d.exercise.id]}</FsText></View>
-                  )}
-                  <FsText variant="cardTitle" numberOfLines={1}>{d.exercise.name}</FsText>
-                </View>
-                {d.exercise.muscleGroup ? <FsText variant="caption">{d.exercise.muscleGroup}</FsText> : null}
-              </View>
-              <KebabMenu
-                items={[
-                  d.supersetGroup
-                    ? { icon: Link2Off, label: 'Remove from superset', onPress: () => onSupersetPress(d.exercise.id, true) }
-                    : { icon: Link2, label: 'Superset', onPress: () => onSupersetPress(d.exercise.id, false) },
-                  { icon: Trash2, label: 'Remove exercise', danger: true, onPress: () => removeExercise(d.exercise.id) },
-                ]}
-              />
-            </View>
-            {showConfig && (
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[2] }}>
-                <NumField label="Sets" value={d.defaultSets} onChange={(n) => patch(d.exercise.id, { defaultSets: n })} />
-                <NumField label="Reps" value={d.defaultReps} onChange={(n) => patch(d.exercise.id, { defaultReps: n })} />
-                <NumField
-                  label={`Weight (${UNIT_LABELS[unit].weight})`}
-                  value={d.defaultWeightKg != null ? toDisplay(d.defaultWeightKg, unit) : 0}
-                  onChange={(n) => patch(d.exercise.id, { defaultWeightKg: n > 0 ? toKg(n, unit) : null })}
-                />
-                <NumField label="Rest (s)" value={d.restSeconds} onChange={(n) => patch(d.exercise.id, { restSeconds: n })} />
-              </View>
-            )}
-          </Card>
-        ))}
+        <Sortable.Grid
+          columns={1}
+          data={blocks}
+          keyExtractor={(b) => b.key}
+          renderItem={renderBlock}
+          onDragEnd={onDragEnd}
+          customHandle
+          hapticsEnabled
+          scrollableRef={scrollRef}
+        />
 
         {showAddBtn && (
           <Button title="Browse & Add Exercise" variant="ghost" onPress={() => router.push('/exercises?pick=template')} />
         )}
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }
@@ -183,7 +235,7 @@ const styles = themedStyles(() => StyleSheet.create({
     paddingHorizontal: space[4], paddingVertical: space[3],
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  moveCol: { alignItems: 'center' },
+  handle: { paddingVertical: 4, paddingRight: 2, justifyContent: 'center' },
   ssCard: { borderLeftWidth: 3, borderLeftColor: colors.primary },
   ssBadge: { backgroundColor: colors.primary, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 1 },
   field: { marginBottom: space[3] },

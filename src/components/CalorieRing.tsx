@@ -1,21 +1,26 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
+import { Flame } from 'lucide-react-native';
 import { colors } from '@/theme/tokens';
 import { type } from '@/theme/text';
 
 /**
  * Calorie ring — eaten vs goal. Color shifts green → amber → red as you
- * approach / exceed the goal, per the design system.
+ * approach / exceed the goal, per the design system. When `burned` > 0 a flame
+ * line shows how much active-calorie burn was added to the goal (the `goal`
+ * passed in already includes it, so the "left of" total stays consistent).
  */
 export function CalorieRing({
   eaten,
   goal,
+  burned = 0,
   size = 160,
   strokeWidth = 14,
 }: {
   eaten: number;
   goal: number;
+  burned?: number;
   size?: number;
   strokeWidth?: number;
 }) {
@@ -60,6 +65,12 @@ export function CalorieRing({
       <Text style={[type.caption, { marginTop: 6, textAlign: 'center' }]}>
         {goal > 0 ? `${remaining} left of ${goal}` : 'No goal set'}
       </Text>
+      {burned > 0 && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 }}>
+          <Flame color={colors.warning} size={11} />
+          <Text style={[type.caption, { color: colors.warning }]}>+{Math.round(burned)} burned</Text>
+        </View>
+      )}
     </View>
   );
 }

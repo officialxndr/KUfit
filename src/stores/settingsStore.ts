@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
-  ActivityLevel, GoalType, MacroTargetMode, Sex, TrainingFocus, UnitSystem,
+  ActiveCalorieSource, ActivityLevel, GoalType, MacroTargetMode, Sex, TrainingFocus, UnitSystem,
 } from '@/types';
 
 /** A user-tracked secondary nutrient goal (beyond calories/macros). */
@@ -41,7 +41,12 @@ export interface Profile {
   carbsTarget: number | null;
   fatTarget: number | null;
   macroTargetMode: MacroTargetMode;
-  countActiveCalories: boolean;
+  /** A macro pinned in the goal editor so the other two flex to fit calories. */
+  lockedMacro: 'protein' | 'carbs' | 'fat' | null;
+  /** Where the daily budget eats active calories back from (off by default). */
+  activeCalorieSource: ActiveCalorieSource;
+  /** When false, hide proactive goal-coaching nudges (pace alerts, "cut calories", etc.). */
+  showCoachingNudges: boolean;
   // Training goals (Workout section)
   weeklySessionTarget: number | null;
   trainingFocus: TrainingFocus | null;
@@ -70,7 +75,9 @@ const DEFAULT_PROFILE: Profile = {
   carbsTarget: null,
   fatTarget: null,
   macroTargetMode: 'GRAMS',
-  countActiveCalories: false,
+  lockedMacro: null,
+  activeCalorieSource: 'off',
+  showCoachingNudges: true,
   weeklySessionTarget: null,
   trainingFocus: null,
   nutrientGoals: [],
@@ -103,11 +110,13 @@ export const useSettingsStore = create<SettingsState>()(
       // Backfill any profile fields added after a user's data was persisted.
       merge: (persisted, current) => {
         const p = (persisted as { profile?: Partial<Profile>; onboarded?: boolean }) ?? {};
-        return {
-          ...current,
-          ...p,
-          profile: { ...DEFAULT_PROFILE, ...(p.profile ?? {}) },
-        };
+        const profile = { ...DEFAULT_PROFILE, ...(p.profile ?? {}) };
+        // Migrate the old boolean eat-back flag to the new source enum.
+        const legacy = p.profile as { countActiveCalories?: boolean } | undefined;
+        if (legacy?.countActiveCalories && (p.profile as Partial<Profile>)?.activeCalorieSource == null) {
+          profile.activeCalorieSource = 'inapp';
+        }
+        return { ...current, ...p, profile };
       },
       onRehydrateStorage: () => (state) => {
         if (state) state.hydrated = true;

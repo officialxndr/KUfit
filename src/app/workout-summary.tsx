@@ -4,13 +4,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
-import { Trophy, Timer, Dumbbell, Layers, Flame, Hash } from 'lucide-react-native';
+import { Trophy } from 'lucide-react-native';
 
-import { FsText, Button, Card, Badge } from '@/components/ui';
+import { FsText, Button, Card } from '@/components/ui';
+import { WorkoutSummaryBody } from '@/components/WorkoutSummaryBody';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useNavStore } from '@/stores/navStore';
-import { formatVolume } from '@/lib/units';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 
 const { height: SCREEN_H, width: SCREEN_W } = Dimensions.get('window');
@@ -76,13 +76,6 @@ export default function WorkoutSummary() {
     router.replace('/(tabs)');
   };
 
-  const sets = session?.exercises.reduce((n, e) => n + e.sets.length, 0) ?? 0;
-  const prs = session?.exercises.reduce((n, e) => n + e.sets.filter((s) => s.isPersonalBest).length, 0) ?? 0;
-  const volume = formatVolume(session?.totalVolume ?? 0, profile.unitSystem);
-  const durationMin = session?.finishedAt
-    ? Math.max(1, Math.round((new Date(session.finishedAt).getTime() - new Date(session.startedAt).getTime()) / 60000))
-    : null;
-
   // Progress toward the weekly-sessions goal.
   const weekStart = Date.now() - 7 * DAY_MS;
   const thisWeek = workoutRepo.getSessions(60).filter((s) => new Date(s.startedAt).getTime() >= weekStart).length;
@@ -105,23 +98,7 @@ export default function WorkoutSummary() {
             {session?.name ?? 'Workout'}
           </FsText>
 
-          <View style={styles.grid}>
-            <Stat icon={Timer} label="Duration" value={durationMin != null ? `${durationMin} min` : '—'} />
-            <Stat icon={Flame} label="Calories" value={session?.caloriesBurned != null ? `${Math.round(session.caloriesBurned)} kcal` : '—'} />
-            <Stat icon={Dumbbell} label="Volume" value={volume} />
-            <Stat icon={Layers} label="Sets" value={String(sets)} />
-            <Stat icon={Hash} label="Exercises" value={String(session?.exercises.length ?? 0)} />
-          </View>
-
-          {prs > 0 && (
-            <Card style={styles.prCard}>
-              <Trophy color={colors.warning} size={20} />
-              <FsText variant="cardTitle" style={{ flex: 1 }}>
-                {prs} new personal best{prs > 1 ? 's' : ''}!
-              </FsText>
-              <Badge label="PR" tone="warning" />
-            </Card>
-          )}
+          {session && <WorkoutSummaryBody session={session} />}
 
           {target != null && (
             <Card style={{ marginTop: space[3] }}>
@@ -134,9 +111,11 @@ export default function WorkoutSummary() {
               <View style={styles.track}>
                 <View style={{ width: `${Math.min(thisWeek / target, 1) * 100}%`, height: '100%', backgroundColor: colors.primary, borderRadius: radius.full }} />
               </View>
-              <FsText variant="caption" style={{ marginTop: space[2] }}>
-                {thisWeek >= target ? 'Weekly target hit — nice work.' : `${target - thisWeek} more this week to hit your goal.`}
-              </FsText>
+              {thisWeek >= target ? (
+                <FsText variant="caption" style={{ marginTop: space[2] }}>Weekly target hit — nice work.</FsText>
+              ) : profile.showCoachingNudges ? (
+                <FsText variant="caption" style={{ marginTop: space[2] }}>{target - thisWeek} more this week to hit your goal.</FsText>
+              ) : null}
             </Card>
           )}
 
@@ -145,16 +124,6 @@ export default function WorkoutSummary() {
         </Animated.View>
       </SafeAreaView>
     </View>
-  );
-}
-
-function Stat({ icon: Icon, label, value }: { icon: typeof Timer; label: string; value: string }) {
-  return (
-    <Card style={styles.statCard}>
-      <Icon color={colors.primary} size={18} />
-      <FsText variant="stat" style={{ marginTop: space[2] }}>{value}</FsText>
-      <FsText variant="caption">{label}</FsText>
-    </Card>
   );
 }
 
@@ -180,9 +149,6 @@ const styles = themedStyles(() => StyleSheet.create({
     marginTop: space[6],
     marginBottom: space[4],
   },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
-  statCard: { width: '48%', flexGrow: 1, alignItems: 'center', gap: 2 },
-  prCard: { flexDirection: 'row', alignItems: 'center', gap: space[3], marginTop: space[3] },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space[2] },
   track: { height: 10, borderRadius: radius.full, backgroundColor: colors.surfaceHigh, overflow: 'hidden' },
 }));

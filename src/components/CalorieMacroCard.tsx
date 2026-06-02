@@ -10,18 +10,20 @@ import { space, themedStyles } from '@/theme/tokens';
  * stay visually identical.
  */
 export function CalorieMacroCard({
-  calories, protein, carbs, fat, targets, ringSize = 124,
+  calories, protein, carbs, fat, targets, burned = 0, ringSize = 124,
 }: {
   calories: number;
   protein: number;
   carbs: number;
   fat: number;
   targets: { calorieTarget: number | null; proteinTarget: number | null; carbsTarget: number | null; fatTarget: number | null };
+  /** Active-calorie burn already folded into `targets.calorieTarget`, shown as a flame line. */
+  burned?: number;
   ringSize?: number;
 }) {
   return (
     <View style={styles.row}>
-      <CalorieRing eaten={calories} goal={targets.calorieTarget ?? 0} size={ringSize} strokeWidth={12} />
+      <CalorieRing eaten={calories} goal={targets.calorieTarget ?? 0} burned={burned} size={ringSize} strokeWidth={12} />
       <View style={{ flex: 1 }}>
         <MacroBars
           protein={protein}

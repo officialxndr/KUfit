@@ -1,4 +1,30 @@
-import type { ActivityLevel, Sex, GoalType } from '@/types';
+import type { ActivityLevel, Sex, GoalType, UnitSystem } from '@/types';
+
+/** Doctor-recommended max weight-loss rate (~2 lb/week). */
+export const MAX_SAFE_RATE_KG = 0.9072;
+/** Very-low calorie floor below which we surface a caution. */
+export const MIN_SAFE_CALORIES = 1200;
+const KG_TO_LB = 2.20462;
+
+/**
+ * Non-blocking caution when a goal weight + date implies losing faster than the
+ * ~2 lb/week recommended maximum. Returns null when within a safe pace (or when
+ * inputs are missing). Reusable by goal screens that don't go through TDEE.
+ */
+export function safeRateWarning(
+  currentWeightKg: number | null,
+  goalWeightKg: number | null | undefined,
+  goalDate: string | null | undefined,
+  unitSystem: UnitSystem
+): string | null {
+  if (currentWeightKg == null || !goalWeightKg || !goalDate) return null;
+  const weeks = (new Date(goalDate).getTime() - Date.now()) / (7 * 86400 * 1000);
+  if (weeks <= 0) return null;
+  const rateKg = (currentWeightKg - goalWeightKg) / weeks; // positive = losing
+  if (rateKg <= MAX_SAFE_RATE_KG) return null;
+  const rateStr = unitSystem === 'IMPERIAL' ? `${(rateKg * KG_TO_LB).toFixed(1)} lb` : `${rateKg.toFixed(2)} kg`;
+  return `This pace is about ${rateStr}/week — above the doctor-recommended max of ~2 lb (0.9 kg) per week. Consider a later goal date to lose weight more gradually.`;
+}
 
 const ACTIVITY_MULTIPLIERS: Record<ActivityLevel, number> = {
   SEDENTARY: 1.2,
@@ -66,8 +92,9 @@ export function calcGoalCalories(params: {
   currentWeightKg: number;
   goalWeightKg?: number | null;
   goalDate?: string | null;
+  unitSystem?: UnitSystem;
 }): { target: number; weeklyRate: number; warning: string | null } {
-  const { tdee, bmr, goalType, currentWeightKg, goalWeightKg, goalDate } = params;
+  const { tdee, bmr, goalType, currentWeightKg, goalWeightKg, goalDate, unitSystem = 'IMPERIAL' } = params;
 
   if (goalType === 'MAINTAIN' || !goalWeightKg || !goalDate) {
     return { target: tdee, weeklyRate: 0, warning: null };
@@ -81,7 +108,11 @@ export function calcGoalCalories(params: {
   }
 
   const requiredWeeklyRateKg = (currentWeightKg - goalWeightKg) / weeksUntilGoal;
-  const dailyAdjustment = (requiredWeeklyRateKg * 7700) / 7;
+  // Cap the rate used for the calorie target at the safe max (~2 lb/week) so an
+  // aggressive timeline can't produce an absurd target (the warning below still
+  // flags the real pace). This bounds the daily adjustment to ~±1000 kcal.
+  const cappedRateKg = Math.sign(requiredWeeklyRateKg) * Math.min(Math.abs(requiredWeeklyRateKg), MAX_SAFE_RATE_KG);
+  const dailyAdjustment = (cappedRateKg * 7700) / 7;
 
   let target: number;
   if (goalType === 'LOSE') {
@@ -91,13 +122,11 @@ export function calcGoalCalories(params: {
   }
 
   let warning: string | null = null;
-  const pctPerWeek = Math.abs(requiredWeeklyRateKg) / currentWeightKg;
-
   if (target < bmr) {
-    warning = 'This timeline requires eating below your BMR. Consider extending your goal date.';
+    warning = 'This timeline requires eating below your BMR — the energy your body needs at rest. Consider extending your goal date.';
     target = bmr;
-  } else if (pctPerWeek > 0.01) {
-    warning = `This requires losing ${requiredWeeklyRateKg.toFixed(2)} kg/week — above the safe threshold. Consider extending your goal date.`;
+  } else {
+    warning = safeRateWarning(currentWeightKg, goalWeightKg, goalDate, unitSystem);
   }
 
   return { target, weeklyRate: requiredWeeklyRateKg, warning };

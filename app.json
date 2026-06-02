@@ -15,7 +15,7 @@
       "infoPlist": {
         "NSCameraUsageDescription": "FitSelf uses the camera to scan food barcodes.",
         "NSPhotoLibraryUsageDescription": "FitSelf uses your photos to set a profile picture.",
-        "NSHealthShareUsageDescription": "FitSelf reads weight and activity from Apple Health to keep your stats in sync.",
+        "NSHealthShareUsageDescription": "FitSelf reads weight, activity, and heart rate from Apple Health to keep your stats in sync.",
         "NSHealthUpdateUsageDescription": "FitSelf can write workouts and weight to Apple Health.",
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -68,7 +68,7 @@
       [
         "@kingstinct/react-native-healthkit",
         {
-          "NSHealthShareUsageDescription": "FitSelf reads weight and activity from Apple Health to keep your stats in sync.",
+          "NSHealthShareUsageDescription": "FitSelf reads weight, activity, and heart rate from Apple Health to keep your stats in sync.",
           "NSHealthUpdateUsageDescription": "FitSelf can write workouts and weight to Apple Health.",
           "background": false
         }

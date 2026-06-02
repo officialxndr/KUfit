@@ -1,12 +1,12 @@
 import { useCallback, useMemo, useState } from 'react';
 import { View, TextInput, StyleSheet, Pressable, Alert } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Search, Users, BookOpen, Plus, Trash2, Pencil } from 'lucide-react-native';
+import { Search, Users, BookOpen, Plus, Trash2, Pencil, Utensils, Star } from 'lucide-react-native';
 
-import { Card, FsText, Badge, Button } from '@/components/ui';
+import { Card, FsText, Button } from '@/components/ui';
 import { FoodQuantitySheet, type SheetFood } from '@/components/FoodQuantitySheet';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
-import { colors, radius, space, themedStyles } from '@/theme/tokens';
+import { colors, radius, space, tintBg, themedStyles } from '@/theme/tokens';
 import type { MealType, Recipe } from '@/types';
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -116,41 +116,57 @@ export function FoodRecipes() {
           const n = r.nutrition;
           return (
             <Pressable key={r.id} onPress={() => openRecipe(r)}>
-            <Card style={{ marginBottom: space[3] }}>
-              <View style={styles.recipeHead}>
-                <View style={{ flex: 1 }}>
-                  <FsText variant="cardTitle">{r.name}</FsText>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                    <Users color={colors.muted} size={12} />
-                    <FsText variant="caption">{r.servings} serving{r.servings > 1 ? 's' : ''}</FsText>
+            <Card style={{ marginBottom: space[3], padding: 0, overflow: 'hidden' }}>
+              <View style={styles.cardBody}>
+                <View style={styles.headRow}>
+                  <View style={styles.avatar}>
+                    <Utensils color={colors.primary} size={20} />
                   </View>
-                </View>
-                {n && <Badge label={`${Math.round(n.perServingCalories)} kcal`} tone="primary" />}
-              </View>
-              {n && (
-                <View style={styles.macroRow}>
-                  {([
-                    ['P', Math.round(n.perServingProtein), colors.macroProtein],
-                    ['C', Math.round(n.perServingCarbs), colors.macroCarbs],
-                    ['F', Math.round(n.perServingFat), colors.macroFat],
-                  ] as const).map(([l, v, c]) => (
-                    <View key={l} style={styles.macroCell}>
-                      <FsText variant="overline" style={{ color: c }}>{l}</FsText>
-                      <FsText variant="bodyMedium">{v}g</FsText>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <FsText variant="cardTitle" numberOfLines={1} style={{ flexShrink: 1 }}>{r.name}</FsText>
+                      {r.isFavorite && <Star color={colors.warning} size={13} fill={colors.warning} />}
                     </View>
-                  ))}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
+                      <Users color={colors.muted} size={12} />
+                      <FsText variant="caption">
+                        {r.servings} serving{r.servings > 1 ? 's' : ''}{r.servingWeightG ? ` · ${Math.round(r.servingWeightG)}g` : ''}
+                      </FsText>
+                    </View>
+                  </View>
+                  {n && (
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <FsText variant="stat">{Math.round(n.perServingCalories)}</FsText>
+                      <FsText variant="caption" style={{ marginTop: -2 }}>kcal / serving</FsText>
+                    </View>
+                  )}
                 </View>
-              )}
-              <View style={styles.actions}>
-                <Pressable onPress={() => remove(r)} hitSlop={8} style={{ padding: 4 }}>
+                {n && (
+                  <View style={styles.macroRow}>
+                    {([
+                      ['P', Math.round(n.perServingProtein), colors.macroProtein],
+                      ['C', Math.round(n.perServingCarbs), colors.macroCarbs],
+                      ['F', Math.round(n.perServingFat), colors.macroFat],
+                    ] as const).map(([l, v, c]) => (
+                      <View key={l} style={styles.macroChip}>
+                        <View style={[styles.dot, { backgroundColor: c }]} />
+                        <FsText variant="caption" style={{ color: colors.muted }}>{l}</FsText>
+                        <FsText variant="bodyMedium">{v}g</FsText>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+              <View style={styles.footer}>
+                <Pressable onPress={() => remove(r)} hitSlop={8} style={styles.iconBtn}>
                   <Trash2 color={colors.muted} size={16} />
                 </Pressable>
-                <Pressable onPress={() => router.push({ pathname: '/recipe/new', params: { id: r.id } })} style={styles.editBtn}>
-                  <Pencil color={colors.text} size={14} />
-                  <FsText variant="caption">Edit</FsText>
+                <Pressable onPress={() => router.push({ pathname: '/recipe/new', params: { id: r.id } })} hitSlop={8} style={styles.iconBtn}>
+                  <Pencil color={colors.muted} size={16} />
                 </Pressable>
+                <View style={{ flex: 1 }} />
                 <Pressable onPress={() => openRecipe(r)} style={styles.logBtn}>
-                  <Plus color={colors.primary} size={14} />
+                  <Plus color={colors.primary} size={15} />
                   <FsText variant="caption" style={{ color: colors.primary, fontWeight: '600' }}>Log Serving</FsText>
                 </Pressable>
               </View>
@@ -185,27 +201,42 @@ const styles = themedStyles(() => StyleSheet.create({
     borderColor: colors.border,
     paddingHorizontal: 14,
   },
-  actions: {
-    flexDirection: 'row',
+  cardBody: { padding: space[4] },
+  headRow: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    backgroundColor: tintBg.primary,
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: space[3],
-    marginTop: space[3],
+    justifyContent: 'center',
   },
-  editBtn: {
+  macroChip: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 5,
     backgroundColor: colors.surfaceHigh,
     borderRadius: radius.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingVertical: 8,
   },
+  dot: { width: 7, height: 7, borderRadius: radius.full },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+    paddingHorizontal: space[4],
+    paddingVertical: space[3],
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  iconBtn: { padding: 6 },
   logBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: 'rgba(99,102,241,0.12)',
+    backgroundColor: tintBg.primary,
     borderRadius: radius.sm,
     paddingHorizontal: 12,
     paddingVertical: 7,
@@ -221,14 +252,5 @@ const styles = themedStyles(() => StyleSheet.create({
     justifyContent: 'center',
     marginBottom: space[2],
   },
-  recipeHead: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   macroRow: { flexDirection: 'row', gap: space[2], marginTop: space[3] },
-  macroCell: {
-    flex: 1,
-    backgroundColor: colors.surfaceHigh,
-    borderRadius: radius.sm,
-    paddingVertical: space[2],
-    alignItems: 'center',
-    gap: 2,
-  },
 }));

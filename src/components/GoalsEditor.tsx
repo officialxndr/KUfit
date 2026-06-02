@@ -2,16 +2,20 @@ import { useCallback, useEffect, useState } from 'react';
 import { View, TextInput, Pressable, StyleSheet, Modal, ScrollView } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
-  UtensilsCrossed, HeartPulse, Dumbbell, CalendarRange, Plus, X, ChevronRight,
+  UtensilsCrossed, HeartPulse, Dumbbell, CalendarRange, Plus, X, ChevronRight, Lock, LockOpen,
   type LucideIcon,
 } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Card, FsText } from '@/components/ui';
+import { Card, FsText, Chip } from '@/components/ui';
 import { StepperField } from '@/components/StepperField';
+import { DateField } from '@/components/DateField';
+import { GoalWarning } from '@/components/GoalWarning';
 import { GoalPhasesPanel } from '@/components/GoalPhasesPanel';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
-import { resolveTargets } from '@/lib/targets';
+import { resolveTargets, goalSafetyWarning } from '@/lib/targets';
+import { safeRateWarning } from '@/lib/tdee';
+import { MACRO_PRESETS, presetMacros, rescaleToCalories, rebalanceMacro, activePresetKey, type MacroKey } from '@/lib/macros';
 import { useSettingsStore, type NutrientGoal } from '@/stores/settingsStore';
 import { NUTRIENT_DEFS } from '@/lib/offNutrients';
 import { toDisplay, toKg, formatWeight, UNIT_LABELS } from '@/lib/units';
@@ -83,11 +87,21 @@ export function GoalsEditor({ focusSection, onOpenPhases }: { focusSection?: str
   const protein = profile.proteinTarget ?? targets.proteinTarget ?? 150;
   const carbs = profile.carbsTarget ?? targets.carbsTarget ?? 200;
   const fat = profile.fatTarget ?? targets.fatTarget ?? 65;
+  const macros = { protein, carbs, fat };
+  const locked = profile.lockedMacro;
+  const toTargets = (m: { protein: number; carbs: number; fat: number }) => ({ proteinTarget: m.protein, carbsTarget: m.carbs, fatTarget: m.fat });
+  // Calorie-anchored: calories rescales macros; editing a macro re-weights the others; presets
+  // split the goal; a locked macro stays put while the other two flex.
+  const setCalories = (n: number) => setProfile({ calorieGoal: n, ...toTargets(rescaleToCalories(n, macros, locked)) });
+  const setMacro = (field: MacroKey, n: number) => setProfile(toTargets(rebalanceMacro(cal, field, n, macros, locked)));
+  const applyPreset = (r: typeof MACRO_PRESETS[number]) => setProfile(toTargets(presetMacros(cal, r, macros, locked)));
+  const toggleLock = (field: MacroKey) => setProfile({ lockedMacro: locked === field ? null : field });
 
-  const macroKcal = protein * 4 + carbs * 4 + fat * 9;
-  const pPct = macroKcal ? Math.round((protein * 4) / macroKcal * 100) : 0;
-  const cPct = macroKcal ? Math.round((carbs * 4) / macroKcal * 100) : 0;
+  const totalKcal = protein * 4 + carbs * 4 + fat * 9;
+  const pPct = totalKcal ? Math.round((protein * 4) / totalKcal * 100) : 0;
+  const cPct = totalKcal ? Math.round((carbs * 4) / totalKcal * 100) : 0;
   const fPct = Math.max(100 - pPct - cPct, 0);
+  const activeKey = activePresetKey(macros);
 
   const goalDisplay = profile.goalWeightKg != null
     ? toDisplay(profile.goalWeightKg, unit)
@@ -135,17 +149,29 @@ export function GoalsEditor({ focusSection, onOpenPhases }: { focusSection?: str
               )
             )}
           </View>
+          <FsText variant="overline" style={{ marginTop: space[3] }}>Quick Ratio Presets</FsText>
+          <FsText variant="caption" style={{ marginTop: 2 }}>Split the calorie goal into a P / C / F balance.</FsText>
+          <View style={styles.presetChips}>
+            {MACRO_PRESETS.map((r) => (
+              <Chip key={r.key} label={r.label} selected={activeKey === r.key} onPress={() => applyPreset(r)} style={styles.presetChip} />
+            ))}
+            <Chip label="Custom" selected={activeKey === null} onPress={() => {}} style={styles.presetChip} />
+          </View>
         </View>
         <Stepper first label="Daily Calories" value={cal} unit="kcal"
-          note={macroKcal !== cal ? `${macroKcal} kcal from macros` : undefined}
-          onCommit={(n) => setProfile({ calorieGoal: n })} step={50} min={1000} max={5000} />
-        <Stepper label="Protein" value={protein} unit="g" note={`${protein * 4} kcal · ${pPct}%`}
-          onCommit={(n) => setProfile({ proteinTarget: n })} step={5} min={30} max={400} />
-        <Stepper label="Carbohydrates" value={carbs} unit="g" note={`${carbs * 4} kcal · ${cPct}%`}
-          onCommit={(n) => setProfile({ carbsTarget: n })} step={5} min={30} max={600} />
-        <Stepper label="Fat" value={fat} unit="g" note={`${fat * 9} kcal · ${fPct}%`}
-          onCommit={(n) => setProfile({ fatTarget: n })} step={2} min={10} max={200} />
+          onCommit={setCalories} step={50} min={1000} max={5000} />
+        <Stepper label="Protein" value={protein} unit="g" note={locked === 'protein' ? 'Locked · others adjust' : `${protein * 4} kcal · ${pPct}%`}
+          onCommit={(n) => setMacro('protein', n)} step={5} min={0} max={400}
+          lock={{ active: locked === 'protein', onToggle: () => toggleLock('protein') }} />
+        <Stepper label="Carbohydrates" value={carbs} unit="g" note={locked === 'carbs' ? 'Locked · others adjust' : `${carbs * 4} kcal · ${cPct}%`}
+          onCommit={(n) => setMacro('carbs', n)} step={5} min={0} max={600}
+          lock={{ active: locked === 'carbs', onToggle: () => toggleLock('carbs') }} />
+        <Stepper label="Fat" value={fat} unit="g" note={locked === 'fat' ? 'Locked · others adjust' : `${fat * 9} kcal · ${fPct}%`}
+          onCommit={(n) => setMacro('fat', n)} step={2} min={0} max={250}
+          lock={{ active: locked === 'fat', onToggle: () => toggleLock('fat') }} />
       </Card>
+
+      <GoalWarning message={goalSafetyWarning(profile, null)} />
 
       {/* Custom nutrient goals */}
       {goals.length > 0 && (
@@ -221,22 +247,22 @@ export function GoalsEditor({ focusSection, onOpenPhases }: { focusSection?: str
               step={1} min={0} max={50}
             />
           ) : (
-            <View style={[styles.row, styles.rowDivider]}>
-              <View style={{ flex: 1 }}>
-                <FsText variant="bodyMedium">Goal Date</FsText>
-                <FsText variant="caption" style={{ marginTop: 2 }}>Target date to reach it</FsText>
-              </View>
-              <TextInput
-                value={profile.goalDate ?? ''}
-                onChangeText={(t) => setProfile({ goalDate: t || null })}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.muted}
-                style={styles.dateInput}
+            <View style={[styles.rowPad, styles.rowDivider, { gap: space[2] }]}>
+              <FsText variant="bodyMedium">Goal Date</FsText>
+              <FsText variant="caption" style={{ marginTop: 2, marginBottom: space[2] }}>Target date to reach it</FsText>
+              <DateField
+                value={profile.goalDate ?? null}
+                onChange={(v) => setProfile({ goalDate: v })}
+                placeholder="Pick a target date"
+                minYear={new Date().getFullYear()}
+                clearable
               />
             </View>
           )}
         </Card>
       )}
+
+      <GoalWarning message={safeRateWarning(currentKg, profile.goalWeightKg, profile.goalDate, unit)} />
 
       {/* Goal Phases & Cycles — always reachable so a cycle can be created/edited. */}
       <Pressable onPress={openPhases} style={{ marginBottom: space[2] }}>
@@ -342,16 +368,22 @@ function GroupHeader({ icon: Icon, label, section }: { icon: LucideIcon; label: 
   );
 }
 
-function Stepper({ label, value, unit, note, onCommit, step, min, max, first }: {
+function Stepper({ label, value, unit, note, onCommit, step, min, max, first, lock }: {
   label: string; value: number; unit: string; note?: string;
   onCommit: (n: number) => void; step: number; min: number; max: number; first?: boolean;
+  lock?: { active: boolean; onToggle: () => void };
 }) {
   return (
     <View style={[styles.row, !first && styles.rowDivider]}>
       <View style={{ flex: 1, minWidth: 0 }}>
         <FsText variant="bodyMedium">{label}</FsText>
-        {note ? <FsText variant="caption" style={{ marginTop: 2 }}>{note}</FsText> : null}
+        {note ? <FsText variant="caption" style={lock?.active ? { marginTop: 2, color: colors.primary } : { marginTop: 2 }}>{note}</FsText> : null}
       </View>
+      {lock && (
+        <Pressable onPress={lock.onToggle} hitSlop={8} style={{ padding: 4, marginRight: space[1] }}>
+          {lock.active ? <Lock color={colors.primary} size={16} /> : <LockOpen color={colors.muted} size={16} />}
+        </Pressable>
+      )}
       <StepperField value={value} onCommit={onCommit} step={step} min={min} max={max} unit={unit} />
     </View>
   );
@@ -384,6 +416,8 @@ const styles = themedStyles(() => StyleSheet.create({
   legend: { flexDirection: 'row', gap: space[4] },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   dot: { width: 7, height: 7, borderRadius: 2 },
+  presetChips: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginTop: space[3] },
+  presetChip: { flexGrow: 1, flexBasis: '46%', alignItems: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingHorizontal: space[4], paddingVertical: space[3] },
   rowPad: { paddingHorizontal: space[4], paddingVertical: space[3] },
   rowDivider: { borderTopWidth: 1, borderTopColor: colors.border },

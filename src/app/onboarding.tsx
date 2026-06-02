@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { Dumbbell, ChevronLeft } from 'lucide-react-native';
 
 import { FsText, Button, Chip } from '@/components/ui';
+import { DateField } from '@/components/DateField';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { ACTIVITY_DESCRIPTIONS } from '@/lib/tdee';
 import { toKg, UNIT_LABELS } from '@/lib/units';
@@ -98,8 +99,14 @@ export default function Onboarding() {
             <Field label={`Height (${unit === 'METRIC' ? 'cm' : 'cm'})`}>
               <TextInput value={height} onChangeText={setHeight} placeholder="178" placeholderTextColor={colors.muted} keyboardType="numeric" style={styles.input} />
             </Field>
-            <Field label="Birth date (YYYY-MM-DD)">
-              <TextInput value={birthDate} onChangeText={setBirthDate} placeholder="1995-04-12" placeholderTextColor={colors.muted} style={styles.input} />
+            <Field label="Birth date">
+              <DateField
+                value={birthDate || null}
+                onChange={(v) => setBirthDate(v ?? '')}
+                placeholder="Select your birth date"
+                minYear={1900}
+                maxYear={new Date().getFullYear()}
+              />
             </Field>
           </>
         )}

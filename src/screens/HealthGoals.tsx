@@ -5,7 +5,10 @@ import { Target, CalendarRange, ChevronRight } from 'lucide-react-native';
 
 import { Card, FsText } from '@/components/ui';
 import { StepperField } from '@/components/StepperField';
+import { GoalWarning } from '@/components/GoalWarning';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
+import { resolveTargets } from '@/lib/targets';
+import { MAX_SAFE_RATE_KG } from '@/lib/tdee';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { toDisplay, toKg, formatWeight, UNIT_LABELS } from '@/lib/units';
 import { colors, radius, space, tintBg, themedStyles } from '@/theme/tokens';
@@ -57,6 +60,17 @@ export function HealthGoals() {
         : rate <= (unit === 'IMPERIAL' ? 1.5 : 0.75) ? 'Aggressive · challenging'
           : 'Very aggressive · hard to sustain';
 
+  // Non-blocking safety cautions: faster than the ~2 lb/week max (from the live rate),
+  // plus any below-BMR / very-low-calorie warning from the resolved target.
+  const rateKg = unit === 'IMPERIAL' ? rate / 2.20462 : rate;
+  const tdeeWarn = resolveTargets(profile).warning;
+  const safetyWarning =
+    toLose > 0 && rateKg > MAX_SAFE_RATE_KG
+      ? `${rate} ${weightLabel}/week is above the doctor-recommended max of ~2 lb (0.9 kg) per week. Consider a slower rate to lose weight more safely.`
+      : tdeeWarn && tdeeWarn !== 'Add your weight, height, sex and birth date to estimate calories.'
+        ? tdeeWarn
+        : null;
+
   return (
     <>
       <Card style={{ marginBottom: space[3] }}>
@@ -99,6 +113,8 @@ export function HealthGoals() {
         </View>
         <FsText variant="caption" style={{ textAlign: 'center', marginTop: space[3] }}>{rateNote}</FsText>
       </Card>
+
+      <GoalWarning message={safetyWarning} />
 
       <Card style={{ backgroundColor: tintBg.primary, borderWidth: 1, borderColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <View>

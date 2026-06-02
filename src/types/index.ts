@@ -5,6 +5,8 @@ export type GoalType = 'LOSE' | 'GAIN' | 'MAINTAIN'
 export type TrainingFocus = 'CUT' | 'MAINTAIN' | 'BULK' | 'RECOMP'
 export type MealType = 'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACK'
 export type MacroTargetMode = 'GRAMS' | 'PERCENT'
+/** Source for eating active calories back into the daily budget. */
+export type ActiveCalorieSource = 'off' | 'auto' | 'watch' | 'inapp'
 export type FoodSource = 'MANUAL' | 'OPEN_FOOD_FACTS' | 'USDA' | 'BASE'
 export type DataSource = 'MANUAL' | 'APPLE_HEALTH' | 'SHORTCUT'
 
@@ -25,7 +27,8 @@ export interface UserProfile {
   carbsTarget?: number | null
   fatTarget?: number | null
   macroTargetMode: MacroTargetMode
-  countActiveCalories: boolean
+  activeCalorieSource: ActiveCalorieSource
+  showCoachingNudges: boolean
   avatarUrl?: string | null
   updatedAt: string
 }
@@ -200,6 +203,12 @@ export interface WorkoutSession {
   totalVolume?: number | null
   /** kcal burned during this workout (measured from Health, else MET estimate). */
   caloriesBurned?: number | null
+  /** Heart-rate summary (BPM) from Health for the workout window; null when unavailable. */
+  avgHeartRate?: number | null
+  minHeartRate?: number | null
+  maxHeartRate?: number | null
+  /** Downsampled BPM series for the HR-over-time chart. */
+  heartRateSamples?: number[] | null
   exercises: SessionExercise[]
   template?: { name: string } | null
   createdAt: string

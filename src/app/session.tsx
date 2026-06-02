@@ -3,7 +3,7 @@ import { View, StyleSheet, Pressable, ScrollView, Alert, Modal, TextInput } from
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
-import { Check, Plus, Minus, Trash2, X, Timer, Delete, ChevronDown, StickyNote, Info, Link2, Link2Off, Flame } from 'lucide-react-native';
+import { Check, Plus, Minus, Trash2, X, Timer, Delete, ChevronDown, StickyNote, Info, Link2, Link2Off, Flame, HeartPulse } from 'lucide-react-native';
 
 import { FsText, Button, Card } from '@/components/ui';
 import { KebabMenu } from '@/components/KebabMenu';
@@ -15,7 +15,9 @@ import { haptic } from '@/lib/haptics';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { health } from '@/lib/health';
+import { useActiveCaloriesStore } from '@/stores/activeCaloriesStore';
 import { caloriesBurnedFromDuration } from '@/lib/activities';
+import { summarizeHeartRate, downsample } from '@/lib/heartRate';
 import { nextSetCell, restAfterSet, supersetRuns, supersetLabels } from '@/lib/supersets';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { LocalExercise, LocalSet } from '@/types';
@@ -69,6 +71,24 @@ export default function SessionScreen() {
     return () => clearInterval(t);
   }, [rest.remaining]);
 
+  // Buzz when a rest timer counts down to zero — but not when it's manually
+  // dismissed (the ✕ zeroes `total`, so this only fires on a natural finish).
+  useEffect(() => {
+    if (rest.total > 0 && rest.remaining === 0) haptic.restOver();
+  }, [rest.remaining, rest.total]);
+
+  // Live heart-rate readout — polls Health every few seconds while the session is
+  // active. Returns null in Expo Go / without a watch, so the header simply hides it.
+  const [currentHr, setCurrentHr] = useState<number | null>(null);
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    const poll = () => health.getLatestHeartRate().then((bpm) => { if (!cancelled) setCurrentHr(bpm); }).catch(() => {});
+    poll();
+    const t = setInterval(poll, 5000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [active]);
+
   const backToWorkout = (subTab: string) => {
     useNavStore.getState().setSection('workout', subTab);
     router.replace('/(tabs)');
@@ -88,15 +108,30 @@ export default function SessionScreen() {
     const start = startedAt;
     const endIso = new Date().toISOString();
     const durationMin = start
-      ? Math.max(1, Math.round((Date.now() - new Date(start).getTime()) / 60000))
+      ? Math.min(360, Math.max(1, Math.round((Date.now() - new Date(start).getTime()) / 60000)))
       : 0;
     const estimate = caloriesBurnedFromDuration(durationMin, bodyWeightKg);
     const id = finish(estimate);
+    const calSource = useSettingsStore.getState().profile.activeCalorieSource;
+    // Refresh the daily active-calorie eat-back now that a workout landed.
+    useActiveCaloriesStore.getState().refresh(calSource);
     // Reconcile with measured active energy (Apple Watch / Health Connect) once it returns.
     if (id && start) {
       health
         .getActiveEnergyBurned(start, endIso)
-        .then((measured) => { if (measured && measured > 0) workoutRepo.setSessionCalories(id, Math.round(measured)); })
+        .then((measured) => {
+          if (measured && measured > 0) workoutRepo.setSessionCalories(id, Math.round(measured));
+          useActiveCaloriesStore.getState().refresh(calSource);
+        })
+        .catch(() => {});
+      // Pull the watch's heart-rate samples for the workout window → store summary + series.
+      health
+        .getHeartRateSamples(start, endIso)
+        .then((bpms) => {
+          if (!bpms?.length) return;
+          const summary = summarizeHeartRate(bpms);
+          if (summary) workoutRepo.setSessionHeartRate(id, { ...summary, samples: downsample(bpms) });
+        })
         .catch(() => {});
     }
     if (id) router.replace({ pathname: '/workout-summary', params: { id } });
@@ -304,6 +339,12 @@ export default function SessionScreen() {
                 bodyWeightKg
               )} kcal
             </FsText>
+            {currentHr != null && (
+              <>
+                <HeartPulse color={colors.danger} size={11} />
+                <FsText variant="caption" style={{ fontVariant: ['tabular-nums'] }}>{currentHr} bpm</FsText>
+              </>
+            )}
           </View>
         </View>
         <Pressable onPress={onFinish} hitSlop={10}>

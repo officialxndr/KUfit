@@ -20,8 +20,9 @@ import { MonthCalendar } from '@/components/MonthCalendar';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { FoodQuantitySheet, type SheetFood } from '@/components/FoodQuantitySheet';
 import { foodRepo, type DayNutrients } from '@/lib/repositories/FoodRepo';
-import { resolveTargets } from '@/lib/targets';
+import { resolveTargets, activeCaloriesForDisplay } from '@/lib/targets';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useActiveCaloriesStore } from '@/stores/activeCaloriesStore';
 import { colors, radius, space, PAGE_PADDING, themedStyles } from '@/theme/tokens';
 import type { FoodLog, MealType } from '@/types';
 
@@ -71,10 +72,14 @@ export function FoodToday() {
   const [calMonth, setCalMonth] = useState(() => firstOfMonth(new Date()));
   const [marked, setMarked] = useState<Set<string>>(new Set());
 
+  // Subscribe so the budget re-renders when the async active-calorie value lands.
+  useActiveCaloriesStore((s) => s.kcal);
+
   const refresh = useCallback(() => {
     setLogs(foodRepo.getLogs(date));
     setTotals(foodRepo.getDayTotals(date));
-  }, [date]);
+    useActiveCaloriesStore.getState().refresh(profile.activeCalorieSource);
+  }, [date, profile.activeCalorieSource]);
   useFocusEffect(refresh);
 
   // Days with logged food in the visible calendar month (for dots).
@@ -90,6 +95,8 @@ export function FoodToday() {
   const targets = resolveTargets(profile);
   const goal = targets.calorieTarget ?? 0;
   const remaining = goal - totals.calories;
+  // Active-calorie burn is today's value, so only surface it on today's ring.
+  const burned = date === isoDate(new Date()) ? activeCaloriesForDisplay(profile) : 0;
 
   // Custom nutrient goals override the soft REF defaults on the "Other nutrients" page.
   const nutrientGoals = profile.nutrientGoals ?? [];
@@ -158,6 +165,7 @@ export function FoodToday() {
               carbs={totals.carbs}
               fat={totals.fat}
               targets={targets}
+              burned={burned}
             />
           </View>
 

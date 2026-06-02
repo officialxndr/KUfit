@@ -8,6 +8,8 @@ import { Card, FsText, SectionHeader, Chip, Button } from '@/components/ui';
 import { pickAvatar } from '@/lib/avatar';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useActiveCaloriesStore } from '@/stores/activeCaloriesStore';
+import { DateField } from '@/components/DateField';
 import { useServerStore } from '@/stores/serverStore';
 import { useNavStore } from '@/stores/navStore';
 import { testServerConnection } from '@/lib/sync';
@@ -16,10 +18,16 @@ import { ACTIVITY_DESCRIPTIONS } from '@/lib/tdee';
 import { downloadAllMedia } from '@/lib/exerciseMedia';
 import { colors, radius, space, themedStyles, SURFACE_PRESETS, ACCENT_PRESETS } from '@/theme/tokens';
 import { useThemeStore } from '@/stores/themeStore';
-import type { ActivityLevel, Sex, UnitSystem } from '@/types';
+import type { ActiveCalorieSource, ActivityLevel, Sex, UnitSystem } from '@/types';
 
 const SEXES: Sex[] = ['MALE', 'FEMALE', 'OTHER'];
 const ACTIVITIES: ActivityLevel[] = ['SEDENTARY', 'LIGHT', 'MODERATE', 'ACTIVE', 'VERY_ACTIVE'];
+const ACTIVE_CAL_SOURCES: { key: ActiveCalorieSource; label: string }[] = [
+  { key: 'off', label: 'Off' },
+  { key: 'auto', label: 'Automatic' },
+  { key: 'watch', label: 'Watch only' },
+  { key: 'inapp', label: 'In-app only' },
+];
 
 function Field({
   label,
@@ -115,6 +123,16 @@ export function SettingsView() {
     }
   };
 
+  const selectActiveCalSource = (key: ActiveCalorieSource) => {
+    setProfile({ activeCalorieSource: key });
+    if ((key === 'auto' || key === 'watch') && !health.isAvailable()) {
+      Alert.alert(healthPlatformLabel, `${healthPlatformLabel} isn't available in this build, so the app's workout estimate will be used. Connect ${healthPlatformLabel} in a native build for watch data.`);
+    } else if (key === 'auto' || key === 'watch') {
+      health.requestPermissions().catch(() => {});
+    }
+    useActiveCaloriesStore.getState().refresh(key);
+  };
+
   const changeAvatar = async () => {
     const uri = await pickAvatar();
     if (uri) setProfile({ avatarUri: uri });
@@ -160,12 +178,16 @@ export function SettingsView() {
           suffix="cm"
           placeholder="178"
         />
-        <Field
-          label="Birth date (YYYY-MM-DD)"
-          value={profile.birthDate ?? ''}
-          onChangeText={(t) => setProfile({ birthDate: t || null })}
-          placeholder="1995-04-12"
-        />
+        <FsText variant="caption" style={{ marginBottom: 6 }}>Birth date</FsText>
+        <View style={{ marginBottom: space[3] }}>
+          <DateField
+            value={profile.birthDate ?? null}
+            onChange={(v) => setProfile({ birthDate: v })}
+            placeholder="Select your birth date"
+            minYear={1900}
+            maxYear={new Date().getFullYear()}
+          />
+        </View>
         <FsText variant="caption" style={{ marginBottom: 6 }}>Sex</FsText>
         <View style={{ flexDirection: 'row', gap: space[2], marginBottom: space[2] }}>
           {SEXES.map((s) => (
@@ -226,14 +248,36 @@ export function SettingsView() {
           health plugin enabled (cross-platform: Apple Health on iOS, Health Connect on Android).
         </FsText>
         <Button title={`Connect ${healthPlatformLabel}`} variant="ghost" onPress={connectHealth} />
+
+        <View style={{ marginTop: space[4] }}>
+          <FsText variant="bodyMedium">Add active calories to budget</FsText>
+          <FsText variant="caption" style={{ marginTop: 2, marginBottom: space[2] }}>
+            Eat back calories burned. Automatic uses {healthPlatformLabel} (watch) data and falls back to
+            the app's workout estimate for anything it didn't track.
+          </FsText>
+          <View style={styles.sourceRow}>
+            {ACTIVE_CAL_SOURCES.map((opt) => (
+              <Chip
+                key={opt.key}
+                label={opt.label}
+                selected={profile.activeCalorieSource === opt.key}
+                onPress={() => selectActiveCalSource(opt.key)}
+              />
+            ))}
+          </View>
+        </View>
+      </Card>
+
+      <Card style={{ marginBottom: space[3] }}>
+        <SectionHeader title="Coaching &amp; reminders" />
         <View style={styles.toggleRow}>
           <View style={{ flex: 1, marginRight: space[3] }}>
-            <FsText variant="bodyMedium">Count workout calories</FsText>
-            <FsText variant="caption">Add calories burned in workouts (from {healthPlatformLabel} or an activity estimate) back to your daily calorie budget.</FsText>
+            <FsText variant="bodyMedium">Show goal-coaching prompts</FsText>
+            <FsText variant="caption">Reminders to cut calories or add workouts when you're behind pace. Safety warnings always show.</FsText>
           </View>
           <Switch
-            value={profile.countActiveCalories}
-            onValueChange={(v) => setProfile({ countActiveCalories: v })}
+            value={profile.showCoachingNudges}
+            onValueChange={(v) => setProfile({ showCoachingNudges: v })}
             trackColor={{ true: colors.primary, false: colors.border }}
           />
         </View>
@@ -321,6 +365,7 @@ function Appearance() {
 
 const styles = themedStyles(() => StyleSheet.create({
   toggleRow: { flexDirection: 'row', alignItems: 'center', marginTop: space[3] },
+  sourceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
   themeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
   themeSwatch: {
     paddingHorizontal: space[3], paddingVertical: space[3], borderRadius: radius.md,

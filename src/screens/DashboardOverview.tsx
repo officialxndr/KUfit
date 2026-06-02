@@ -5,11 +5,13 @@ import { UserCircle, Dumbbell, Ruler, AlertTriangle, Flame } from 'lucide-react-
 
 import { Card, FsText } from '@/components/ui';
 import { CalorieMacroCard } from '@/components/CalorieMacroCard';
+import { GoalWarning } from '@/components/GoalWarning';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
-import { resolveTargets } from '@/lib/targets';
+import { resolveTargets, goalSafetyWarning, describePace, activeCaloriesForDisplay } from '@/lib/targets';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useActiveCaloriesStore } from '@/stores/activeCaloriesStore';
 import { useNavStore } from '@/stores/navStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { formatWeight } from '@/lib/units';
@@ -46,6 +48,8 @@ export function DashboardOverview() {
   const setSection = useNavStore((s) => s.setSection);
   const session = useSessionStore();
   const router = useRouter();
+  // Subscribe so the budget re-renders when the async active-calorie value lands.
+  useActiveCaloriesStore((s) => s.kcal);
 
   const [totals, setTotals] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 });
   const [stats, setStats] = useState<HealthStats | null>(null);
@@ -77,7 +81,8 @@ export function DashboardOverview() {
       else break;
     }
     setStreak(s);
-  }, [profile.goalWeightKg, profile.goalDate]);
+    useActiveCaloriesStore.getState().refresh(profile.activeCalorieSource);
+  }, [profile.goalWeightKg, profile.goalDate, profile.activeCalorieSource]);
 
   useFocusEffect(refresh);
 
@@ -114,7 +119,11 @@ export function DashboardOverview() {
   });
 
   const weeklyChange = stats?.weeklyChange ?? null;
-  const behind = stats?.dailyCalorieDelta != null && !stats.onTrack;
+  const showPace = stats?.dailyCalorieDelta != null && !stats.onTrack && profile.showCoachingNudges;
+  const pace = showPace
+    ? describePace(stats!.dailyCalorieDelta!, (stats!.requiredWeeklyRate ?? 0) >= 0 ? 'lose' : 'gain')
+    : null;
+  const safetyWarning = goalSafetyWarning(profile, stats?.current?.weightKg ?? null);
 
   return (
     <>
@@ -145,16 +154,11 @@ export function DashboardOverview() {
             carbs={totals.carbs}
             fat={totals.fat}
             targets={targets}
+            burned={activeCaloriesForDisplay(profile)}
           />
           <FsText variant="caption" style={styles.tapHint}>Tap to log food →</FsText>
         </Card>
       </Pressable>
-
-      {targets.warning && (
-        <Card outlined style={{ marginBottom: space[3] }}>
-          <FsText variant="caption" style={{ color: colors.warning }}>{targets.warning}</FsText>
-        </Card>
-      )}
 
       {/* This week */}
       <Card style={{ marginBottom: space[3] }}>
@@ -222,23 +226,19 @@ export function DashboardOverview() {
         </Card>
       </Pressable>
 
+      <GoalWarning message={safetyWarning} />
+
       {/* Pace alert */}
-      {behind && (
+      {pace && (
         <Pressable onPress={() => setSection('health', 'weight')}>
           <Card outlined style={{ marginBottom: space[3], padding: 0, overflow: 'hidden' }}>
             <View style={styles.alertHead}>
               <AlertTriangle color={colors.warning} size={16} />
-              <FsText variant="bodyMedium" style={{ color: colors.warning }}>
-                {stats!.dailyCalorieDelta! > 0 ? 'Slightly Behind' : 'Ahead of Pace'}
-              </FsText>
+              <FsText variant="bodyMedium" style={{ color: colors.warning }}>{pace.title}</FsText>
               <FsText variant="caption" style={{ marginLeft: 'auto' }}>Pace →</FsText>
             </View>
             <View style={{ padding: space[4], paddingTop: space[3] }}>
-              <FsText variant="caption">
-                {stats!.dailyCalorieDelta! > 0
-                  ? `Cut ~${Math.abs(stats!.dailyCalorieDelta!)} cal/day to stay on track`
-                  : `You could eat ~${Math.abs(stats!.dailyCalorieDelta!)} more cal/day`}
-              </FsText>
+              <FsText variant="caption">{pace.message}</FsText>
             </View>
           </Card>
         </Pressable>

@@ -50,7 +50,9 @@ External network (Open Food Facts, ExerciseDB CDN) is called directly from the d
   joins a superset (`startSuperset`/`ungroup` toggle `supersetGroup` on exercises).
 - `templateDraftStore` — in-progress template being built; supports **editing** an existing template
   (`loadTemplate` + `editingId` → `WorkoutRepo.updateTemplate`), a `label`, and supersets (same
-  `pendingSuperset`/`startSuperset`/`ungroup` pattern, persisted as `supersetGroup`).
+  `pendingSuperset`/`startSuperset`/`ungroup` pattern, persisted as `supersetGroup`). Order is set by
+  drag-to-reorder: the editor groups adjacent superset members into one draggable block, and `setExercises`
+  writes the flattened result back (array index → `sortOrder` on save).
 - `navStore` — shell navigation state: active `section` + `subTab` (local-only).
 - `routineStore` — workout **routines** (named template rotations, auto-pick least-recently-done,
   a **default** routine for the FAB quick-action); local-only, persisted via AsyncStorage.
@@ -76,8 +78,11 @@ to the shell.
   `syncNow()` is a documented stub (full push/pull pending the `apps/api` contract).
 - `lib/health.ts` — **cross-platform health seam** (`HealthService` interface + `healthPlatformLabel`).
   Default impl reports unavailable; a native/dev build wires Apple HealthKit (iOS) / Health Connect
-  (Android). Surfaced in Settings → "Health". Reads weight history plus `getActiveEnergyBurned(start,
-  end)` (active calories for a workout window; `null` when unavailable → MET fallback).
+  (Android). Surfaced in Settings → "Health". Reads weight history, `getActiveEnergyBurned(start,
+  end)` (active calories for a workout window; `null` when unavailable → MET fallback), and heart
+  rate: `getHeartRateSamples(start, end)` (BPM series for a finished workout) + `getLatestHeartRate()`
+  (most recent BPM in the last ~2 min, polled for the live session readout). All return `null` in
+  Expo Go / without a watch, so HR UI just hides.
 - `lib/supersets.ts` — pure superset ordering for the active session: `supersetRuns` (maximal runs of
   adjacent same-`supersetGroup` exercises), `buildSetSequence`/`nextSetCell` (round-interleaved set
   order — A1→B1→A2→B2…, which also gives "Next carries into the next exercise" for solo runs),
@@ -92,7 +97,8 @@ to the shell.
 - `components/LineChart.tsx` — multi-series SVG line chart with a labelled y-axis (exercise reports).
 - `components/ActivitySuggestions.tsx` — MET-based "how to hit it" options (`lib/activities.ts`).
 - `components/SwipeToDelete.tsx` — standard swipe-left → red Delete + confirm for user logs
-  (food items, weight entries, measurements, history). `lib/avatar.ts` picks a profile picture
+  (food items, weight entries, measurements, history). Built on gesture-handler `ReanimatedSwipeable`;
+  the button tracks the finger via `useAnimatedStyle`. `lib/avatar.ts` picks a profile picture
   (`expo-image-picker`) and persists it to the document dir; shown in `AppHeader` + Settings.
 - `components/BottomSheet.tsx` — **shared draggable bottom sheet** (the one place that owns sheet
   behavior). Slides up on `visible`, a full-screen dim backdrop whose **opacity is driven by the
@@ -146,17 +152,24 @@ Dashboard inline editor (no modal there to conflict with).
   `goal-phases`, `exercise-reports`, `exercise-progress`.
 - `session` — full-screen active workout → on finish routes to `workout-summary` (a `finishing` ref
   guards the inactive-redirect so the summary shows); both return to the shell via `navStore`.
-- `workout-summary` — full-screen post-workout summary with the liquid-wave animation.
+- `workout-summary` — full-screen post-workout summary with the liquid-wave animation. The stats body
+  (duration/calories/volume/sets/exercises grid + PR callout + heart-rate panel) lives in the shared
+  `components/WorkoutSummaryBody.tsx`, reused by the History detail sheet (`WorkoutSummarySheet`) so the
+  two stay in sync — add a stat once and it shows in both. The full screen adds the weekly-goal nudge;
+  the sheet adds a per-exercise breakdown.
 - `onboarding` — first-run wizard (gestureless).
 - `exercise/[id]` — exercise detail with GIF.
 Routes and their presentation are declared in `src/app/_layout.tsx`.
 
 ## Animation note
-`react-native-reanimated` is installed but its worklets babel plugin is **not** configured, so use
-React Native's built-in `Animated` (no worklets) for animations — see `workout-summary.tsx`
-(SVG wave layers + rising body via `Animated`) and `components/BottomSheet.tsx` (slide + drag-to-
-dismiss + backdrop fade via `Animated`/`PanResponder`). gesture-handler `Swipeable` (legacy Animated)
-is used for swipe-to-delete and works without the plugin.
+`react-native-reanimated` 4 + `react-native-worklets` are installed and the worklets babel plugin is
+active (auto-enabled by `babel-preset-expo` in SDK 56) — worklets work without extra config. Existing
+screens still use React Native's built-in `Animated` where it was simplest: `workout-summary.tsx`
+(SVG wave layers + rising body) and `components/BottomSheet.tsx` (slide + drag-to-dismiss + backdrop
+fade via `Animated`/`PanResponder`). Reanimated is used where the gesture must track the finger:
+`components/SwipeToDelete.tsx` (gesture-handler `ReanimatedSwipeable` + `useAnimatedStyle` so the
+Delete button is revealed in lockstep with the swipe) and the template editor's drag-to-reorder
+(`react-native-sortables`, peer-deps gesture-handler + reanimated only — no native rebuild).
 
 **Bottom sheets:** any bottom-anchored pop-up should use `components/BottomSheet.tsx` (or, for the
 food/recipe editor, `FoodQuantitySheet`) rather than a raw `Modal` + `flex-end` view, so drag-to-
@@ -182,10 +195,67 @@ intentionally **not** bottom sheets and keep their `animationType="fade"` modals
   theme-correct.
 
 ## Calc libs (pure TS, ported from web — keep parity)
-- `tdee.ts` (Mifflin-St Jeor BMR/TDEE + goal-aware target), `epley.ts` (1RM), `activities.ts`
-  (MET table + `caloriesBurnedFromDuration`), `units.ts` (conversions), `targets.ts` (resolves daily
-  calorie/macro targets from active GoalPhase → profile → TDEE, then — when `countActiveCalories` is
-  on — adds today's workout calories burned back to the budget via `WorkoutRepo.getCaloriesBurnedToday`).
+- `tdee.ts` (Mifflin-St Jeor BMR/TDEE + goal-aware target; `safeRateWarning` + `MAX_SAFE_RATE_KG`
+  ~2 lb/week + `MIN_SAFE_CALORIES` 1200 floor for the non-blocking safety warnings). `calcGoalCalories`
+  **caps the rate used for the calorie target at `MAX_SAFE_RATE_KG`** (≈±1000 kcal/day) so an aggressive
+  goal date can't produce an absurd target — the real pace is still flagged by `safeRateWarning`.
+  `epley.ts` (1RM), `activities.ts` (MET table + `caloriesBurnedFromDuration`), `units.ts` (conversions),
+  `targets.ts` (resolves daily calorie/macro targets from active GoalPhase → profile → TDEE; emits a
+  `warning` for unsafe goals via `goalSafetyWarning`; and when `activeCalorieSource !== 'off'` adds the
+  cached active-calorie eat-back from `activeCaloriesStore` — exposed separately via
+  `activeCaloriesForDisplay` so the UI can show the burn). `describePace(deltaKcal, 'lose'|'gain')`
+  turns `HealthStats.dailyCalorieDelta` into the pace-card copy: the **verb** (cut vs eat more) follows
+  the delta's sign, while **behind vs ahead** follows goal direction (derive it from the sign of
+  `requiredWeeklyRate`), and a delta beyond a sustainable daily adjustment switches to
+  "Goal Pace Unrealistic" instead of quoting an absurd number. NB: in `HealthRepo.computeStats`,
+  `requiredWeeklyRate` is signed `(current − goal)` and `weeklyChange` is `avg7 − avg14`, so the gap is
+  `requiredWeeklyRate + weeklyChange` (a **sum** — the desired weeklyChange is `−requiredWeeklyRate`).
+  `heartRate.ts` (pure HR helpers for workouts: `summarizeHeartRate` → avg/min/max, `downsample` for
+  storage/charting, `maxHeartRate(age) = 220 − age`, and `zoneBreakdown` for the 5-zone time-in-zone
+  bars). Consumed by `components/HeartRatePanel.tsx` (stats + `LineChart` + zone bars) on the workout
+  summary + history sheet; HR is captured in `session.tsx` (live poll of `getLatestHeartRate`, and a
+  `getHeartRateSamples` window read on finish → `WorkoutRepo.setSessionHeartRate`).
+
+## Active-calorie eat-back (`lib/activeCalories.ts` + `stores/activeCaloriesStore.ts`)
+`profile.activeCalorieSource` (`off | auto | watch | inapp`) decides what gets added back to the daily
+budget. `computeActiveCaloriesToday(source)` is **async** (watch reads): `inapp` = in-app workout
+calories; `watch` = the platform's whole-day active energy; `auto` = whole-day energy **plus** the MET
+estimate for any of today's workout windows the watch didn't cover (`health.getActiveEnergyBurned` per
+window), so watch-tracked workouts aren't double-counted. Because `resolveTargets` is a synchronous
+render function, the result is cached in `activeCaloriesStore` (`{day, kcal, refresh()}`); `refresh` is
+called on focus of Dashboard/FoodToday and after a workout finishes, and those screens subscribe to
+`kcal` so the budget re-renders when it lands. Migrated from the old `countActiveCalories` boolean.
+
+**Guards against bad data** (a wrong eat-back silently inflates the whole day's budget, so these matter):
+the MET estimate caps workout duration at **6h** (a session left "running" across days can't blow up);
+`WorkoutRepo.getCaloriesBurnedToday` clamps **each session to ≤2500 kcal** in SQL; and
+`computeActiveCaloriesToday` clamps the daily total to **`MAX_DAILY_BURN` (4000)**. ⚠️ HealthKit gotcha:
+`@kingstinct/react-native-healthkit`'s `queryQuantitySamples` filters by date via
+`filter: { date: { startDate, endDate } }` — passing `from`/`to` is silently ignored and returns *all*
+recent samples (summing many days). `getActiveEnergyBurned` uses the correct filter **and** re-bounds by
+date in JS as a backstop.
+
+## Calorie-anchored macros (`lib/macros.ts`)
+In the goal editors, Daily Calories is the **anchor** and protein/carbs/fat are always a split of it
+(stored as grams, but kept consistent on every edit). `rescaleToCalories` re-derives grams keeping
+the current ratio when calories change; `rebalanceMacro` pins the edited macro and re-weights the
+other two to keep the same calorie total; `macrosFromRatio`/`presetMacros` apply a `MACRO_PRESETS`
+split; `activePresetKey` drives the preset chips' highlight + Custom state. Each returns whole grams
+summing to the goal (carbs absorbs rounding). `FoodGoals`/`GoalsEditor` call these in the stepper
+`onCommit`s and write all affected `*Target` fields together, so the macro total can never disagree
+with calories. **Per-macro lock** (`profile.lockedMacro`): each of `rescaleToCalories`/`rebalanceMacro`/
+`presetMacros` takes an optional `locked` macro — `distributeLocked` keeps that macro's grams fixed and
+flexes only the other two, so e.g. protein can be pinned at 150 g while calories/carbs/fat change. The
+preset chips render via the shared `Chip` (now accepting a `style` prop) in a 2-column grid with an
+always-visible **Custom** chip.
+
+## Goal coaching vs safety (two independent channels)
+- **Coaching nudges** (pace alerts, "cut X cal/day", `ActivitySuggestions`, weekly-workout shortfall)
+  are gated by `profile.showCoachingNudges` — a harm-reduction switch. Gated in `DashboardOverview`,
+  `HealthWeight`, `workout-summary`.
+- **Safety warnings** (`targets.warning` / `safeRateWarning`) are **always** shown via the shared
+  `components/GoalWarning.tsx` card across `HealthGoals`, `GoalsEditor`, `GoalPhasesPanel`, `FoodGoals`,
+  and the dashboard — independent of the coaching toggle, never blocking.
 
 ## Ported feature 1 — Open Food Facts search (`src/lib/foodSearch.ts`)
 Faithful port of `../../apps/api/src/routes/food.ts`, run client-side:
@@ -218,6 +288,10 @@ Faithful port of `../../apps/api/src/routes/food.ts`, run client-side:
 - Read versioned docs before using a module: https://docs.expo.dev/versions/v56.0.0/.
   `expo-file-system` uses the `File`/`Directory`/`Paths` API (legacy API is under `/legacy`).
 - `expo-camera`: `CameraView` + `useCameraPermissions`, `onBarcodeScanned`, `barcodeScannerSettings`.
+- HealthKit (`@kingstinct/react-native-healthkit` v14): `queryQuantitySamples(id, opts)` filters by date
+  with `filter: { date: { startDate, endDate } }` — **not** `from`/`to` (those are ignored and return
+  all recent samples). See `getActiveEnergyBurned` in `lib/health.ts`. JS changes to how the native
+  module is *called* hot-reload; only adding/removing the native module needs a prebuild.
 - Charts: built on `react-native-svg` directly (`LineChart`, weekly/volume bars, weight trend).
   `react-native-gifted-charts` is installed if richer charts are wanted later.
 - Muscle map: `react-native-body-highlighter` (SVG-only, rides on `react-native-svg` — no native

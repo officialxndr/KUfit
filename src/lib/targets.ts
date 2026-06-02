@@ -1,8 +1,100 @@
-import { calcBMR, calcTDEE, calcGoalCalories } from '@/lib/tdee';
+import { calcBMR, calcTDEE, calcGoalCalories, safeRateWarning, MIN_SAFE_CALORIES } from '@/lib/tdee';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
+import { activeCaloriesToday } from '@/stores/activeCaloriesStore';
 import type { Profile } from '@/stores/settingsStore';
 import type { GoalPhase } from '@/types';
+
+const NEEDS_INFO_WARNING = 'Add your weight, height, sex and birth date to estimate calories.';
+
+/**
+ * Combined non-blocking safety caution for the user's goal — faster than the
+ * ~2 lb/week max, or a target below BMR / very low calories. Used wherever the
+ * goal or its pace is shown (dashboard, weight trend, goal editors). Excludes
+ * the benign "add your info" prompt. `currentWeightKg` comes from the latest
+ * weigh-in.
+ */
+export function goalSafetyWarning(profile: Profile, currentWeightKg: number | null): string | null {
+  const rate = safeRateWarning(currentWeightKg, profile.goalWeightKg, profile.goalDate, profile.unitSystem);
+  if (rate) return rate;
+  const w = resolveTargets(profile).warning;
+  return w && w !== NEEDS_INFO_WARNING ? w : null;
+}
+
+/** Upper edge of a sustainable daily calorie adjustment. Beyond this the pace the
+ *  goal demands isn't realistic, so we stop quoting the (absurd) number. */
+const SUSTAINABLE_DELTA = 1000;
+
+export interface PaceDescription {
+  title: string;
+  message: string;
+  /** False when the required pace exceeds a sustainable daily adjustment. */
+  realistic: boolean;
+}
+
+/**
+ * Direction-aware copy for the pace card. `deltaKcal` is `HealthStats.dailyCalorieDelta`
+ * (positive ⇒ eat less / cut, negative ⇒ eat more). `goalDirection` says whether the
+ * user is losing or gaining, which decides "behind" vs "ahead" independently of the verb:
+ *   - lose goal: behind when delta > 0 (needs a bigger deficit)
+ *   - gain goal: behind when delta < 0 (needs a bigger surplus)
+ * Derive `goalDirection` from the sign of `HealthStats.requiredWeeklyRate`
+ * (`>= 0` → 'lose', `< 0` → 'gain').
+ */
+export function describePace(deltaKcal: number, goalDirection: 'lose' | 'gain'): PaceDescription {
+  const mag = Math.abs(deltaKcal);
+  const behind = goalDirection === 'lose' ? deltaKcal > 0 : deltaKcal < 0;
+
+  if (mag > SUSTAINABLE_DELTA) {
+    return {
+      title: 'Goal Pace Unrealistic',
+      message: behind
+        ? `Reaching your goal on time would need an unsafe ${deltaKcal > 0 ? 'cut' : 'surplus'} of over ${SUSTAINABLE_DELTA.toLocaleString()} cal/day. Push your target date out or adjust the goal.`
+        : "You're well clear of your goal pace — no need to push this hard.",
+      realistic: false,
+    };
+  }
+
+  const amount = `~${mag} cal/day`;
+  if (behind) {
+    return {
+      title: 'Slightly Behind',
+      message: deltaKcal > 0 ? `Cut ${amount} to stay on track` : `Eat ${amount} more to stay on track`,
+      realistic: true,
+    };
+  }
+  return {
+    title: 'Ahead of Pace',
+    message: deltaKcal < 0
+      ? `You could eat ${amount} more and stay on track`
+      : `You could cut ${amount} and still hit your goal`,
+    realistic: true,
+  };
+}
+
+/**
+ * Today's active-calorie "eat-back" that `resolveTargets` folds into the calorie
+ * budget — exposed so the UI can show how much burned energy was added. Returns 0
+ * when the source is off or nothing has been burned/cached yet.
+ */
+export function activeCaloriesForDisplay(profile: Profile): number {
+  if (profile.activeCalorieSource === 'off') return 0;
+  const eat = profile.activeCalorieSource === 'inapp'
+    ? workoutRepo.getCaloriesBurnedToday()
+    : activeCaloriesToday();
+  return eat > 0 ? eat : 0;
+}
+
+/** Non-blocking caution for a calorie target that's unsafely low. */
+function lowCalorieWarning(cal: number, bmr: number | null): string | null {
+  if (bmr != null && cal < bmr) {
+    return 'This calorie goal is below your BMR — the energy your body needs at rest. A higher intake is usually safer.';
+  }
+  if (cal < MIN_SAFE_CALORIES) {
+    return `This calorie goal is under ${MIN_SAFE_CALORIES} kcal/day, which is very low. Consider a smaller deficit.`;
+  }
+  return null;
+}
 
 export interface ResolvedTargets {
   calorieTarget: number | null;
@@ -15,7 +107,7 @@ export interface ResolvedTargets {
   source: string;
 }
 
-function ageFromBirthDate(birthDate: string | null): number | null {
+export function ageFromBirthDate(birthDate: string | null): number | null {
   if (!birthDate) return null;
   const diff = Date.now() - new Date(birthDate).getTime();
   const years = diff / (365.25 * 86400 * 1000);
@@ -25,14 +117,14 @@ function ageFromBirthDate(birthDate: string | null): number | null {
 /**
  * Resolves the effective daily calorie + macro targets, following the active
  * GoalPhase if one covers today, otherwise the profile defaults. When the user
- * has opted in (`countActiveCalories`), today's workout calories burned are
+ * has chosen an active-calorie source, today's cached active-calorie burn is
  * added back to the calorie budget. Pure read — safe to call on every render.
  */
 export function resolveTargets(profile: Profile): ResolvedTargets {
   const base = resolveBaseTargets(profile);
-  if (profile.countActiveCalories && base.calorieTarget != null) {
-    const burned = workoutRepo.getCaloriesBurnedToday();
-    if (burned > 0) return { ...base, calorieTarget: base.calorieTarget + burned };
+  if (base.calorieTarget != null) {
+    const eat = activeCaloriesForDisplay(profile);
+    if (eat > 0) return { ...base, calorieTarget: base.calorieTarget + eat };
   }
   return base;
 }
@@ -76,7 +168,9 @@ function resolveBaseTargets(profile: Profile): ResolvedTargets {
       carbsTarget,
       fatTarget,
       tdee: null,
-      warning: manualCalorie ? null : 'Add your weight, height, sex and birth date to estimate calories.',
+      warning: manualCalorie
+        ? lowCalorieWarning(manualCalorie, null)
+        : 'Add your weight, height, sex and birth date to estimate calories.',
       source,
     };
   }
@@ -93,18 +187,20 @@ function resolveBaseTargets(profile: Profile): ResolvedTargets {
 
   if (manualCalorie != null) {
     withMacroDefaults(manualCalorie);
-    return { calorieTarget: manualCalorie, proteinTarget, carbsTarget, fatTarget, tdee, warning: null, source };
+    return { calorieTarget: manualCalorie, proteinTarget, carbsTarget, fatTarget, tdee, warning: lowCalorieWarning(manualCalorie, bmr), source };
   }
 
-  const { target, warning } = calcGoalCalories({
+  const { target, warning: goalWarning } = calcGoalCalories({
     tdee,
     bmr,
     goalType,
     currentWeightKg: currentWeightKg!,
     goalWeightKg,
     goalDate,
+    unitSystem: profile.unitSystem,
   });
 
   withMacroDefaults(target);
+  const warning = goalWarning ?? lowCalorieWarning(target, bmr);
   return { calorieTarget: target, proteinTarget, carbsTarget, fatTarget, tdee, warning, source };
 }

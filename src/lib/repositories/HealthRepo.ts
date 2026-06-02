@@ -149,8 +149,12 @@ export class HealthRepo {
     if (goalWeightKg != null && goalDate != null && current) {
       const weeksUntilGoal = (new Date(goalDate).getTime() - Date.now()) / (7 * 86400000);
       if (weeksUntilGoal > 0) {
+        // `requiredWeeklyRate` is signed as (current − goal): positive when you need to
+        // lose, negative when you need to gain. The *desired* weeklyChange is therefore
+        // its negation, so the gap (how much more deficit/surplus is needed) is the sum,
+        // not the difference. Positive gap ⇒ eat less, negative ⇒ eat more.
         requiredWeeklyRate = (current.weightKg - goalWeightKg) / weeksUntilGoal;
-        const rateGap = requiredWeeklyRate - (weeklyChange ?? 0);
+        const rateGap = requiredWeeklyRate + (weeklyChange ?? 0);
         dailyCalorieDelta = Math.round((rateGap * 7700) / 7);
         onTrack = Math.abs(rateGap) < 0.1;
       }

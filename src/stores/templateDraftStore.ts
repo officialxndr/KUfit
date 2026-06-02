@@ -27,6 +27,8 @@ interface TemplateDraftState {
   addExercise: (exercise: Exercise) => void;
   removeExercise: (exerciseId: string) => void;
   moveExercise: (exerciseId: string, dir: -1 | 1) => void;
+  /** Replace the exercise list wholesale — used by drag-to-reorder. */
+  setExercises: (exercises: DraftExercise[]) => void;
   patch: (exerciseId: string, p: Partial<DraftExercise>) => void;
   startSuperset: (exerciseId: string) => void;
   ungroup: (exerciseId: string) => void;
@@ -89,6 +91,7 @@ export const useTemplateDraftStore = create<TemplateDraftState>((set, get) => ({
       [next[i], next[j]] = [next[j], next[i]];
       return { exercises: next };
     }),
+  setExercises: (exercises) => set({ exercises }),
   patch: (exerciseId, p) =>
     set((s) => ({
       exercises: s.exercises.map((e) => (e.exercise.id === exerciseId ? { ...e, ...p } : e)),

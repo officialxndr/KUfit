@@ -10,9 +10,14 @@ Honest status of the rebuild. **Update this when features land or plans change.*
 - [x] Exercises: bundled catalog (~440 unique, deduped by `exerciseDbId`), grouped/searchable
       library, detail with GIF demos, on-device GIF caching (per-view + bulk). Seed self-heals
       duplicate-bloated or stale databases on launch.
-- [x] Workouts: empty/template start, active session (sets, ghost values, timer), finish →
-      volume + Epley PR detection, history with PR badges, template builder.
-- [x] Health: weight logging, 7/30/90-day stats + pace guidance, body measurements, TDEE calculator.
+- [x] Workouts: empty/template start, active session (sets, ghost values, timer, **rest-timer
+      vibration**), finish → volume + Epley PR detection, history with PR badges, template builder with
+      **drag-to-reorder** (`react-native-sortables`; supersets drag as one locked block).
+- [x] **Workout heart rate** (native build + watch): live BPM readout during a session, and on finish
+      a Health window-read stores avg/min/max + a series — shown on the summary/history as stats, an
+      HR-over-time line, and time-in-zone bars (`lib/heartRate.ts` + `components/HeartRatePanel.tsx`).
+- [x] Health: weight logging, 7/30/90-day stats + **direction-aware pace guidance** (correct for both
+      lose and gain goals, with unrealistic-pace wording), body measurements, TDEE calculator.
 - [x] Dashboard: Overview (calorie ring, macros, weekly calorie chart, weight + ETA, pace alert,
       recent workouts, quick actions) and a **Goals** master list grouped by section.
 - [x] **Navigation shell** (`src/navigation`): top section switcher, contextual bottom nav with a
@@ -63,8 +68,32 @@ Honest status of the rebuild. **Update this when features land or plans change.*
 - [x] **Workout calories burned** — measured from Apple Health / Health Connect active energy for the
       session window (`health.getActiveEnergyBurned`), falling back to a **MET time estimate**
       (`caloriesBurnedFromDuration`, ~5.0 MET). Live estimate in the session header, final value on the
-      summary, stored on `workout_sessions.caloriesBurned`. Opt-in **eat-back** (`countActiveCalories`
-      toggle in Settings) adds today's burned calories to the daily budget via `resolveTargets`.
+      summary, stored on `workout_sessions.caloriesBurned`.
+- [x] **Active-calorie eat-back source** — Settings picker (`activeCalorieSource`: Off / Automatic /
+      Watch only / In-app only). **Automatic** adds the watch's whole-day active energy plus the app's
+      MET estimate for any workout window the watch didn't cover (no double counting). Computed async in
+      `lib/activeCalories.ts`, cached in `stores/activeCaloriesStore.ts`, added to the budget in
+      `resolveTargets`. Migrated from the old `countActiveCalories` boolean.
+- [x] **Goal-coaching toggle** — `showCoachingNudges` (Settings) hides the pace alerts, "cut X cal/day",
+      "how to hit it" activity suggestions and weekly-workout shortfall (harm-reduction for disordered
+      eating). Safety warnings stay visible regardless.
+- [x] **Goal safety warnings** — non-blocking cautions when a goal is unsafe: faster than the ~2 lb/week
+      doctor-recommended max (`safeRateWarning`), a target below BMR, or under a ~1200 kcal floor. Shown
+      via the shared `GoalWarning` card on every goal surface (Health goals + **weight trend**, Goals
+      editor, Goal phases, Food goals, dashboard). Never blocks saving. `calcGoalCalories` also **caps the
+      calorie target** at the safe rate so an aggressive goal date can't yield an absurd number (the
+      warning still flags the real pace).
+- [x] **Calendar date picker** (`components/DateField.tsx`) — tappable field → calendar popup with month
+      arrows and a tap-the-title **year jump** list (good for far goal dates and decades-back birth dates).
+      JS-only (works in Expo Go). Replaces the `YYYY-MM-DD` text inputs in onboarding (birth date),
+      Settings (birth date), the Goals editor (goal date), and Goal Phases (start/end).
+- [x] **Calorie-anchored macros** (`lib/macros.ts`) — Daily Calories is the anchor; protein/carbs/fat
+      are always a split of it and can never disagree with the goal. Editing calories rescales the
+      macros (keeping the ratio, `rescaleToCalories`); editing one macro re-weights the other two
+      (`rebalanceMacro`); **preset chips** (Moderate / Lower / Higher Carb + a Custom state via
+      `activePresetKey`) split the goal. **Per-macro lock** (`profile.lockedMacro`) pins one macro
+      (e.g. 150 g protein) so the other two flex to fill the calories on any calorie/macro/preset
+      change (`presetMacros` + the `locked` arg). Wired into Food → Goals and the Goals editor.
 - [x] **Workout history** — month navigator (‹ ›), calendar day picker (`MonthCalendar`),
       swipe-to-delete sessions.
 - [x] **Routines** — create/**edit**/delete, **default** toggle, and a "Start {routine}" FAB action.
@@ -167,8 +196,6 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       `health.ts` (guarded `require`s), then `expo prebuild` + a native build and test on-device.
       The seam now also reads **active energy burned** (`getActiveEnergyBurned`) for workout calories —
       it lights up with the same native rebuild; in Expo Go it returns `null` and the MET estimate is used.
-- [ ] **Drag-to-reorder (gesture)** — template exercises reorder via up/down today; true drag needs
-      the reanimated **worklets babel plugin** enabled (then `react-native-draggable-flatlist`).
 - [ ] **Home Assistant add-on** — lives in the web/api repos, **not this mobile app**; expose
       `/api/health/stats` there for automations.
 - [ ] **Apple home-screen widgets (native milestone)** — quick-action widgets: start the default

@@ -3,7 +3,10 @@ import { View, TextInput, StyleSheet, Pressable, ScrollView, Alert } from 'react
 import { ChevronLeft, Trash2, Plus, Target } from 'lucide-react-native';
 
 import { FsText, Button, Card, Chip, Badge } from '@/components/ui';
+import { GoalWarning } from '@/components/GoalWarning';
+import { DateField } from '@/components/DateField';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
+import { safeRateWarning, MIN_SAFE_CALORIES } from '@/lib/tdee';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { toKg, formatWeight, UNIT_LABELS } from '@/lib/units';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
@@ -41,6 +44,18 @@ export function GoalPhasesPanel({ onBack }: { onBack: () => void }) {
   useEffect(() => { refresh(); }, []);
 
   const num = (s: string) => (s.trim() === '' ? null : Number(s));
+
+  // Live non-blocking safety caution for the phase being created.
+  const phaseTargetKg = targetWeight.trim() ? toKg(Number(targetWeight), unit) : null;
+  const currentKg = healthRepo.getLatestWeightEntry()?.weightKg ?? null;
+  const calVal = num(calorie);
+  const phaseWarning =
+    (goalType === 'LOSE'
+      ? safeRateWarning(currentKg, phaseTargetKg, /^\d{4}-\d{2}-\d{2}$/.test(end) ? end : null, unit)
+      : null) ??
+    (calVal != null && calVal < MIN_SAFE_CALORIES
+      ? `This phase's calorie target is under ${MIN_SAFE_CALORIES} kcal/day, which is very low. Consider a smaller deficit.`
+      : null);
 
   const resetForm = () => {
     setName(''); setGoalType('LOSE'); setStart(todayIso()); setEnd('');
@@ -139,8 +154,14 @@ export function GoalPhasesPanel({ onBack }: { onBack: () => void }) {
               </View>
             </View>
             <View style={{ flexDirection: 'row', gap: space[2] }}>
-              <View style={{ flex: 1 }}><Input label="Start (YYYY-MM-DD)" value={start} onChangeText={setStart} placeholder="2026-06-01" /></View>
-              <View style={{ flex: 1 }}><Input label="End (YYYY-MM-DD)" value={end} onChangeText={setEnd} placeholder="2026-08-01" /></View>
+              <View style={{ flex: 1 }}>
+                <FsText variant="caption" style={{ marginBottom: 6 }}>Start</FsText>
+                <DateField value={start || null} onChange={(v) => setStart(v ?? '')} placeholder="Start date" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <FsText variant="caption" style={{ marginBottom: 6 }}>End</FsText>
+                <DateField value={end || null} onChange={(v) => setEnd(v ?? '')} placeholder="End date" />
+              </View>
             </View>
             <Input label={`Target weight (${UNIT_LABELS[unit].weight})`} value={targetWeight} onChangeText={setTargetWeight} keyboardType="decimal-pad" placeholder="optional" />
             <FsText variant="overline">Target overrides (optional)</FsText>
@@ -152,6 +173,7 @@ export function GoalPhasesPanel({ onBack }: { onBack: () => void }) {
               <View style={{ flex: 1 }}><Input label="Carbs g" value={carbs} onChangeText={setCarbs} keyboardType="numeric" placeholder="—" /></View>
               <View style={{ flex: 1 }}><Input label="Fat g" value={fat} onChangeText={setFat} keyboardType="numeric" placeholder="—" /></View>
             </View>
+            <GoalWarning message={phaseWarning} style={{ marginBottom: 0 }} />
             <View style={{ flexDirection: 'row', gap: space[2] }}>
               <View style={{ flex: 1 }}><Button title="Cancel" variant="ghost" onPress={() => { setCreating(false); resetForm(); }} /></View>
               <View style={{ flex: 1 }}><Button title="Save Phase" onPress={save} /></View>
