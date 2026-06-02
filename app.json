@@ -74,7 +74,14 @@
         }
       ],
       "react-native-health-connect",
-      "expo-build-properties"
+      "expo-build-properties",
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "bluetoothAlwaysPermission": "FitSelf connects to your Renpho smart tape measure over Bluetooth to log body measurements."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

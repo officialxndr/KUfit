@@ -224,6 +224,20 @@ export class HealthRepo {
     );
   }
 
+  /**
+   * Save a single site into the day's snapshot (used by the tape-measure flow): patches
+   * today's existing measurement if there is one, else creates it. Keeps one snapshot
+   * per day rather than a row per body part.
+   */
+  upsertMeasurementSite(date: string, site: keyof BodyMeasurement, cm: number): void {
+    const existing = db.getFirstSync(
+      `SELECT localId FROM body_measurements WHERE date = ? AND deleted = 0 ORDER BY updatedAt DESC LIMIT 1`,
+      [date]
+    ) as any;
+    if (existing) this.updateMeasurement(existing.localId, { [site as string]: cm });
+    else this.addMeasurement({ date, [site]: cm } as Partial<Omit<BodyMeasurement, 'id' | 'createdAt'>> & { date: string });
+  }
+
   /** Patch individual sites (or notes/date) on a measurement; pass null to clear a site. */
   updateMeasurement(localId: string, patch: Record<string, number | string | null>): void {
     const allowed = new Set(['neck', 'shoulders', 'chest', 'leftArm', 'rightArm', 'waist', 'hips', 'leftThigh', 'rightThigh', 'leftCalf', 'rightCalf', 'notes', 'date']);

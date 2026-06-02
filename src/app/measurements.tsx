@@ -3,8 +3,9 @@ import { View, TextInput, StyleSheet, Pressable, ScrollView, Alert } from 'react
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { X } from 'lucide-react-native';
+import { X, Bluetooth } from 'lucide-react-native';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
+import { TapeMeasureView } from '@/components/TapeMeasureView';
 
 import { FsText, Card, Button, SectionHeader } from '@/components/ui';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
@@ -37,6 +38,7 @@ export default function MeasurementsScreen() {
 
   const [vals, setVals] = useState<Record<string, string>>({});
   const [entries, setEntries] = useState<BodyMeasurement[]>([]);
+  const [mode, setMode] = useState<'manual' | 'tape'>('manual');
 
   const refresh = useCallback(() => setEntries(healthRepo.getMeasurements()), []);
   useFocusEffect(refresh);
@@ -63,6 +65,16 @@ export default function MeasurementsScreen() {
 
   const latest = entries[0];
 
+  if (mode === 'tape') {
+    return (
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaView style={styles.screen} edges={['top']}>
+          <TapeMeasureView onBack={() => { setMode('manual'); refresh(); }} onChanged={refresh} />
+        </SafeAreaView>
+      </GestureHandlerRootView>
+    );
+  }
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -72,6 +84,11 @@ export default function MeasurementsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: 120 }}>
+        <Pressable style={styles.tapeBtn} onPress={() => setMode('tape')}>
+          <Bluetooth color={colors.primary} size={18} />
+          <FsText variant="bodyMedium" style={{ color: colors.primary }}>Measure with Renpho tape</FsText>
+        </Pressable>
+
         <Card style={{ marginBottom: space[3] }}>
           <SectionHeader title={`Log today (${smallLabel})`} />
           <View style={styles.grid}>
@@ -127,6 +144,11 @@ const styles = themedStyles(() => StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: space[4], paddingVertical: space[3],
+  },
+  tapeBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space[2],
+    paddingVertical: space[3], marginBottom: space[3], borderRadius: radius.md,
+    borderWidth: 1, borderColor: colors.primary, backgroundColor: 'rgba(99,102,241,0.08)',
   },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
   cell: { width: '31%' },
