@@ -1,5 +1,6 @@
 import * as Crypto from 'expo-crypto';
 import { db } from '@/lib/db';
+import { loadFactor } from '@/lib/load';
 import type {
   Exercise, ExerciseSet, LocalExercise, LocalSet,
   SessionExercise, WorkoutSession, WorkoutTemplate,
@@ -39,6 +40,7 @@ function mapExercise(row: any): Exercise {
     videoUrl: row.videoUrl ?? null,
     gifUrl: row.gifUrl ?? null,
     isCustom: !!row.isCustom,
+    perSide: row.perSide == null ? null : !!row.perSide,
   };
 }
 
@@ -55,13 +57,19 @@ function mapTemplate(row: any, exercises: WorkoutTemplate['exercises']): Workout
 }
 
 function mapSession(row: any, exercises: SessionExercise[]): WorkoutSession {
+  // Recompute volume from sets × per-side factor so it's correct for past sessions too
+  // (a dumbbell two-arm set counts both hands), not just whatever was stored on finish.
+  const totalVolume = exercises.reduce(
+    (sum, se) => sum + loadFactor(se.exercise) * se.sets.reduce((a, st) => a + st.weightKg * st.reps, 0),
+    0
+  );
   return {
     id: row.localId,
     name: row.name,
     startedAt: row.startedAt,
     finishedAt: row.finishedAt ?? null,
     notes: row.notes ?? null,
-    totalVolume: row.totalVolume ?? null,
+    totalVolume,
     caloriesBurned: row.caloriesBurned ?? null,
     avgHeartRate: row.avgHeartRate ?? null,
     minHeartRate: row.minHeartRate ?? null,
@@ -186,6 +194,14 @@ export class WorkoutRepo {
     return localId;
   }
 
+  /** Override the per-side (×2 volume) flag; null reverts to the equipment default. */
+  setExercisePerSide(localId: string, perSide: boolean | null): void {
+    db.runSync(
+      `UPDATE exercises SET perSide = ?, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
+      [perSide == null ? null : perSide ? 1 : 0, new Date().toISOString(), localId]
+    );
+  }
+
   getDistinctMuscleGroups(): string[] {
     const rows = db.getAllSync(
       `SELECT DISTINCT muscleGroup FROM exercises WHERE muscleGroup IS NOT NULL ORDER BY muscleGroup`
@@ -297,11 +313,12 @@ export class WorkoutRepo {
     finishedAt: string,
     caloriesBurned?: number | null
   ): void {
-    // Calculate total volume
-    const totalVolume = exercises.reduce(
-      (total, ex) => total + ex.sets.reduce((s, set) => s + set.weightKg * set.reps, 0),
-      0
-    );
+    // Calculate total volume, counting per-side (dumbbell/kettlebell two-arm) work twice.
+    const totalVolume = exercises.reduce((total, ex) => {
+      const e = db.getFirstSync(`SELECT equipment, perSide FROM exercises WHERE localId = ?`, [ex.exerciseLocalId]) as any;
+      const factor = loadFactor({ equipment: e?.equipment, perSide: e?.perSide == null ? null : !!e.perSide });
+      return total + factor * ex.sets.reduce((s, set) => s + set.weightKg * set.reps, 0);
+    }, 0);
 
     db.runSync(
       `UPDATE workout_sessions SET finishedAt = ?, totalVolume = ?, caloriesBurned = ?, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
@@ -360,7 +377,8 @@ export class WorkoutRepo {
                 e.instructions AS e_instructions, e.tips AS e_tips,
                 e.imageUrl AS e_imageUrl, e.videoUrl AS e_videoUrl, e.gifUrl AS e_gifUrl,
                 e.musclesPrimary AS e_musclesPrimary, e.musclesSecondary AS e_musclesSecondary,
-                e.description AS e_description, e.category AS e_category, e.isCustom AS e_isCustom
+                e.description AS e_description, e.category AS e_category, e.isCustom AS e_isCustom,
+                e.perSide AS e_perSide
          FROM session_exercises se
          JOIN exercises e ON se.exerciseLocalId = e.localId
          WHERE se.sessionLocalId = ?
@@ -375,7 +393,7 @@ export class WorkoutRepo {
         ) as any[];
         return {
           id: ser.localId,
-          exercise: mapExercise({ localId: ser.e_localId, name: ser.e_name, muscleGroup: ser.e_muscleGroup, equipment: ser.e_equipment, description: ser.e_description, instructions: ser.e_instructions, tips: ser.e_tips, imageUrl: ser.e_imageUrl, videoUrl: ser.e_videoUrl, gifUrl: ser.e_gifUrl, musclesPrimary: ser.e_musclesPrimary, musclesSecondary: ser.e_musclesSecondary, category: ser.e_category, isCustom: ser.e_isCustom }),
+          exercise: mapExercise({ localId: ser.e_localId, name: ser.e_name, muscleGroup: ser.e_muscleGroup, equipment: ser.e_equipment, description: ser.e_description, instructions: ser.e_instructions, tips: ser.e_tips, imageUrl: ser.e_imageUrl, videoUrl: ser.e_videoUrl, gifUrl: ser.e_gifUrl, musclesPrimary: ser.e_musclesPrimary, musclesSecondary: ser.e_musclesSecondary, category: ser.e_category, isCustom: ser.e_isCustom, perSide: ser.e_perSide }),
           notes: ser.notes ?? null,
           order: ser.sortOrder,
           sets: sets.map((s) => ({
@@ -452,6 +470,9 @@ export class WorkoutRepo {
 
   /** Per-session progress for one exercise (oldest → newest): est 1RM, volume, top weight, reps. */
   getExerciseSessionHistory(exerciseLocalId: string): { date: string; est1RM: number; volume: number; topWeight: number; reps: number }[] {
+    // Volume counts both hands for a per-side exercise; 1RM / top weight stay per-hand.
+    const ex = this.getExerciseById(exerciseLocalId);
+    const factor = ex ? loadFactor(ex) : 1;
     return (db.getAllSync(
       `SELECT ws.startedAt AS date,
               MAX(es.weightKg * (1 + es.reps / 30.0)) AS est1RM,
@@ -468,7 +489,7 @@ export class WorkoutRepo {
     ) as any[]).map((r) => ({
       date: r.date,
       est1RM: r.est1RM ?? 0,
-      volume: r.volume ?? 0,
+      volume: (r.volume ?? 0) * factor,
       topWeight: r.topWeight ?? 0,
       reps: r.reps ?? 0,
     }));
@@ -569,13 +590,24 @@ export class WorkoutRepo {
     return Math.round(row?.total ?? 0);
   }
 
-  // Volume data for stats/charts
+  // Volume data for stats/charts. Computed from sets × per-side factor (so dumbbell
+  // two-arm work counts both hands) rather than the stored totalVolume, which keeps
+  // historical sessions consistent with the per-side rules.
   getVolumeBySession(from: string, to: string): { date: string; volume: number }[] {
     return db.getAllSync(
-      `SELECT startedAt AS date, COALESCE(totalVolume, 0) AS volume
-       FROM workout_sessions
-       WHERE finishedAt IS NOT NULL AND deleted = 0 AND startedAt >= ? AND startedAt <= ?
-       ORDER BY startedAt`,
+      `SELECT ws.startedAt AS date,
+              COALESCE(SUM(es.weightKg * es.reps *
+                (CASE WHEN COALESCE(e.perSide,
+                       CASE WHEN LOWER(e.equipment) IN ('dumbbell','kettlebell') THEN 1 ELSE 0 END) = 1
+                      THEN 2 ELSE 1 END)
+              ), 0) AS volume
+       FROM workout_sessions ws
+       JOIN session_exercises se ON se.sessionLocalId = ws.localId
+       JOIN exercises e ON se.exerciseLocalId = e.localId
+       JOIN exercise_sets es ON es.sessionExerciseLocalId = se.localId
+       WHERE ws.finishedAt IS NOT NULL AND ws.deleted = 0 AND ws.startedAt >= ? AND ws.startedAt <= ?
+       GROUP BY ws.localId
+       ORDER BY ws.startedAt`,
       [from, to]
     ) as any[];
   }

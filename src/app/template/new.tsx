@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, TextInput, StyleSheet, Pressable, Alert } from 'react-native';
-import Animated, { useAnimatedRef } from 'react-native-reanimated';
+import Animated, { useAnimatedRef, useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
 import Sortable, { type SortableGridRenderItem, type SortableGridDragEndParams } from 'react-native-sortables';
+import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { X, Trash2, GripVertical, Dumbbell, Link2, Link2Off } from 'lucide-react-native';
 
 import { FsText, Button, Card } from '@/components/ui';
@@ -18,13 +20,139 @@ import { colors, radius, space, themedStyles } from '@/theme/tokens';
 /** A draggable unit in the editor: one solo exercise, or a contiguous superset run. */
 type Block = { key: string; group: string | null; items: DraftExercise[] };
 
+/**
+ * Draggable chain handle for linking a (solo) exercise into a superset. Uses its OWN
+ * pan gesture — not the sortable's reorder drag — so the list never shifts while you
+ * aim. A brief press-and-hold activates it (so it wins over the ScrollView), then drag
+ * onto another exercise; the screen hit-tests the finger against card rects (stable,
+ * because nothing is reordering) and highlights the target.
+ */
+function LinkHandle({ sourceKey, onStart, onMove, onEnd }: {
+  sourceKey: string;
+  onStart: (sourceKey: string) => void;
+  onMove: (absoluteY: number) => void;
+  onEnd: (commit: boolean) => void;
+}) {
+  const pan = useMemo(
+    () =>
+      Gesture.Pan()
+        .runOnJS(true)
+        .activateAfterLongPress(140)
+        .shouldCancelWhenOutside(false)
+        .onStart(() => onStart(sourceKey))
+        .onUpdate((e) => onMove(e.absoluteY))
+        .onEnd(() => onEnd(true))
+        .onFinalize(() => onEnd(false)),
+    [sourceKey, onStart, onMove, onEnd]
+  );
+  return (
+    <GestureDetector gesture={pan}>
+      <View style={styles.linkHandle} hitSlop={8}><Link2 color={colors.muted} size={18} /></View>
+    </GestureDetector>
+  );
+}
+
+/**
+ * Drop-target highlight for a block. Driven by a shared value so it repaints on the UI
+ * thread without a React re-render — the library memoizes item cells, so state-based
+ * styling wouldn't reliably update. Rendered as an absolute overlay *inside* the card
+ * (not a wrapper) so it can't disturb the drag.
+ */
+function DropOverlay({ itemKey, armedKey }: { itemKey: string; armedKey: SharedValue<string | null> }) {
+  const style = useAnimatedStyle(() => ({ opacity: armedKey.value === itemKey ? 1 : 0 }));
+  return (
+    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.dropOverlay, style]}>
+      <FsText variant="caption" style={{ color: colors.primary, fontWeight: '700' }}>Release to superset</FsText>
+    </Animated.View>
+  );
+}
+
 export default function NewTemplate() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id?: string; mode?: string }>();
   const unit = useSettingsStore((s) => s.profile.unitSystem);
-  const { editingId, name, label, exercises, setName, setLabel, removeExercise, setExercises, patch, startSuperset, ungroup, loadTemplate, save } = useTemplateDraftStore();
+  const { editingId, name, label, exercises, setName, setLabel, removeExercise, setExercises, patch, startSuperset, ungroup, linkExerciseInto, loadTemplate, save } = useTemplateDraftStore();
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
+
+  // Link-handle (drag-to-superset) state. The chain handle's pan is independent of the
+  // reorder drag, so nothing shifts while linking. `armedKey` (shared value) drives the
+  // target highlight on the UI thread; the refs hold the in-flight source/target and the
+  // card rects measured at gesture start (valid throughout, since the list stays put).
+  const armedKey = useSharedValue<string | null>(null);
+  const hoverTargetRef = useRef<string | null>(null);
+  const linkingSourceRef = useRef<string | null>(null);
+  const cardRefs = useRef<Map<string, View>>(new Map());
+  const measuredRects = useRef<{ key: string; y: number; h: number }[]>([]);
+
+  // Snapshot every card's window rect; called when a link drag starts. The list isn't
+  // reordering during a link drag, so these stay accurate for the whole gesture.
+  const measureCards = useCallback(() => {
+    const rects: { key: string; y: number; h: number }[] = [];
+    cardRefs.current.forEach((node, key) => {
+      node.measureInWindow((_x, y, _w, h) => rects.push({ key, y, h }));
+    });
+    measuredRects.current = rects;
+  }, []);
+
+  const onLinkStart = useCallback((sourceKey: string) => {
+    linkingSourceRef.current = sourceKey;
+    measureCards();
+    Haptics.selectionAsync().catch(() => {});
+  }, [measureCards]);
+
+  const onLinkMove = useCallback((absoluteY: number) => {
+    const source = linkingSourceRef.current;
+    let hit: string | null = null;
+    for (const r of measuredRects.current) {
+      if (r.key !== source && absoluteY >= r.y && absoluteY <= r.y + r.h) { hit = r.key; break; }
+    }
+    if (hit !== hoverTargetRef.current) {
+      hoverTargetRef.current = hit;
+      armedKey.value = hit;
+      if (hit) Haptics.selectionAsync().catch(() => {});
+    }
+  }, [armedKey]);
+
+  // Fires on release (commit=true) and again on finalize (commit=false, cleanup-only).
+  // Block keys are `e:<exerciseId>` (solo) or `g:<group>` (superset run); we resolve
+  // them against `exercises` rather than the later-declared `blocks` memo.
+  const onLinkEnd = useCallback((commit: boolean) => {
+    const source = linkingSourceRef.current;
+    const target = hoverTargetRef.current;
+    armedKey.value = null;
+    hoverTargetRef.current = null;
+    linkingSourceRef.current = null;
+    measuredRects.current = [];
+    // Only a solo exercise (key `e:…`) can be linked into another block.
+    if (!commit || !source || !target || source === target || !source.startsWith('e:')) return;
+    const srcId = source.slice(2);
+    const srcName = exercises.find((e) => e.exercise.id === srcId)?.exercise.name;
+    if (!srcName) return;
+    // Anchor = last exercise of the target block (so the dragged one appends to a run).
+    let anchorId: string | null = null;
+    let targetName = '';
+    if (target.startsWith('e:')) {
+      anchorId = target.slice(2);
+      targetName = exercises.find((e) => e.exercise.id === anchorId)?.exercise.name ?? '';
+    } else if (target.startsWith('g:')) {
+      const members = exercises.filter((e) => e.supersetGroup === target.slice(2));
+      if (members.length) {
+        anchorId = members[members.length - 1].exercise.id;
+        targetName = members.map((m) => m.exercise.name).join(' + ');
+      }
+    }
+    if (!anchorId) return;
+    const anchor = anchorId;
+    Alert.alert(
+      'Create superset',
+      `Superset “${srcName}” with “${targetName}”?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Superset', onPress: () => linkExerciseInto(srcId, anchor) },
+      ]
+    );
+  }, [armedKey, exercises, linkExerciseInto]);
 
   const wizard = params.mode === 'wizard' && !editingId;
   const [step, setStep] = useState<1 | 2>(1);
@@ -69,6 +197,7 @@ export default function NewTemplate() {
     return out;
   }, [exercises]);
 
+  // Reorder only — superset linking is handled by the chain handle's own gesture.
   const onDragEnd = useCallback(
     ({ data }: SortableGridDragEndParams<Block>) => setExercises(data.flatMap((b) => b.items)),
     [setExercises]
@@ -142,9 +271,13 @@ export default function NewTemplate() {
   // A draggable block: a drag handle beside one exercise (solo) or a stacked
   // superset run sharing a single card with the indigo accent.
   const renderBlock: SortableGridRenderItem<Block> = ({ item }) => (
-    <Card style={{ marginBottom: space[3], flexDirection: 'row', alignItems: 'flex-start', gap: space[2], ...(item.group ? styles.ssCard : {}) }}>
+    <Card
+      ref={(n) => { if (n) cardRefs.current.set(item.key, n); else cardRefs.current.delete(item.key); }}
+      style={{ marginBottom: space[3], flexDirection: 'row', alignItems: 'flex-start', gap: space[2], ...(item.group ? styles.ssCard : {}) }}
+    >
+      <DropOverlay itemKey={item.key} armedKey={armedKey} />
       <Sortable.Handle>
-        <View style={styles.handle}><GripVertical color={colors.muted} size={18} /></View>
+        <View style={styles.handle}><GripVertical color={colors.muted} size={20} /></View>
       </Sortable.Handle>
       <View style={{ flex: 1, gap: space[3] }}>
         {item.items.map((d, k) => (
@@ -153,11 +286,18 @@ export default function NewTemplate() {
           </View>
         ))}
       </View>
+      {item.group === null && (
+        <LinkHandle sourceKey={item.key} onStart={onLinkStart} onMove={onLinkMove} onEnd={onLinkEnd} />
+      )}
     </Card>
   );
 
   return (
-    <View style={styles.screen}>
+    // Native-stack modal screens render in their own container; gesture-handler pan
+    // gestures (the Sortable drag handle) don't register here unless this subtree has
+    // its own GestureHandlerRootView. Taps still work without it, which is why the
+    // kebab/buttons worked but the drag handle didn't.
+    <GestureHandlerRootView style={styles.screen}>
       <View style={[styles.header, { paddingTop: insets.top + space[3] }]}>
         <Pressable onPress={() => (wizard && step === 2 ? setStep(1) : router.back())} hitSlop={10}>
           <X color={colors.text} size={24} />
@@ -202,7 +342,6 @@ export default function NewTemplate() {
           renderItem={renderBlock}
           onDragEnd={onDragEnd}
           customHandle
-          hapticsEnabled
           scrollableRef={scrollRef}
         />
 
@@ -210,7 +349,7 @@ export default function NewTemplate() {
           <Button title="Browse & Add Exercise" variant="ghost" onPress={() => router.push('/exercises?pick=template')} />
         )}
       </Animated.ScrollView>
-    </View>
+    </GestureHandlerRootView>
   );
 }
 
@@ -235,8 +374,13 @@ const styles = themedStyles(() => StyleSheet.create({
     paddingHorizontal: space[4], paddingVertical: space[3],
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  handle: { paddingVertical: 4, paddingRight: 2, justifyContent: 'center' },
+  handle: { paddingVertical: 10, paddingHorizontal: 6, justifyContent: 'center' },
+  linkHandle: { paddingVertical: 10, paddingHorizontal: 6, alignSelf: 'center', justifyContent: 'center' },
   ssCard: { borderLeftWidth: 3, borderLeftColor: colors.primary },
+  dropOverlay: {
+    borderWidth: 2, borderColor: colors.primary, borderStyle: 'dashed', borderRadius: radius.lg,
+    backgroundColor: colors.bg + 'E6', alignItems: 'center', justifyContent: 'center', zIndex: 2,
+  },
   ssBadge: { backgroundColor: colors.primary, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 1 },
   field: { marginBottom: space[3] },
   input: {

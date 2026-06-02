@@ -44,17 +44,13 @@ export function Screen({
 
 // ── Card ──────────────────────────────────────────────────────────────────────
 
-export function Card({
-  children,
-  style,
-  outlined = false,
-}: {
+export const Card = React.forwardRef<View, {
   children: React.ReactNode;
   style?: ViewStyle;
   outlined?: boolean;
-}) {
-  return <View style={[styles.card, outlined && styles.cardOutlined, style]}>{children}</View>;
-}
+}>(function Card({ children, style, outlined = false }, ref) {
+  return <View ref={ref} style={[styles.card, outlined && styles.cardOutlined, style]}>{children}</View>;
+});
 
 // ── Typography helpers ─────────────────────────────────────────────────────────
 

@@ -8,6 +8,7 @@ import { ChevronLeft, Dumbbell } from 'lucide-react-native';
 import { Screen, FsText, Badge, Card, SectionHeader } from '@/components/ui';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { resolveMediaSource, cacheGif, type MediaSource } from '@/lib/exerciseMedia';
+import { isPerSide } from '@/lib/load';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { Exercise } from '@/types';
 
@@ -38,6 +39,12 @@ export default function ExerciseDetail() {
     );
   }
 
+  const perSideOn = isPerSide(exercise);
+  const applyPerSide = (val: boolean) => {
+    workoutRepo.setExercisePerSide(exercise.id, val);
+    setExercise({ ...exercise, perSide: val });
+  };
+
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <Pressable onPress={() => router.back()} style={styles.back} hitSlop={10}>
@@ -67,6 +74,21 @@ export default function ExerciseDetail() {
             {exercise.description}
           </FsText>
         ) : null}
+
+        <Card style={{ marginTop: space[4] }}>
+          <SectionHeader title="Load counting" />
+          <FsText variant="caption" style={{ marginBottom: space[2], color: colors.muted }}>
+            How the logged weight counts toward volume. Use “Per side” for two-arm dumbbell/kettlebell moves — the weight is per hand, so it counts ×2.
+          </FsText>
+          <View style={{ flexDirection: 'row', gap: space[2] }}>
+            <Pressable style={[styles.loadOpt, perSideOn && styles.loadOptOn]} onPress={() => applyPerSide(true)}>
+              <FsText variant="bodyMedium" style={{ color: perSideOn ? colors.white : colors.muted }}>Per side ×2</FsText>
+            </Pressable>
+            <Pressable style={[styles.loadOpt, !perSideOn && styles.loadOptOn]} onPress={() => applyPerSide(false)}>
+              <FsText variant="bodyMedium" style={{ color: !perSideOn ? colors.white : colors.muted }}>Total</FsText>
+            </Pressable>
+          </View>
+        </Card>
 
         {exercise.instructions.length > 0 && (
           <Card style={{ marginTop: space[4] }}>
@@ -126,6 +148,8 @@ const styles = themedStyles(() => StyleSheet.create({
     overflow: 'hidden',
   },
   badgeRow: { flexDirection: 'row', gap: space[2], marginTop: space[3], flexWrap: 'wrap' },
+  loadOpt: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: radius.sm, backgroundColor: colors.surfaceHigh },
+  loadOptOn: { backgroundColor: colors.primary },
   stepRow: { flexDirection: 'row', gap: space[3], marginBottom: space[3], alignItems: 'flex-start' },
   stepNum: {
     width: 22, height: 22, borderRadius: radius.full, backgroundColor: colors.primary,

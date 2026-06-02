@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, Pressable, ScrollView, Alert, Modal, TextInput } from 'react-native';
+import Animated, { ZoomIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
@@ -54,8 +55,31 @@ export default function SessionScreen() {
   const focusCell = (next: Focus) => { setFocus(next); setPristine(true); };
   const [rest, setRest] = useState<Rest>({ exId: null, setId: null, remaining: 0, total: 0 });
   const [notesEx, setNotesEx] = useState<{ id: string; text: string } | null>(null);
-  const [restEx, setRestEx] = useState<{ id: string; seconds: number } | null>(null);
+  // `setId` present → editing one set's rest override; absent → the exercise default.
+  const [restEx, setRestEx] = useState<{ id: string; setId?: string; seconds: number } | null>(null);
   const [customRest, setCustomRest] = useState('');
+
+  // Auto-scroll the focused set into view above the numpad. Row nodes register here;
+  // when the focused set changes we measure its offset within the scroll content and
+  // scroll it near the top so it's never hidden behind the keypad.
+  const scrollRef = useRef<ScrollView>(null);
+  const contentRef = useRef<View>(null);
+  const rowRefs = useRef<Map<string, View>>(new Map());
+  useEffect(() => {
+    if (!focus) return;
+    const row = rowRefs.current.get(focus.set);
+    const content = contentRef.current;
+    if (!row || !content) return;
+    const t = setTimeout(() => {
+      // New Architecture: measureLayout takes the relative *ref* (not a node handle).
+      row.measureLayout(
+        content as any,
+        (_x, y) => scrollRef.current?.scrollTo({ y: Math.max(0, y - 90), animated: true }),
+        () => {}
+      );
+    }, 60);
+    return () => clearTimeout(t);
+  }, [focus?.set]);
 
   useEffect(() => {
     const t = setInterval(() => force((n) => n + 1), 1000);
@@ -164,7 +188,7 @@ export default function SessionScreen() {
       updateSet(ex.localId, st.localId, { done: true });
       haptic.success();
       // Rest only after the last exercise of a superset round (always, for solo exercises).
-      if (restAfterSet(exercises, ex.localId, st.localId)) startRest(ex.localId, st.localId, ex.restSeconds || 90);
+      if (restAfterSet(exercises, ex.localId, st.localId)) startRest(ex.localId, st.localId, st.restSeconds ?? (ex.restSeconds || 90));
       // Advance through the round-interleaved sequence — carries into the next exercise.
       const nx = nextSetCell(exercises, ex.localId, st.localId);
       if (nx) focusCell({ ex: nx.exLocalId, set: nx.setLocalId, field: 'w' });
@@ -200,8 +224,8 @@ export default function SessionScreen() {
     setPristine(false);
   };
 
-  const Cell = ({ exId, setId, field, value, focused }: { exId: string; setId: string; field: Field; value: number; focused: boolean }) => (
-    <Pressable onPress={() => focusCell({ ex: exId, set: setId, field })} style={[styles.cell, focused && styles.cellFocused]}>
+  const Cell = ({ exId, setId, field, value, focused, done }: { exId: string; setId: string; field: Field; value: number; focused: boolean; done?: boolean }) => (
+    <Pressable onPress={() => focusCell({ ex: exId, set: setId, field })} style={[styles.cell, done && !focused && styles.cellDone, focused && styles.cellFocused]}>
       <FsText variant="bodyMedium" style={{ color: value > 0 ? colors.text : colors.muted, fontVariant: ['tabular-nums'] }}>
         {value > 0 ? value : 0}
       </FsText>
@@ -239,7 +263,7 @@ export default function SessionScreen() {
             {!!label && (
               <View style={styles.ssBadge}><FsText variant="caption" style={{ color: colors.white, fontWeight: '700' }}>{label}</FsText></View>
             )}
-            <FsText variant="cardTitle" style={{ color: colors.primary }} numberOfLines={1}>{ex.exercise.name}</FsText>
+            <FsText variant="cardTitle" style={{ color: colors.primary, flexShrink: 1 }} numberOfLines={1}>{ex.exercise.name}</FsText>
             <Info color={colors.muted} size={14} />
           </View>
           {!!ex.exercise.muscleGroup && <FsText variant="caption">{ex.exercise.muscleGroup}</FsText>}
@@ -279,39 +303,51 @@ export default function SessionScreen() {
         return (
           <Fragment key={st.localId}>
             <Swipeable renderRightActions={() => renderSwipeActions(ex, st)} overshootRight={false}>
-              <View style={[styles.setRow, st.done && styles.setRowDone]}>
-                <View style={styles.colSet}><View style={styles.setChip}><FsText variant="bodyMedium" style={{ fontVariant: ['tabular-nums'] }}>{st.setNumber}</FsText></View></View>
+              <View
+                ref={(n) => { if (n) rowRefs.current.set(st.localId, n as unknown as View); else rowRefs.current.delete(st.localId); }}
+                style={[styles.setRow, st.done && styles.setRowDone]}
+              >
+                <View style={styles.colSet}><View style={[styles.setChip, st.done && styles.setChipDone]}><FsText variant="bodyMedium" style={{ fontVariant: ['tabular-nums'] }}>{st.setNumber}</FsText></View></View>
                 <FsText variant="caption" style={[styles.colPrev, { textAlign: 'center', fontVariant: ['tabular-nums'] }]}>
                   {ghost ? `${wDisp(ghost.weightKg)} × ${ghost.reps}` : '—'}
                 </FsText>
-                <View style={styles.colCell}><Cell exId={ex.localId} setId={st.localId} field="w" value={wDisp(st.weightKg)} focused={wFocused} /></View>
-                <View style={styles.colCell}><Cell exId={ex.localId} setId={st.localId} field="r" value={st.reps} focused={rFocused} /></View>
+                <View style={styles.colCell}><Cell exId={ex.localId} setId={st.localId} field="w" value={wDisp(st.weightKg)} focused={wFocused} done={st.done} /></View>
+                <View style={styles.colCell}><Cell exId={ex.localId} setId={st.localId} field="r" value={st.reps} focused={rFocused} done={st.done} /></View>
                 <View style={styles.colCheck}>
                   <Pressable
                     onPress={() => {
                       const nextDone = !st.done;
                       updateSet(ex.localId, st.localId, { done: nextDone });
-                      if (nextDone) { haptic.success(); if (restAfterSet(exercises, ex.localId, st.localId)) startRest(ex.localId, st.localId, ex.restSeconds || 90); }
+                      if (nextDone) { haptic.success(); if (restAfterSet(exercises, ex.localId, st.localId)) startRest(ex.localId, st.localId, st.restSeconds ?? (ex.restSeconds || 90)); }
                     }}
                     style={[styles.check, st.done && { backgroundColor: colors.success, borderColor: colors.success }]}
                     hitSlop={6}
                   >
-                    {st.done && <Check color={colors.white} size={15} strokeWidth={3} />}
+                    {st.done && (
+                      <Animated.View entering={ZoomIn.springify().damping(11).stiffness(180)}>
+                        <Check color={colors.white} size={15} strokeWidth={3} />
+                      </Animated.View>
+                    )}
                   </Pressable>
                 </View>
               </View>
             </Swipeable>
             {i < ex.sets.length - 1 && (
-              <View style={styles.restDivider}>
+              <Pressable
+                style={styles.restDivider}
+                onPress={() => { setRestEx({ id: ex.localId, setId: st.localId, seconds: st.restSeconds ?? (ex.restSeconds || 90) }); setCustomRest(''); }}
+                hitSlop={6}
+              >
                 <View style={[styles.restLine, restHere && { backgroundColor: colors.primary }]} />
                 <View style={styles.restPill}>
                   <Timer color={restHere ? colors.primary : colors.muted} size={12} />
                   <FsText variant="caption" style={{ color: restHere ? colors.primary : colors.muted, fontVariant: ['tabular-nums'], fontWeight: restHere ? '700' : '400' }}>
-                    {restHere ? mmss(rest.remaining) : mmss(ex.restSeconds || 90)}
+                    {restHere ? mmss(rest.remaining) : mmss(st.restSeconds ?? (ex.restSeconds || 90))}
                   </FsText>
+                  {st.restSeconds != null && !restHere && <View style={styles.restCustomDot} />}
                 </View>
                 <View style={[styles.restLine, restHere && { backgroundColor: colors.primary }]} />
-              </View>
+              </Pressable>
             )}
           </Fragment>
         );
@@ -352,7 +388,12 @@ export default function SessionScreen() {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: focus ? 340 : rest.remaining > 0 ? 160 : 120 }}>
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={{ paddingBottom: focus ? 360 : rest.remaining > 0 ? 160 : 120 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View ref={contentRef} style={{ paddingHorizontal: space[4], paddingTop: space[4] }}>
         {exercises.length === 0 && <FsText variant="caption">Add an exercise to begin.</FsText>}
 
         {(() => {
@@ -374,6 +415,7 @@ export default function SessionScreen() {
 
         <Button title="Add Exercise" variant="ghost" onPress={() => router.push('/exercises?pick=session')} />
         <FsText variant="caption" style={{ textAlign: 'center', marginTop: space[3] }}>Swipe a set left to delete it.</FsText>
+        </View>
       </ScrollView>
 
       {rest.remaining > 0 && !focus && (
@@ -426,8 +468,10 @@ export default function SessionScreen() {
       <Modal visible={!!restEx} transparent animationType="fade" onRequestClose={() => setRestEx(null)}>
         <Pressable style={styles.noteBackdrop} onPress={() => setRestEx(null)}>
           <Pressable style={styles.noteCard} onPress={(e) => e.stopPropagation()}>
-            <FsText variant="cardTitle" style={{ marginBottom: space[1] }}>Rest between sets</FsText>
-            <FsText variant="caption" style={{ marginBottom: space[3] }}>Used for this exercise's rest timer.</FsText>
+            <FsText variant="cardTitle" style={{ marginBottom: space[1] }}>{restEx?.setId ? 'Rest after this set' : 'Rest between sets'}</FsText>
+            <FsText variant="caption" style={{ marginBottom: space[3] }}>
+              {restEx?.setId ? 'Custom rest for just this set — overrides the exercise default.' : "Default rest timer for this exercise's sets."}
+            </FsText>
             <View style={styles.restPresets}>
               {REST_PRESETS.map((sec) => {
                 const on = restEx?.seconds === sec;
@@ -455,10 +499,26 @@ export default function SessionScreen() {
                 style={styles.customInput}
               />
             </View>
+            {restEx?.setId && (
+              <Pressable
+                onPress={() => { if (restEx?.setId) updateSet(restEx.id, restEx.setId, { restSeconds: undefined }); setRestEx(null); }}
+                style={{ marginTop: space[3] }}
+                hitSlop={6}
+              >
+                <FsText variant="caption" style={{ color: colors.muted, textAlign: 'center' }}>Reset to exercise default</FsText>
+              </Pressable>
+            )}
             <View style={{ flexDirection: 'row', gap: space[2], marginTop: space[4] }}>
               <View style={{ flex: 1 }}><Button title="Cancel" variant="ghost" onPress={() => setRestEx(null)} /></View>
               <View style={{ flex: 1 }}>
-                <Button title="Save" onPress={() => { if (restEx) setRestSeconds(restEx.id, Math.max(5, Math.round(restEx.seconds))); setRestEx(null); }} />
+                <Button title="Save" onPress={() => {
+                  if (restEx) {
+                    const secs = Math.max(5, Math.round(restEx.seconds));
+                    if (restEx.setId) updateSet(restEx.id, restEx.setId, { restSeconds: secs });
+                    else setRestSeconds(restEx.id, secs);
+                  }
+                  setRestEx(null);
+                }} />
               </View>
             </View>
           </Pressable>
@@ -521,18 +581,20 @@ const styles = themedStyles(() => StyleSheet.create({
   },
   gridHead: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
   setRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4, borderRadius: radius.sm, backgroundColor: colors.surface },
-  setRowDone: { backgroundColor: 'rgba(34,197,94,0.10)' },
+  setRowDone: { backgroundColor: 'rgba(34,197,94,0.18)' },
   colSet: { width: 36, alignItems: 'center' },
   colPrev: { flex: 1.2 },
   colCell: { flex: 1, paddingHorizontal: 3 },
   colCheck: { width: 44, alignItems: 'center' },
   setChip: { width: 28, height: 28, borderRadius: 7, backgroundColor: colors.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
+  setChipDone: { backgroundColor: 'transparent' },
   cell: {
     backgroundColor: colors.surfaceHigh, borderRadius: radius.sm,
     alignItems: 'center', justifyContent: 'center', paddingVertical: 8,
     borderWidth: 2, borderColor: 'transparent',
   },
   cellFocused: { borderColor: colors.primary, backgroundColor: colors.surface },
+  cellDone: { backgroundColor: 'transparent' },
   check: {
     width: 36, height: 32, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border,
     alignItems: 'center', justifyContent: 'center',
@@ -540,6 +602,7 @@ const styles = themedStyles(() => StyleSheet.create({
   restDivider: { flexDirection: 'row', alignItems: 'center', gap: space[2], paddingVertical: 6, paddingHorizontal: space[2] },
   restLine: { flex: 1, height: 1, backgroundColor: colors.border },
   restPill: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  restCustomDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.primary },
   swipeActions: { flexDirection: 'row', alignItems: 'center' },
   swipeBtn: { width: 72, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center', gap: 3 },
   addSet: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: space[2], marginTop: 4, justifyContent: 'center' },

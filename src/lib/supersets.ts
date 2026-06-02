@@ -19,6 +19,30 @@ export interface SetCell {
   isLastInRound: boolean;
 }
 
+/**
+ * A superset must have ≥2 *adjacent* members sharing a group key. Removing an
+ * exercise, ungrouping one, or reordering can leave a group with a single member (or
+ * split it so members are no longer adjacent) — an orphan that still renders with the
+ * superset mark. This clears `supersetGroup` on any exercise with no adjacent
+ * same-group peer, so a 2-exercise superset that loses one member reverts to two solo
+ * exercises. Returns the same array reference when nothing changed.
+ */
+export function normalizeSupersets<T extends { supersetGroup?: string | null }>(items: T[]): T[] {
+  let changed = false;
+  const next = items.map((it, i) => {
+    if (!it.supersetGroup) return it;
+    const prev = items[i - 1];
+    const after = items[i + 1];
+    const hasPeer =
+      (!!prev && prev.supersetGroup === it.supersetGroup) ||
+      (!!after && after.supersetGroup === it.supersetGroup);
+    if (hasPeer) return it;
+    changed = true;
+    return { ...it, supersetGroup: null } as T;
+  });
+  return changed ? next : items;
+}
+
 /** Split exercises into runs of adjacent same-group exercises (solo = run of one). */
 export function supersetRuns(exercises: LocalExercise[]): LocalExercise[][] {
   const runs: LocalExercise[][] = [];

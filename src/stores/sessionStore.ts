@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { epley1RM } from '@/lib/epley';
+import { normalizeSupersets } from '@/lib/supersets';
 import type { Exercise, LocalExercise, LocalSet } from '@/types';
 
 /**
@@ -88,7 +89,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   removeExercise: (localId) =>
     set((s) => ({
-      exercises: s.exercises.filter((e) => e.localId !== localId).map((e, i) => ({ ...e, order: i })),
+      exercises: normalizeSupersets(s.exercises.filter((e) => e.localId !== localId)).map((e, i) => ({ ...e, order: i })),
     })),
 
   startSuperset: (exLocalId) =>
@@ -106,7 +107,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   ungroup: (exLocalId) =>
     set((s) => ({
-      exercises: s.exercises.map((e) => (e.localId === exLocalId ? { ...e, supersetGroup: null } : e)),
+      exercises: normalizeSupersets(
+        s.exercises.map((e) => (e.localId === exLocalId ? { ...e, supersetGroup: null } : e))
+      ),
     })),
 
   addSet: (exLocalId) =>

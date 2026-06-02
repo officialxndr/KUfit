@@ -175,6 +175,8 @@ export interface Exercise {
   videoUrl?: string | null
   gifUrl?: string | null
   isCustom: boolean
+  /** Override for "weight is per side" (×2 volume). null/undefined → default from equipment. */
+  perSide?: boolean | null
 }
 
 export interface ExerciseSet {
@@ -293,6 +295,8 @@ export interface LocalSet {
   rpe?: number
   done: boolean
   isPersonalBest: boolean
+  /** Per-set rest override (seconds) for the rest *after* this set; falls back to the exercise default. */
+  restSeconds?: number
 }
 
 export interface LocalExercise {

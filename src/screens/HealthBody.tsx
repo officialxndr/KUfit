@@ -3,12 +3,18 @@ import { View, StyleSheet } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Scale } from 'lucide-react-native';
 
-import { Card, FsText, Badge } from '@/components/ui';
+import { Card, FsText, Badge, Button } from '@/components/ui';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { formatWeight } from '@/lib/units';
+import { estimateBodyFat, navyBodyFat } from '@/lib/bodyComposition';
+import { haptic } from '@/lib/haptics';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
-import type { WeightEntry } from '@/types';
+import type { WeightEntry, BodyMeasurement } from '@/types';
+
+const shortDate = (d: string) =>
+  new Date(`${d}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+const today = () => new Date().toISOString().slice(0, 10);
 
 function bfBand(bf: number): { label: string; tone: 'success' | 'warning' | 'danger' | 'primary' } {
   if (bf < 14) return { label: 'Athletic range', tone: 'success' };
@@ -21,20 +27,68 @@ export function HealthBody() {
   const profile = useSettingsStore((s) => s.profile);
   const unit = profile.unitSystem;
   const [latest, setLatest] = useState<WeightEntry | null>(null);
+  const [baseline, setBaseline] = useState<WeightEntry | null>(null);
+  const [measurement, setMeasurement] = useState<BodyMeasurement | null>(null);
 
-  const refresh = useCallback(() => setLatest(healthRepo.getLatestWeightEntry()), []);
+  const refresh = useCallback(() => {
+    setLatest(healthRepo.getLatestWeightEntry());
+    setBaseline(healthRepo.getLatestBodyFatBaseline());
+    setMeasurement(healthRepo.getMeasurements()[0] ?? null);
+  }, []);
   useFocusEffect(refresh);
+
+  // U.S. Navy estimate from the latest tape measurement + height/sex, when available.
+  const navyBf =
+    measurement && profile.heightCm && (profile.sex === 'MALE' || profile.sex === 'FEMALE')
+      ? navyBodyFat({
+          sex: profile.sex,
+          heightCm: profile.heightCm,
+          neckCm: measurement.neck ?? 0,
+          waistCm: measurement.waist ?? 0,
+          hipCm: measurement.hips,
+        })
+      : null;
+
+  // Save a value as today's measured reading (becomes the baseline). Carries the latest
+  // weight forward if there's no weigh-in today yet.
+  const logReading = (value: number) => {
+    if (!latest) return;
+    healthRepo.upsertWeightEntry(today(), latest.weightKg, Math.round(value * 10) / 10);
+    haptic.success();
+    refresh();
+  };
 
   if (!latest) {
     return <Empty message="Log your weight to see body composition." />;
   }
-  if (latest.bodyFat == null) {
-    return <Empty message="Add a body-fat % when you log your weight (Weight tab) to unlock composition stats." />;
+
+  // Source priority: a measured % on the latest weigh-in, then the lean-mass estimate
+  // from a DEXA baseline, then the Navy tape estimate.
+  const measured = latest.bodyFat != null;
+  let bf: number | null = null;
+  let source: 'measured' | 'baseline' | 'navy' = 'measured';
+  if (measured) {
+    bf = latest.bodyFat as number;
+  } else if (baseline?.bodyFat != null) {
+    bf = estimateBodyFat(baseline.weightKg, baseline.bodyFat, latest.weightKg);
+    source = 'baseline';
+  } else if (navyBf != null) {
+    bf = navyBf;
+    source = 'navy';
+  }
+
+  if (bf == null) {
+    return (
+      <Empty
+        message="Enter a body-fat % when you log your weight (e.g. from a DEXA scan), or log your waist & neck in Measurements to estimate it with the U.S. Navy method."
+        action={navyBf != null ? { label: `Use measurements · ${navyBf.toFixed(1)}%`, onPress: () => logReading(navyBf) } : undefined}
+      />
+    );
   }
 
   const weightKg = latest.weightKg;
-  const bf = latest.bodyFat;
   const fatKg = (weightKg * bf) / 100;
+  const estimated = source !== 'measured';
   const leanKg = weightKg - fatKg;
   const hM = profile.heightCm ? profile.heightCm / 100 : null;
   const bmi = hM ? weightKg / (hM * hM) : null;
@@ -47,8 +101,15 @@ export function HealthBody() {
     <>
       <Card style={{ marginBottom: space[3] }}>
         <View style={styles.rowBetween}>
-          <View>
-            <FsText variant="caption">Body Fat</FsText>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <FsText variant="caption">Body Fat</FsText>
+              <View style={[styles.srcPill, estimated && { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.border }]}>
+                <FsText variant="caption" style={{ fontSize: 10, color: estimated ? colors.muted : colors.primary, fontWeight: '700' }}>
+                  {source === 'measured' ? 'MEASURED' : source === 'navy' ? 'U.S. NAVY' : 'ESTIMATED'}
+                </FsText>
+              </View>
+            </View>
             <FsText variant="display" style={{ marginTop: 2 }}>
               {bf.toFixed(1)}<FsText variant="cardTitle" style={{ color: colors.muted }}>%</FsText>
             </FsText>
@@ -64,7 +125,29 @@ export function HealthBody() {
           <FsText variant="caption" style={{ fontSize: 10 }}>Fitness</FsText>
           <FsText variant="caption" style={{ fontSize: 10 }}>High</FsText>
         </View>
+        {source === 'baseline' && baseline?.bodyFat != null ? (
+          <FsText variant="caption" style={{ marginTop: space[3], color: colors.muted, lineHeight: 17 }}>
+            Estimated from your {shortDate(baseline.date)} reading ({baseline.bodyFat.toFixed(1)}% at {formatWeight(baseline.weightKg, unit)}), assuming lean mass held as you lose weight. After a new DEXA scan, log the measured % to re-baseline.
+          </FsText>
+        ) : source === 'navy' ? (
+          <FsText variant="caption" style={{ marginTop: space[3], color: colors.muted, lineHeight: 17 }}>
+            Estimated from your {measurement ? shortDate(measurement.date) : 'latest'} waist/neck{profile.sex === 'FEMALE' ? '/hip' : ''} measurements (U.S. Navy method). It's an estimate — a DEXA scan is more accurate.
+          </FsText>
+        ) : (
+          <FsText variant="caption" style={{ marginTop: space[3], color: colors.muted }}>
+            Measured on {shortDate(latest.date)}. Log just your weight on other days and we'll estimate from this baseline.
+          </FsText>
+        )}
       </Card>
+
+      {source !== 'measured' && navyBf != null && (
+        <Button
+          title={source === 'navy' ? `Save ${navyBf.toFixed(1)}% as today's reading` : `Use Navy estimate · ${navyBf.toFixed(1)}%`}
+          variant="ghost"
+          onPress={() => logReading(navyBf)}
+          style={{ marginBottom: space[3] }}
+        />
+      )}
 
       <View style={styles.grid}>
         <Metric label="Lean Mass" value={formatWeight(leanKg, unit)} tone={colors.success} />
@@ -93,12 +176,15 @@ export function HealthBody() {
   );
 }
 
-function Empty({ message }: { message: string }) {
+function Empty({ message, action }: { message: string; action?: { label: string; onPress: () => void } }) {
   return (
     <View style={styles.empty}>
       <View style={styles.emptyIcon}><Scale color={colors.muted} size={28} /></View>
       <FsText variant="cardTitle" style={{ color: colors.muted }}>No composition yet</FsText>
       <FsText variant="caption" style={{ textAlign: 'center', maxWidth: 260 }}>{message}</FsText>
+      {action && (
+        <Button title={action.label} variant="ghost" onPress={action.onPress} style={{ marginTop: space[3] }} />
+      )}
     </View>
   );
 }
@@ -123,6 +209,7 @@ function Legend({ color, label, value }: { color: string; label: string; value: 
 
 const styles = themedStyles(() => StyleSheet.create({
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  srcPill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, backgroundColor: 'rgba(99,102,241,0.15)' },
   rangeBar: { height: 12, borderRadius: radius.full, backgroundColor: colors.surfaceHigh, overflow: 'hidden', marginTop: space[3] },
   rangeLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: space[2] },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginBottom: space[3] },

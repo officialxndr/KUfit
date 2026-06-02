@@ -75,6 +75,14 @@ export class HealthRepo {
     return row ? mapWeightEntry(row as any) : null;
   }
 
+  /** Most recent entry that has a *measured* body-fat % — the baseline for estimates. */
+  getLatestBodyFatBaseline(): WeightEntry | null {
+    const row = db.getFirstSync(
+      `SELECT * FROM weight_entries WHERE deleted = 0 AND bodyFat IS NOT NULL ORDER BY date DESC LIMIT 1`
+    );
+    return row ? mapWeightEntry(row as any) : null;
+  }
+
   upsertWeightEntry(date: string, weightKg: number, bodyFat?: number, source = 'MANUAL'): void {
     const existing = db.getFirstSync(
       `SELECT localId FROM weight_entries WHERE date = ?`, [date]

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
+import { normalizeSupersets } from '@/lib/supersets';
 import type { Exercise, WorkoutTemplate } from '@/types';
 
 export interface DraftExercise {
@@ -32,6 +33,8 @@ interface TemplateDraftState {
   patch: (exerciseId: string, p: Partial<DraftExercise>) => void;
   startSuperset: (exerciseId: string) => void;
   ungroup: (exerciseId: string) => void;
+  /** Superset `draggedId` with `targetId` (drag-onto): both share a group, dragged sits right after target. */
+  linkExerciseInto: (draggedId: string, targetId: string) => void;
   save: () => string | null;
 }
 
@@ -49,17 +52,19 @@ export const useTemplateDraftStore = create<TemplateDraftState>((set, get) => ({
     description: t.description ?? '',
     label: t.label ?? '',
     pendingSuperset: null,
-    exercises: t.exercises
-      .slice()
-      .sort((a, b) => a.order - b.order)
-      .map((te) => ({
-        exercise: te.exercise,
-        defaultSets: te.defaultSets ?? 3,
-        defaultReps: te.defaultReps ?? 8,
-        defaultWeightKg: te.defaultWeightKg ?? null,
-        restSeconds: te.restSeconds ?? 120,
-        supersetGroup: te.supersetGroup ?? null,
-      })),
+    exercises: normalizeSupersets(
+      t.exercises
+        .slice()
+        .sort((a, b) => a.order - b.order)
+        .map((te) => ({
+          exercise: te.exercise,
+          defaultSets: te.defaultSets ?? 3,
+          defaultReps: te.defaultReps ?? 8,
+          defaultWeightKg: te.defaultWeightKg ?? null,
+          restSeconds: te.restSeconds ?? 120,
+          supersetGroup: te.supersetGroup ?? null,
+        }))
+    ),
   }),
   setName: (name) => set({ name }),
   setLabel: (label) => set({ label }),
@@ -81,7 +86,7 @@ export const useTemplateDraftStore = create<TemplateDraftState>((set, get) => ({
       return { exercises: next, pendingSuperset: null };
     }),
   removeExercise: (exerciseId) =>
-    set((s) => ({ exercises: s.exercises.filter((e) => e.exercise.id !== exerciseId) })),
+    set((s) => ({ exercises: normalizeSupersets(s.exercises.filter((e) => e.exercise.id !== exerciseId)) })),
   moveExercise: (exerciseId, dir) =>
     set((s) => {
       const i = s.exercises.findIndex((e) => e.exercise.id === exerciseId);
@@ -89,9 +94,9 @@ export const useTemplateDraftStore = create<TemplateDraftState>((set, get) => ({
       if (i < 0 || j < 0 || j >= s.exercises.length) return s;
       const next = [...s.exercises];
       [next[i], next[j]] = [next[j], next[i]];
-      return { exercises: next };
+      return { exercises: normalizeSupersets(next) };
     }),
-  setExercises: (exercises) => set({ exercises }),
+  setExercises: (exercises) => set({ exercises: normalizeSupersets(exercises) }),
   patch: (exerciseId, p) =>
     set((s) => ({
       exercises: s.exercises.map((e) => (e.exercise.id === exerciseId ? { ...e, ...p } : e)),
@@ -105,8 +110,24 @@ export const useTemplateDraftStore = create<TemplateDraftState>((set, get) => ({
     }),
   ungroup: (exerciseId) =>
     set((s) => ({
-      exercises: s.exercises.map((e) => (e.exercise.id === exerciseId ? { ...e, supersetGroup: null } : e)),
+      exercises: normalizeSupersets(
+        s.exercises.map((e) => (e.exercise.id === exerciseId ? { ...e, supersetGroup: null } : e))
+      ),
     })),
+  linkExerciseInto: (draggedId, targetId) =>
+    set((s) => {
+      if (draggedId === targetId) return s;
+      const target = s.exercises.find((e) => e.exercise.id === targetId);
+      const dragged = s.exercises.find((e) => e.exercise.id === draggedId);
+      if (!target || !dragged) return s;
+      // Join the target's existing superset if it has one, else start a new group.
+      const group = target.supersetGroup ?? `sg-${Math.random().toString(36).slice(2, 8)}`;
+      const without = s.exercises.filter((e) => e.exercise.id !== draggedId);
+      const ti = without.findIndex((e) => e.exercise.id === targetId);
+      const next = without.map((e) => (e.exercise.id === targetId ? { ...e, supersetGroup: group } : e));
+      next.splice(ti + 1, 0, { ...dragged, supersetGroup: group });
+      return { exercises: normalizeSupersets(next) };
+    }),
   save: () => {
     const { editingId, name, description, label, exercises } = get();
     if (!name.trim() || exercises.length === 0) return null;

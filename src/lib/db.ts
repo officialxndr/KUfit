@@ -1,6 +1,12 @@
 import * as SQLite from 'expo-sqlite';
 
-export const db = SQLite.openDatabaseSync('fitself.db');
+// `useNewConnection: true` opens a dedicated connection and skips
+// `registerDatabaseForDevToolsAsync` (see expo-sqlite's openDatabaseSync). That
+// dev-tools registration shares/owns the connection in development and was tearing
+// it down out from under us — surfacing as `NativeDatabase.prepareSync/execSync ...
+// NullPointerException` mid-render and a black screen until a full reload. A single
+// dedicated connection has a stable lifecycle we control.
+export const db = SQLite.openDatabaseSync('fitself.db', { useNewConnection: true });
 
 export function initDb() {
   db.execSync(`
@@ -238,6 +244,8 @@ function runMigrations() {
   // Supersets: a group key shared by adjacent exercises (null = solo).
   ensureColumn('template_exercises', 'supersetGroup', 'TEXT');
   ensureColumn('session_exercises', 'supersetGroup', 'TEXT');
+  // "Weight is per side" override for dumbbell/kettlebell volume (null = equipment default).
+  ensureColumn('exercises', 'perSide', 'INTEGER');
   // Calories burned during a workout (measured from HealthKit/Health Connect, else MET estimate).
   ensureColumn('workout_sessions', 'caloriesBurned', 'REAL');
   // Heart-rate summary + downsampled series (from Health) for the workout window.
