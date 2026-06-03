@@ -2,7 +2,7 @@ import { useServerStore } from '@/stores/serverStore';
 
 /**
  * Optional server backup/sync. The app is local-first; this only does anything
- * when the user points it at their own FitSelf server (serverStore.serverUrl).
+ * when the user points it at their own Hale server (serverStore.serverUrl).
  *
  * Status: connection testing is implemented. The full bidirectional push/pull
  * engine is intentionally a stub here — it must match the `apps/api` route

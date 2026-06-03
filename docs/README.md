@@ -1,6 +1,6 @@
-# FitSelf Mobile — Docs
+# Hale Mobile — Docs
 
-FitSelf is a **local-first** health & fitness app built with Expo + React Native (SDK 56).
+Hale is a **local-first** health & fitness app built with Expo + React Native (SDK 56).
 It's a fresh rebuild of the original React web PWA (`../../apps/web`), designed so that **all
 data lives on the device** (SQLite) and **no server is required to use the app**. An optional
 self-hosted server can be added later for backup and Home Assistant automations.
@@ -18,7 +18,9 @@ self-hosted server can be added later for backup and Home Assistant automations.
 
 ## What's built today
 - **Navigation shell**: top section switcher + contextual bottom nav with a center "+" multi-action
-  FAB; sections have sub-tabs. A first-run **onboarding wizard** sets up the profile. Haptics throughout.
+  FAB; sections have sub-tabs. A first-run **onboarding wizard** sets up the profile (units, height in ft/in
+  or cm, a year → month → day birthday picker, and a **Preferences** step: confetti preview, U.S. Navy
+  body-fat, active-calorie source). Haptics throughout.
 - **Local-first data layer**: SQLite (`src/lib/db.ts`) + repositories. Schema mirrors the server's
   Prisma models (`localId`/`serverId`/`syncStatus`) so a future sync stays 1:1.
 - **Food**: per-day log (date nav) with calorie ring + macro bars; Open Food Facts search; barcode
@@ -105,7 +107,7 @@ them all in bulk.
 ## Building & deploying (iOS + Android)
 Native folders (`ios/`, `android/`) are git-ignored and generated on demand. Build profiles live in
 `eas.json` (**development** = dev client, **preview** = internal apk/ipa, **production** = store
-bundle). The app targets both platforms (bundle/package id `com.zanderhalverson.fitself`).
+bundle). The app targets both platforms (bundle/package id `com.zanderhalverson.hale`).
 
 **Cloud (EAS) — recommended, cross-platform:**
 ```bash
@@ -117,11 +119,22 @@ eas build --profile production  --platform android    # .aab for Play
 eas build --profile production  --platform ios         # App Store build
 ```
 
+> **iOS TestFlight — current ship path (live since 2026-06-03):** we build **locally** —
+> `eas build -p ios --profile production --local` (needs `fastlane`: `brew install fastlane`) →
+> `eas submit -p ios --profile production --path hale.ipa`. Hale is on App Store Connect (app `6776380902`);
+> submit is non-interactive (stored ASC API key) and build numbers auto-increment. `expo-updates` is wired,
+> so JS-only changes can ship via `eas update` (OTA) without a new build. A first `--local` archive can fail
+> transiently — re-run. Full deploy reference: **[LAUNCH.md](./LAUNCH.md)**.
+
 **Local:**
 ```bash
 npx expo run:ios                      # regenerates native + installs a dev build (full app, incl. HealthKit)
 JAVA_HOME=<jdk17> npx expo run:android # Android MUST build under JDK 17 (default JDK 25 fails native CMake)
 ```
+> Local `expo run:*` builds are the **`Hale Dev`** variant (bundle `…hale.dev`), so they install **alongside**
+> the TestFlight `Hale` and are easy to tell apart. The suffix comes from `APP_VARIANT` in `app.config.js`
+> (the production EAS profile sets it via `eas.json`).
+
 iOS sideload: sign with a free Apple ID in Xcode, Archive → ad-hoc `.ipa`, then **AltStore** (re-signs
 every 7 days on the same Wi-Fi). Android: install the `preview` `.apk` directly.
 
@@ -130,7 +143,7 @@ and otherwise blocks signing. A dynamic config (`app.config.js`) strips it when 
 sideload to a personal device on a free account (e.g. to test the Bluetooth tape):
 ```bash
 npm run prebuild:ios:free    # HEALTHKIT=0 expo prebuild -p ios --clean  (no HealthKit entitlement)
-# first time: open ios/FitSelf.xcworkspace → target → Signing & Capabilities → Team = your Personal Team
+# first time: open ios/Hale.xcworkspace → target → Signing & Capabilities → Team = your Personal Team
 npm run ios:free             # HEALTHKIT=0 expo run:ios --device
 ```
 Free-provisioning caveats: needs a Mac + Xcode; the app expires after ~7 days (just rerun); HealthKit
@@ -138,7 +151,7 @@ features are inert in this build (`lib/health.ts` no-ops). Build the default (no
 paid account to get HealthKit back. **Bluetooth needs a physical device** either way.
 
 ## Optional integrations
-- **Server backup**: Settings → "Server backup & sync" sets a self-hosted FitSelf server URL/token
+- **Server backup**: Settings → "Server backup & sync" sets a self-hosted Hale server URL/token
   and tests the connection (`lib/sync.ts`). The full two-way sync engine is on the roadmap.
 - **Health (cross-platform)**: Settings → "Health" exposes the `lib/health.ts` seam. To activate,
   add the provider libs in a native build — `@kingstinct/react-native-healthkit` (iOS / Apple Health)

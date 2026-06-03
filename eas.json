@@ -7,18 +7,21 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "env": { "APP_VARIANT": "development" },
       "ios": { "simulator": false },
       "android": { "buildType": "apk" }
     },
     "preview": {
       "distribution": "internal",
       "channel": "preview",
+      "env": { "APP_VARIANT": "preview" },
       "ios": { "simulator": false },
       "android": { "buildType": "apk" }
     },
     "production": {
       "channel": "production",
       "autoIncrement": true,
+      "env": { "APP_VARIANT": "production" },
       "android": { "buildType": "app-bundle" }
     }
   },

@@ -18,6 +18,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useTourStore } from '@/stores/tourStore';
 import { useActiveCaloriesStore } from '@/stores/activeCaloriesStore';
 import { DateField } from '@/components/DateField';
+import { HeightField } from '@/components/HeightField';
 import { useServerStore } from '@/stores/serverStore';
 import { useNavStore } from '@/stores/navStore';
 import { testServerConnection } from '@/lib/sync';
@@ -43,10 +44,10 @@ const T = {
   goals: 'goals goal weight target calorie calories macro macros protein carbs fat phase',
   tools: 'tools tdee calculator',
   help: 'help tour guide guided walkthrough onboarding tutorial intro',
-  support: 'support fitself donate donation contribute tip sponsor give back',
+  support: 'support hale donate donation contribute tip sponsor give back',
   data: 'data backup export import restore merge replace wipe delete erase reset',
   offline: 'offline download demos gifs exercise media cache',
-  health: 'health apple healthkit health connect steps active calories watch import weight',
+  health: 'health apple healthkit health connect steps active calories watch import weight body fat navy estimate',
   coaching: 'coaching reminders nudges prompts workout summary recap warnings',
   motion: 'motion animation animations confetti celebration reduce transitions',
   notifications: 'notifications reminders alerts schedule notify food weight measurement',
@@ -215,8 +216,6 @@ export function SettingsView() {
     Alert.alert('Offline demos', `Cached media for ${res.total} exercises.`);
   };
 
-  const [heightCm, setHeightCm] = useState(profile.heightCm?.toString() ?? '');
-
   const server = useServerStore();
   const [serverUrl, setServerUrl] = useState(server.serverUrl ?? '');
   const [serverToken, setServerToken] = useState(server.accessToken ?? '');
@@ -271,8 +270,6 @@ export function SettingsView() {
     else Alert.alert('Photo', 'No photo selected (or photos permission is unavailable in this build).');
   };
 
-  const num = (s: string) => (s.trim() === '' ? null : Number(s));
-
   const switchUnit = (next: UnitSystem) => setProfile({ unitSystem: next });
 
   return (
@@ -326,14 +323,10 @@ export function SettingsView() {
           <Camera color={colors.primary} size={20} />
         </Pressable>
         <Field label="Name" value={profile.name ?? ''} onChangeText={(t) => setProfile({ name: t || null })} placeholder="Your name" />
-        <Field
-          label="Height"
-          value={heightCm}
-          onChangeText={(t) => { setHeightCm(t); setProfile({ heightCm: num(t) }); }}
-          keyboardType="numeric"
-          suffix="cm"
-          placeholder="178"
-        />
+        <FsText variant="caption" style={{ marginBottom: 6 }}>Height</FsText>
+        <View style={{ marginBottom: space[3] }}>
+          <HeightField valueCm={profile.heightCm} onChange={(cm) => setProfile({ heightCm: cm })} system={unit} />
+        </View>
         <FsText variant="caption" style={{ marginBottom: 6 }}>Birth date</FsText>
         <View style={{ marginBottom: space[3] }}>
           <DateField
@@ -342,6 +335,7 @@ export function SettingsView() {
             placeholder="Select your birth date"
             minYear={1900}
             maxYear={new Date().getFullYear()}
+            mode="cascade"
           />
         </View>
         <FsText variant="caption" style={{ marginBottom: 6 }}>Sex</FsText>
@@ -393,9 +387,9 @@ export function SettingsView() {
       </Card>
 
       <Card hidden={!show(T.support)} style={{ marginBottom: space[3] }}>
-        <SectionHeader title="Support FitSelf" />
+        <SectionHeader title="Support Hale" />
         <FsText variant="caption" style={{ marginBottom: space[3] }}>
-          FitSelf is free with no ads, no account, and nothing locked behind a paywall. If it helps you,
+          Hale is free with no ads, no account, and nothing locked behind a paywall. If it helps you,
           an optional donation keeps it free for everyone and covers the developer costs — never required.
         </FsText>
         <Pressable onPress={openSupport} style={styles.supportBtn}>
@@ -452,6 +446,18 @@ export function SettingsView() {
               />
             ))}
           </View>
+        </View>
+
+        <View style={[styles.toggleRow, { marginTop: space[3] }]}>
+          <View style={{ flex: 1, marginRight: space[3] }}>
+            <FsText variant="bodyMedium">U.S. Navy body-fat estimate</FsText>
+            <FsText variant="caption">Estimate body-fat % from tape measurements (neck/waist/hips) + height. Turning it off hides the Navy estimate everywhere.</FsText>
+          </View>
+          <Switch
+            value={profile.useNavyBodyFat}
+            onValueChange={(v) => setProfile({ useNavyBodyFat: v })}
+            trackColor={{ true: colors.primary, false: colors.border }}
+          />
         </View>
       </Card>
 
@@ -519,7 +525,7 @@ export function SettingsView() {
       <Card hidden={!show(T.server)} style={{ marginBottom: space[3] }}>
         <SectionHeader title="Server backup &amp; sync" />
         <FsText variant="caption" style={{ marginBottom: space[3] }}>
-          Optional. Point at your self-hosted FitSelf server to test a connection. The app stays
+          Optional. Point at your self-hosted Hale server to test a connection. The app stays
           fully usable offline; full two-way sync is on the roadmap.
         </FsText>
         <Field label="Server URL" value={serverUrl} onChangeText={setServerUrl} placeholder="http://192.168.1.10:3001" />
@@ -544,7 +550,7 @@ export function SettingsView() {
 
       {q === '' && (
         <Pressable onPress={tapVersion} style={{ alignItems: 'center', paddingVertical: space[4] }}>
-          <FsText variant="caption" style={{ color: colors.muted }}>FitSelf v{appVersion}</FsText>
+          <FsText variant="caption" style={{ color: colors.muted }}>Hale v{appVersion}</FsText>
         </Pressable>
       )}
 

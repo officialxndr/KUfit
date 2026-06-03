@@ -1,7 +1,7 @@
 const { withEntitlementsPlist } = require('@expo/config-plugins');
 
 /**
- * FitSelf's reminders use **local** notifications only, which do not need the APNs
+ * Hale's reminders use **local** notifications only, which do not need the APNs
  * push entitlement. `expo prebuild` auto-applies the bundled `expo-notifications`
  * config plugin, which adds `aps-environment` unconditionally — and a *free /
  * personal* Apple team can't sign the Push Notifications capability ("Personal

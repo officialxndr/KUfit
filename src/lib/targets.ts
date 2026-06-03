@@ -5,7 +5,10 @@ import { activeCaloriesToday } from '@/stores/activeCaloriesStore';
 import type { Profile } from '@/stores/settingsStore';
 import type { GoalPhase } from '@/types';
 
-const NEEDS_INFO_WARNING = 'Add your weight, height, sex and birth date to estimate calories.';
+/** Calorie goal shown before the user has enough info (or a manual goal) to personalize one,
+ *  so the calorie ring is never empty. */
+export const DEFAULT_CALORIE_TARGET = 2000;
+const NEEDS_INFO_WARNING = `Showing a default ${DEFAULT_CALORIE_TARGET.toLocaleString()} kcal goal — add your weight, height, sex and birth date to personalize it.`;
 
 /**
  * Combined non-blocking safety caution for the user's goal — faster than the
@@ -161,16 +164,17 @@ function resolveBaseTargets(profile: Profile): ResolvedTargets {
     currentWeightKg != null && profile.heightCm != null && profile.sex != null && age != null;
 
   if (!canCompute) {
-    withMacroDefaults(manualCalorie);
+    // Can't compute TDEE yet (needs weight + height + sex + age). Fall back to the
+    // user's manual goal, or a default, so the calorie ring always shows a target.
+    const cal = manualCalorie ?? DEFAULT_CALORIE_TARGET;
+    withMacroDefaults(cal);
     return {
-      calorieTarget: manualCalorie,
+      calorieTarget: cal,
       proteinTarget,
       carbsTarget,
       fatTarget,
       tdee: null,
-      warning: manualCalorie
-        ? lowCalorieWarning(manualCalorie, null)
-        : 'Add your weight, height, sex and birth date to estimate calories.',
+      warning: manualCalorie ? lowCalorieWarning(manualCalorie, null) : NEEDS_INFO_WARNING,
       source,
     };
   }

@@ -60,6 +60,8 @@ export interface Profile {
   nutrientGoals: NutrientGoal[];
   /** Per-site body-measurement goals, keyed by site, value in cm. */
   measurementGoals: Record<string, number>;
+  /** Use the U.S. Navy tape method to estimate body-fat % (neck/waist/hips + height). */
+  useNavyBodyFat: boolean;
 }
 
 const DEFAULT_PROFILE: Profile = {
@@ -91,6 +93,7 @@ const DEFAULT_PROFILE: Profile = {
   trainingFocus: null,
   nutrientGoals: [],
   measurementGoals: {},
+  useNavyBodyFat: true,
 };
 
 interface SettingsState {

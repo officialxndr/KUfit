@@ -18,6 +18,16 @@ export const cmToDisplay = (cm: number, system: UnitSystem): string =>
 
 export const inchesToCm = (inches: number): number => inches * 2.54;
 
+/** cm → whole feet + inches (rounded), for imperial height entry/display. */
+export const cmToFeetInches = (cm: number): { feet: number; inches: number } => {
+  const totalIn = Math.round(cm / 2.54);
+  return { feet: Math.floor(totalIn / 12), inches: totalIn % 12 };
+};
+
+/** feet + inches → cm (stored metric), rounded to 0.1 cm. */
+export const feetInchesToCm = (feet: number, inches: number): number =>
+  Math.round((feet * 12 + inches) * 2.54 * 10) / 10;
+
 export const formatWeight = (kg: number, system: UnitSystem): string => {
   const val = toDisplay(kg, system);
   const label = UNIT_LABELS[system].weight;

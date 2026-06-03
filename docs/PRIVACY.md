@@ -1,17 +1,17 @@
-# FitSelf — Privacy Policy
+# Hale — Privacy Policy
 
-_Last updated: [DATE]_
+_Last updated: June 3, 2026_
 
-**Short version: FitSelf does not collect, transmit, sell, or share your personal
+**Short version: Hale does not collect, transmit, sell, or share your personal
 data. Everything you log stays on your device.**
 
-FitSelf is a local-first health & fitness app. There is no account to create and no
-FitSelf server. We (the developer) cannot see your data, because it never leaves your
+Hale is a local-first health & fitness app. There is no account to create and no
+Hale server. We (the developer) cannot see your data, because it never leaves your
 phone.
 
 ## What we collect
 
-**Nothing.** FitSelf has no analytics, no advertising, no tracking SDKs, and no user
+**Nothing.** Hale has no analytics, no advertising, no tracking SDKs, and no user
 accounts. We do not collect your name, email, location, device identifiers, or any of
 the health, food, workout, weight, or measurement information you enter.
 
@@ -24,7 +24,7 @@ you have those enabled, under your control. Deleting the app removes this data.
 
 ## Information that leaves your device
 
-FitSelf works fully offline. A few optional features make network or system requests,
+Hale works fully offline. A few optional features make network or system requests,
 and none of them send your personal information:
 
 - **Food search / barcode lookup (Open Food Facts).** When you search for a food or
@@ -34,13 +34,13 @@ and none of them send your personal information:
 - **Exercise demo media.** Exercise demonstration GIFs may be downloaded for the
   exercise library; these are plain media requests with no personal data.
 
-## Device features FitSelf uses (with your permission)
+## Device features Hale uses (with your permission)
 
 - **Camera** — to scan barcodes and read nutrition labels. Images are processed
   **on-device** and are not uploaded or stored by us.
 - **Apple Health / Health Connect** (optional) — to read your weight/activity/heart-rate
   so your stats stay in sync. This data is read on-device and is **not transmitted** by
-  FitSelf to anyone. You control access in your system Health settings.
+  Hale to anyone. You control access in your system Health settings.
 - **Bluetooth** (optional) — to connect to a Renpho smart tape measure for body
   measurements. Readings are processed on-device.
 - **Notifications** (optional) — local reminders you schedule. These are generated and
@@ -50,14 +50,14 @@ and none of them send your personal information:
 
 ## Donations
 
-If you choose to support FitSelf with a donation, the donation is handled by a
+If you choose to support Hale with a donation, the donation is handled by a
 third-party payment provider (e.g. GitHub Sponsors, Ko-fi, or Stripe) on **their**
-website, opened in your browser. FitSelf does not process or receive your payment
+website, opened in your browser. Hale does not process or receive your payment
 details. Those providers have their own privacy policies that apply to the payment.
 
 ## Children's privacy
 
-FitSelf does not knowingly collect any data from anyone, including children, because it
+Hale does not knowingly collect any data from anyone, including children, because it
 does not collect data at all.
 
 ## Changes to this policy

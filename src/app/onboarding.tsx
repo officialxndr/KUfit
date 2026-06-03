@@ -1,23 +1,31 @@
 import { useState } from 'react';
-import { View, TextInput, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { View, TextInput, StyleSheet, Pressable, ScrollView, Switch } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Dumbbell, ChevronLeft } from 'lucide-react-native';
+import { Dumbbell, ChevronLeft, Sparkles } from 'lucide-react-native';
 
 import { FsText, Button, Chip } from '@/components/ui';
 import { DateField } from '@/components/DateField';
+import { HeightField } from '@/components/HeightField';
+import { Confetti } from '@/components/anim/Confetti';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useTourStore } from '@/stores/tourStore';
 import { ACTIVITY_DESCRIPTIONS } from '@/lib/tdee';
 import { toKg, UNIT_LABELS } from '@/lib/units';
 import { haptic } from '@/lib/haptics';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
-import type { ActivityLevel, GoalType, Sex, UnitSystem } from '@/types';
+import type { ActiveCalorieSource, ActivityLevel, GoalType, Sex, UnitSystem } from '@/types';
 
 const SEXES: Sex[] = ['MALE', 'FEMALE', 'OTHER'];
 const ACTIVITIES: ActivityLevel[] = ['SEDENTARY', 'LIGHT', 'MODERATE', 'ACTIVE', 'VERY_ACTIVE'];
 const GOALS: GoalType[] = ['LOSE', 'MAINTAIN', 'GAIN'];
-const STEPS = 4;
+const ACTIVE_CAL: { key: ActiveCalorieSource; label: string }[] = [
+  { key: 'off', label: 'Off' },
+  { key: 'auto', label: 'Automatic' },
+  { key: 'watch', label: 'Watch only' },
+  { key: 'inapp', label: 'In-app only' },
+];
+const STEPS = 5;
 
 export default function Onboarding() {
   const router = useRouter();
@@ -29,11 +37,15 @@ export default function Onboarding() {
   const [name, setName] = useState('');
   const [unit, setUnit] = useState<UnitSystem>('IMPERIAL');
   const [sex, setSex] = useState<Sex | null>(null);
-  const [height, setHeight] = useState('');
+  const [heightCm, setHeightCm] = useState<number | null>(null);
   const [birthDate, setBirthDate] = useState('');
   const [activity, setActivity] = useState<ActivityLevel>('MODERATE');
   const [goalType, setGoalType] = useState<GoalType>('MAINTAIN');
   const [goalWeight, setGoalWeight] = useState('');
+  const [confetti, setConfetti] = useState(true);
+  const [useNavy, setUseNavy] = useState(true);
+  const [activeCal, setActiveCal] = useState<ActiveCalorieSource>('off');
+  const [showConfetti, setShowConfetti] = useState(false);
 
   const next = () => { haptic.tap(); setStep((s) => Math.min(s + 1, STEPS - 1)); };
   const back = () => { haptic.tap(); setStep((s) => Math.max(s - 1, 0)); };
@@ -43,11 +55,14 @@ export default function Onboarding() {
       name: name.trim() || null,
       unitSystem: unit,
       sex,
-      heightCm: height.trim() ? Number(height) : null,
+      heightCm,
       birthDate: birthDate.trim() || null,
       activityLevel: activity,
       goalType,
       goalWeightKg: goalWeight.trim() ? toKg(Number(goalWeight), unit) : null,
+      confettiEnabled: confetti,
+      useNavyBodyFat: useNavy,
+      activeCalorieSource: activeCal,
     });
     completeOnboarding();
     haptic.success();
@@ -74,7 +89,7 @@ export default function Onboarding() {
         {step === 0 && (
           <>
             <View style={styles.brand}><Dumbbell color={colors.primary} size={40} /></View>
-            <FsText variant="display" style={{ textAlign: 'center' }}>Welcome to FitSelf</FsText>
+            <FsText variant="display" style={{ textAlign: 'center' }}>Welcome to Hale</FsText>
             <FsText variant="bodyMedium" style={{ textAlign: 'center', color: colors.muted, marginBottom: space[6] }}>
               Your private, local-first fitness log. Let's set up your profile.
             </FsText>
@@ -99,8 +114,8 @@ export default function Onboarding() {
                 {SEXES.map((s) => <Chip key={s} label={s[0] + s.slice(1).toLowerCase()} selected={sex === s} onPress={() => setSex(s)} />)}
               </View>
             </Field>
-            <Field label={`Height (${unit === 'METRIC' ? 'cm' : 'cm'})`}>
-              <TextInput value={height} onChangeText={setHeight} placeholder="178" placeholderTextColor={colors.muted} keyboardType="numeric" style={styles.input} />
+            <Field label="Height">
+              <HeightField valueCm={heightCm} onChange={setHeightCm} system={unit} />
             </Field>
             <Field label="Birth date">
               <DateField
@@ -109,6 +124,7 @@ export default function Onboarding() {
                 placeholder="Select your birth date"
                 minYear={1900}
                 maxYear={new Date().getFullYear()}
+                mode="cascade"
               />
             </Field>
           </>
@@ -145,6 +161,43 @@ export default function Onboarding() {
             )}
           </>
         )}
+
+        {step === 4 && (
+          <>
+            <FsText variant="display">Preferences</FsText>
+            <FsText variant="caption" style={{ marginBottom: space[6] }}>Optional — change any of these later in Settings.</FsText>
+
+            <ToggleRow
+              label="Celebration confetti"
+              desc="A confetti burst when you hit a PR or your goal weight."
+              value={confetti}
+              onValueChange={setConfetti}
+            />
+            <Pressable onPress={() => { haptic.tap(); setConfetti(true); setShowConfetti(true); }} style={styles.previewBtn}>
+              <Sparkles color={colors.primary} size={16} />
+              <FsText variant="bodyMedium" style={{ color: colors.primary }}>Preview confetti</FsText>
+            </Pressable>
+
+            <ToggleRow
+              label="U.S. Navy body-fat estimate"
+              desc="Estimate body-fat % from tape measurements (neck/waist/hips) + your height."
+              value={useNavy}
+              onValueChange={setUseNavy}
+            />
+
+            <View style={{ marginTop: space[4] }}>
+              <FsText variant="caption" style={{ marginBottom: 4 }}>Add active calories to your budget</FsText>
+              <FsText variant="caption" style={{ color: colors.muted, marginBottom: space[2] }}>
+                Eat back energy burned from workouts or your Apple Watch / Health.
+              </FsText>
+              <View style={styles.chipRow}>
+                {ACTIVE_CAL.map((o) => (
+                  <Chip key={o.key} label={o.label} selected={activeCal === o.key} onPress={() => setActiveCal(o.key)} />
+                ))}
+              </View>
+            </View>
+          </>
+        )}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom || space[4] }]}>
@@ -159,6 +212,7 @@ export default function Onboarding() {
           </Pressable>
         )}
       </View>
+      {showConfetti && <Confetti onDone={() => setShowConfetti(false)} />}
     </View>
   );
 }
@@ -168,6 +222,20 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <View style={{ marginBottom: space[4] }}>
       <FsText variant="caption" style={{ marginBottom: 6 }}>{label}</FsText>
       {children}
+    </View>
+  );
+}
+
+function ToggleRow({ label, desc, value, onValueChange }: {
+  label: string; desc: string; value: boolean; onValueChange: (v: boolean) => void;
+}) {
+  return (
+    <View style={styles.toggleRow}>
+      <View style={{ flex: 1, marginRight: space[3] }}>
+        <FsText variant="bodyMedium">{label}</FsText>
+        <FsText variant="caption">{desc}</FsText>
+      </View>
+      <Switch value={value} onValueChange={onValueChange} trackColor={{ true: colors.primary, false: colors.border }} />
     </View>
   );
 }
@@ -187,4 +255,6 @@ const styles = themedStyles(() => StyleSheet.create({
   option: { padding: space[3], borderRadius: radius.md, backgroundColor: colors.surfaceHigh, borderWidth: 1, borderColor: 'transparent' },
   optionOn: { borderColor: colors.primary },
   footer: { paddingHorizontal: space[4], paddingTop: space[3], borderTopWidth: 1, borderTopColor: colors.border },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: space[3], borderBottomWidth: 1, borderBottomColor: colors.border },
+  previewBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: space[3], marginBottom: space[2] },
 }));

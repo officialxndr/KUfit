@@ -53,7 +53,7 @@ export function exportData(): string {
   const theme = useThemeStore.getState();
 
   const backup: Backup = {
-    app: 'FitSelf', schema: SCHEMA, exportedAt: new Date().toISOString(),
+    app: 'Hale', schema: SCHEMA, exportedAt: new Date().toISOString(),
     db: dump,
     stores: {
       settings: { profile: settings.profile, onboarded: settings.onboarded },
@@ -73,10 +73,10 @@ export async function writeAndShareBackup(): Promise<void> {
   catch { throw new Error('Sharing needs a dev build of the app — rebuild and try again.'); }
 
   const json = exportData();
-  const uri = `${FileSystem.cacheDirectory}fitself-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  const uri = `${FileSystem.cacheDirectory}hale-backup-${new Date().toISOString().slice(0, 10)}.json`;
   await FileSystem.writeAsStringAsync(uri, json);
   if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(uri, { mimeType: 'application/json', dialogTitle: 'Export FitSelf data' });
+    await Sharing.shareAsync(uri, { mimeType: 'application/json', dialogTitle: 'Export Hale data' });
   }
 }
 
@@ -93,8 +93,8 @@ function insertRow(table: string, row: Record<string, unknown>, cols: Set<string
  *  `merge` = add rows by localId, leaving the current profile/settings untouched. */
 export function importData(json: unknown, mode: 'replace' | 'merge'): void {
   const b = json as Backup;
-  if (!b || b.app !== 'FitSelf' || typeof b.db !== 'object') {
-    throw new Error('Not a valid FitSelf backup file.');
+  if (!b || (b.app !== 'Hale' && b.app !== 'FitSelf') || typeof b.db !== 'object') {
+    throw new Error('Not a valid Hale backup file.');
   }
 
   db.withTransactionSync(() => {

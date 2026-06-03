@@ -102,6 +102,30 @@ Honest status of the rebuild. **Update this when features land or plans change.*
 - [x] **Haptics** (`lib/haptics.ts`) on set-complete, nav taps, FAB, finish.
 - [x] **Reorder template exercises** (move up/down in the builder).
 - [x] **EAS build config** (`eas.json`: development / preview / production for iOS **and Android**).
+- [x] **Rebranded FitSelf → Hale** (2026-06-03) — display name + all user-facing copy + bundle id/scheme now
+      `Hale` / `com.zanderhalverson.hale`. Internal DB filename + Zustand storage keys intentionally kept
+      (`fitself.db`, `fitself-*`) so existing on-device data survives the rename; backup import still accepts
+      the old `app:'FitSelf'` marker.
+- [x] **Shipped to TestFlight (iOS)** (2026-06-03) — `eas build -p ios --profile production --local` (needs
+      `fastlane`, installed via `brew install fastlane`) → signed `.ipa` → `eas submit` → App Store Connect
+      app **6776380902**. EAS stored an ASC API key, so subsequent submits are non-interactive; build numbers
+      auto-increment (`appVersionSource: "remote"`). A first `--local` archive can fail transiently — re-run.
+- [x] **EAS Update (OTA)** — `expo-updates` wired (production channel, `runtimeVersion: appVersion`); ship
+      JS-only changes with `eas update` without an App Store resubmit.
+- [x] **Imperial height entry (ft + in)** — `components/HeightField.tsx` shows ft/in for imperial, cm for
+      metric, always storing metric cm (`cmToFeetInches`/`feetInchesToCm` in `lib/units.ts`); used in
+      onboarding, Settings → Profile, and the TDEE calc. (Body measurements were already unit-aware.)
+- [x] **Calorie ring default** — `resolveTargets` falls back to `DEFAULT_CALORIE_TARGET` (2000) when there's
+      no logged weight and no manual goal, so the ring shows a target (with a "personalize" hint) instead of
+      "No goal set".
+- [x] **Birthday cascade picker** — `DateField` gained `mode="cascade"` (year → month → day) for birth dates;
+      goal dates keep the `calendar` mode.
+- [x] **Onboarding Preferences step** — confetti **preview + toggle**, **U.S. Navy body-fat** toggle (new
+      `profile.useNavyBodyFat`, gated in HealthBody/HealthTrends/DashboardReports, with a matching Settings
+      toggle), and the **active-calorie source** selector.
+- [x] **Build variants** — `app.config.js` suffixes name + bundle id for non-production builds
+      (`Hale Dev` / `com.zanderhalverson.hale.dev`) via `APP_VARIANT` (set per profile in `eas.json`), so a
+      local `expo run:ios` dev build installs **alongside** the TestFlight release and is easy to tell apart.
 - [x] **Standard swipe-to-delete + confirm** (`SwipeToDelete`) across user logs: food items, weight
       entries, measurements, workout history (recipes/routines/phases keep explicit delete + confirm).
 - [x] **Quick-log weight** modal (`log-weight`) wired to the FAB + dashboard (the inline Health form
@@ -280,7 +304,7 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       A guarded **Wipe all data** (acknowledge toggle + `SwipeToConfirm` drag bar) clears user data, keeps
       the seeded catalog, and returns to onboarding. Settings → Data & backup.
 - [x] **Launch prep** — hidden dev tools gated behind `__DEV__`, removed the temp confetti preview, a
-      "Support FitSelf" donation link (`expo-web-browser` → external page, to dodge store fees), plus
+      "Support Hale" donation link (`expo-web-browser` → external page, to dodge store fees), plus
       `docs/PRIVACY.md` (hostable policy) and `docs/LAUNCH.md` (deployment / marketing / listing / analytics
       / donations reference).
 - [x] **Settings search** — a search bar at the top of Settings filters which section cards render,

@@ -5,9 +5,13 @@
   on-device SQLite and is marked `syncStatus='pending'`.
 - **Server-optional & server-compatible.** The SQLite schema mirrors the server's Prisma models
   (each table carries `localId`, `serverId`, `syncStatus`, `updatedAt`). When a user later points
-  the app at their own FitSelf server, the sync layer can push/pull with no schema translation.
+  the app at their own Hale server, the sync layer can push/pull with no schema translation.
 - **Stored metric, displayed either.** Weights are kg, lengths cm in the DB; conversion happens at
-  the display edge via `src/lib/units.ts`.
+  the display edge via `src/lib/units.ts`. Height input uses `components/HeightField.tsx` (ft+in in
+  imperial, cm in metric → stored cm); birth dates use `DateField` `mode="cascade"` (year → month → day).
+  U.S. Navy body-fat estimation is gated on `profile.useNavyBodyFat` (HealthBody / HealthTrends /
+  DashboardReports), and the calorie ring falls back to `DEFAULT_CALORIE_TARGET` (`lib/targets.ts`) before a
+  weight/TDEE exists, so it's never empty.
 
 ## Layers
 ```

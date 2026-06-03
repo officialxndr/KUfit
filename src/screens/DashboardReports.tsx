@@ -160,7 +160,7 @@ export function DashboardReports() {
 
     const baseline = healthRepo.getLatestBodyFatBaseline();
     const measurement = healthRepo.getLatestMeasurementBySite();
-    const navyBf = measurement && profile.heightCm && (profile.sex === 'MALE' || profile.sex === 'FEMALE')
+    const navyBf = profile.useNavyBodyFat && measurement && profile.heightCm && (profile.sex === 'MALE' || profile.sex === 'FEMALE')
       ? navyBodyFat({ sex: profile.sex, heightCm: profile.heightCm, neckCm: measurement.neck ?? 0, waistCm: measurement.waist ?? 0, hipCm: measurement.hips })
       : null;
     let bf: number | null = null;
@@ -190,7 +190,7 @@ export function DashboardReports() {
       currentKg, windowAvg, windowChange, goalEta, pace, bf, leanKg, fatKg, bmi, ffmi,
       phase, goalProgress, startKg, goalKg,
     });
-  }, [fromIso, endIso, days, todayIso, profile.goalWeightKg, profile.goalDate, profile.heightCm, profile.sex, profile.showCoachingNudges, unit]);
+  }, [fromIso, endIso, days, todayIso, profile.goalWeightKg, profile.goalDate, profile.heightCm, profile.sex, profile.useNavyBodyFat, profile.showCoachingNudges, unit]);
 
   useFocusEffect(refresh);
   usePullRefresh(refresh);

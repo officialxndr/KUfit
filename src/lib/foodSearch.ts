@@ -19,7 +19,7 @@ import type { FoodDetails, FoodItem, FoodSource } from '@/types';
  */
 
 const OFF_BASE = 'https://world.openfoodfacts.org';
-const USER_AGENT = 'FitSelf/1.0 (zander.halverson99@gmail.com)';
+const USER_AGENT = 'Hale/1.0 (zander.halverson99@gmail.com)';
 
 // Optional USDA fallback — left disabled by default (embedding a key in the
 // client is undesirable). Set via app config extra if the user opts in.

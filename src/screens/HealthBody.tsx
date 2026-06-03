@@ -48,7 +48,7 @@ export function HealthBody() {
 
   // U.S. Navy estimate from the latest tape measurement + height/sex, when available.
   const navyBf =
-    measurement && profile.heightCm && (profile.sex === 'MALE' || profile.sex === 'FEMALE')
+    profile.useNavyBodyFat && measurement && profile.heightCm && (profile.sex === 'MALE' || profile.sex === 'FEMALE')
       ? navyBodyFat({
           sex: profile.sex,
           heightCm: profile.heightCm,

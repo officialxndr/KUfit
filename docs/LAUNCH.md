@@ -1,6 +1,6 @@
-# FitSelf — Launch & Go-to-Market Reference
+# Hale — Launch & Go-to-Market Reference
 
-Everything for shipping FitSelf to the App Store / Play Store: deployment steps,
+Everything for shipping Hale to the App Store / Play Store: deployment steps,
 pre-submission checklist, marketing, store-listing copy, what analytics the stores give
 you, and the donation setup. See also **[PRIVACY.md](./PRIVACY.md)**.
 
@@ -17,9 +17,19 @@ you, and the donation setup. See also **[PRIVACY.md](./PRIVACY.md)**.
 - Google Play Developer — **$25 one-time**.
 
 **Pipeline** (the repo already has `eas.json`)
-- iOS: `eas build -p ios --profile production` → `eas submit -p ios`
-- Android: `eas build -p android --profile production` → `eas submit -p android`
+- iOS (what we ship): `eas build -p ios --profile production --local` → `eas submit -p ios --profile production --path hale.ipa`.
+  The `--local` build compiles on your Mac and **requires `fastlane`** (`brew install fastlane` — the system
+  Ruby 2.6 is too old for `gem install`). Cloud builds (drop `--local`) also work but consume EAS build credits.
+- Android: `eas build -p android --profile production` → `eas submit -p android`.
 - Beta first: **TestFlight** (iOS) + Play **internal testing**.
+- **OTA**: `expo-updates` is wired (production channel) — ship JS-only fixes with `eas update`, no resubmit.
+
+> **iOS status (2026-06-03): LIVE on TestFlight.** App = **Hale**, bundle `com.zanderhalverson.hale`,
+> App Store Connect app **6776380902**. EAS stored an App Store Connect API key, so `eas submit` is now
+> non-interactive. Build numbers auto-increment (`appVersionSource: "remote"`). Note: a first `--local`
+> archive can fail with a transient "N failures" (exit 65) — just re-run, no code change needed.
+> Internal testers (incl. you) install immediately via the TestFlight app; external testers need the
+> one-time Beta App Review and can join through a public link.
 - Screenshots: take them from a **dev build / simulator** with the hidden demo data
   loaded (Settings → tap version 7× → Load sample data) so screens look alive. The dev
   menu only exists in dev builds (see §6), so it won't ship.
@@ -69,7 +79,7 @@ frame everything as "the private, free alternative."
 
 ## 4. Store listing copy
 
-**Name:** FitSelf
+**Name:** Hale
 **Subtitle (≤30):** `Private calorie & workout log`
 
 **Promotional text (≤170):**
@@ -109,8 +119,8 @@ PostHog/Plausible. Recommendation: stay analytics-free to keep the cleanest priv
 
 ## 6. Donations (free app, no 30% cut)
 
-Goal: keep FitSelf free; let users optionally donate; avoid the store cut. Implemented as
-a **"Support FitSelf"** card in Settings that opens an **external link in the browser**
+Goal: keep Hale free; let users optionally donate; avoid the store cut. Implemented as
+a **"Support Hale"** card in Settings that opens an **external link in the browser**
 (`SUPPORT_URL` in `SettingsView.tsx`) — no in-app payment UI.
 
 **Why a browser link, not an in-app form:**

@@ -9,6 +9,7 @@ import { calcTDEE, ACTIVITY_DESCRIPTIONS, type TDEEInputs } from '@/lib/tdee';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { toDisplay, toKg, UNIT_LABELS } from '@/lib/units';
+import { HeightField } from '@/components/HeightField';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { ActivityLevel, Sex } from '@/types';
 
@@ -31,17 +32,17 @@ export default function TDEECalculator() {
   const [weight, setWeight] = useState(
     latest ? String(toDisplay(latest.weightKg, unit)) : ''
   );
-  const [height, setHeight] = useState(profile.heightCm?.toString() ?? '');
+  const [heightCm, setHeightCm] = useState<number | null>(profile.heightCm ?? null);
   const [age, setAge] = useState(ageFromBirth(profile.birthDate));
   const [sex, setSex] = useState<Sex>(profile.sex ?? 'MALE');
   const [activity, setActivity] = useState<ActivityLevel>(profile.activityLevel);
 
   const result = useMemo(() => {
-    const w = Number(weight), h = Number(height), a = Number(age);
+    const w = Number(weight), h = heightCm ?? 0, a = Number(age);
     if (!w || !h || !a) return null;
     const inputs: TDEEInputs = { weightKg: toKg(w, unit), heightCm: h, ageYears: a, sex, activityLevel: activity };
     return calcTDEE(inputs);
-  }, [weight, height, age, sex, activity, unit]);
+  }, [weight, heightCm, age, sex, activity, unit]);
 
   const rows = result
     ? [
@@ -64,8 +65,11 @@ export default function TDEECalculator() {
         <Card style={{ marginBottom: space[3] }}>
           <View style={{ flexDirection: 'row', gap: space[2], marginBottom: space[3] }}>
             <NumCol label={`Weight (${UNIT_LABELS[unit].weight})`} value={weight} onChange={setWeight} />
-            <NumCol label="Height (cm)" value={height} onChange={setHeight} />
             <NumCol label="Age" value={age} onChange={setAge} />
+          </View>
+          <FsText variant="caption" style={{ marginBottom: 4 }}>Height</FsText>
+          <View style={{ marginBottom: space[3] }}>
+            <HeightField valueCm={heightCm} onChange={setHeightCm} system={unit} />
           </View>
           <FsText variant="caption" style={{ marginBottom: 6 }}>Sex</FsText>
           <View style={{ flexDirection: 'row', gap: space[2] }}>

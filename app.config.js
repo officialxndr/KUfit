@@ -31,9 +31,24 @@ module.exports = ({ config }) => {
     }
   }
 
-  // Surface the flag to JS (Constants.expoConfig.extra.healthKitEnabled) in case a screen
-  // wants to hide Health UI in the stripped build.
-  config.extra = { ...(config.extra || {}), healthKitEnabled };
+  // App variant — keep the production build byte-for-byte the same identity as TestFlight,
+  // but give local dev / preview builds a distinct name + bundle id so they install
+  // *alongside* the App Store app and are obvious to tell apart on the home screen. The
+  // production EAS profile sets APP_VARIANT=production (see eas.json); a plain
+  // `expo run:ios` leaves it unset → treated as a dev build ("Hale Dev").
+  const variant = process.env.APP_VARIANT ?? 'development';
+  if (variant !== 'production') {
+    const isPreview = variant === 'preview';
+    const tag = isPreview ? 'preview' : 'dev';
+    const label = isPreview ? 'Preview' : 'Dev';
+    config.name = `${config.name} ${label}`;
+    if (config.ios) config.ios.bundleIdentifier = `${config.ios.bundleIdentifier}.${tag}`;
+    if (config.android) config.android.package = `${config.android.package}.${tag}`;
+  }
+
+  // Surface the flags to JS (Constants.expoConfig.extra.*) in case a screen wants to
+  // hide Health UI in the stripped build or show a "Dev"/"Preview" badge.
+  config.extra = { ...(config.extra || {}), healthKitEnabled, appVariant: variant };
 
   return config;
 };

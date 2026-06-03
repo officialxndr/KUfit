@@ -23,7 +23,7 @@ export interface TourStep {
 export const TOUR_STEPS: TourStep[] = [
   {
     section: 'dashboard', subTab: 'overview', icon: Sparkles,
-    title: 'Welcome to FitSelf',
+    title: 'Welcome to Hale',
     body: "A quick tour of what's here. You can skip anytime, and replay it later from Settings → Help.",
   },
   {

@@ -1,9 +1,14 @@
-# FitSelf Mobile (Expo / React Native)
+# Hale Mobile (Expo / React Native)
 
 Local-first health & fitness app. Fresh Expo SDK 56 rebuild of the original React web PWA
 (`../apps/web`). **All data lives on-device in SQLite** — no server is required. An optional
 self-hosted server (the existing `../apps/api`) can later be wired in for backup + Home
 Assistant automations via the sync layer (`serverStore` is null by default).
+
+> Display name is **Hale** (`com.zanderhalverson.hale`), renamed from "FitSelf". The codebase keeps the
+> original `fitself` internally — SQLite file `fitself.db` and Zustand persist keys `fitself-*` — to preserve
+> existing on-device data, so **don't rename those**. (`backup.ts` import still accepts the old `app:'FitSelf'`
+> marker.) The `FitSelf Design System/` folder is the original web app kept as design reference — leave its name.
 
 > Before using any Expo module, check the versioned docs: https://docs.expo.dev/versions/v56.0.0/
 > Expo APIs change between versions (e.g. `expo-file-system` split out a `/legacy` API).
@@ -86,6 +91,22 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   `npx expo export --platform ios --output-dir /tmp/x`
 - On device: `npx expo start` (Expo Go) then a dev build for camera/SQLite/Bluetooth testing
   (Android dev build requires JDK 17).
+
+## Ship (iOS → TestFlight)
+**Live on TestFlight** as **Hale** (`com.zanderhalverson.hale`, App Store Connect app 6776380902). Ship loop:
+`eas build -p ios --profile production --local --output ./hale.ipa` → `eas submit -p ios --profile production --path ./hale.ipa`.
+- `eas build --local` shells out to **`fastlane`** — install with **`brew install fastlane`** (system Ruby 2.6
+  is too old for `gem install`). CocoaPods + Xcode required; cloud builds (drop `--local`) work but use credits.
+- `eas submit` is **non-interactive** (an ASC API key is stored on EAS). Build numbers auto-increment
+  (`appVersionSource: "remote"`).
+- A first `--local` archive can fail with a transient "N failures" (exit 65) — just re-run. Don't pipe the
+  build through `tail` (loses error detail); use `EAS_LOCAL_BUILD_SKIP_CLEANUP=1` + redirect to keep logs.
+  (zsh: the build's exit code is `$pipestatus[1]`, not bash's `$PIPESTATUS[0]`.)
+- **Build variants:** `app.config.js` reads `APP_VARIANT` (set per profile in `eas.json`). `production` →
+  `Hale` / `com.zanderhalverson.hale` (matches TestFlight); anything else (e.g. a local `expo run:ios`) →
+  `Hale Dev` / `…hale.dev`, so a dev build installs **alongside** the TestFlight app. Keep production = no suffix.
+- JS-only changes can ship via **`eas update`** (EAS Update / `expo-updates` wired, production channel) with no
+  new binary. See `docs/LAUNCH.md` for the full deploy reference.
 
 ## Keep docs current (required)
 After a change is made and the user has reviewed/accepted it, **update the docs before moving on**:

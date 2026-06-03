@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
  * Optional self-hosted server. Null by default — the app is fully local-first.
- * When the user points this at their own FitSelf server (for backup + Home
+ * When the user points this at their own Hale server (for backup + Home
  * Assistant automations), the sync engine activates.
  */
 interface ServerState {
