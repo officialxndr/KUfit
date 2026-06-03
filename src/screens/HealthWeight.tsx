@@ -11,6 +11,7 @@ import { GoalWarning } from '@/components/GoalWarning';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { goalSafetyWarning, describePace } from '@/lib/targets';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { usePullRefresh } from '@/stores/refreshStore';
 import { toDisplay, formatWeight, UNIT_LABELS } from '@/lib/units';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { HealthStats, WeightEntry } from '@/types';
@@ -36,6 +37,7 @@ export function HealthWeight() {
   }, [profile.goalWeightKg, profile.goalDate]);
 
   useFocusEffect(refresh);
+  usePullRefresh(refresh);
 
   const remove = (e: WeightEntry) => {
     healthRepo.deleteWeightEntry(e.id);

@@ -10,12 +10,17 @@ import { seedExercisesIfEmpty } from '@/lib/exerciseSeed';
 import { seedBaseFoodsIfNeeded } from '@/lib/baseFoodsSeed';
 import { configureNotifications, syncScheduledNotifications } from '@/lib/reminders';
 import { useRemindersStore } from '@/stores/remindersStore';
-import { colors } from '@/theme/tokens';
+import { useThemeStore } from '@/stores/themeStore';
+import { colors, SURFACE_PRESETS } from '@/theme/tokens';
 
 configureNotifications();
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
+  // Status-bar content must contrast the theme: light icons on dark themes,
+  // dark icons on the light theme (otherwise the clock/icons vanish in light mode).
+  const preset = useThemeStore((s) => s.preset);
+  const isDarkTheme = SURFACE_PRESETS[preset]?.dark ?? true;
 
   useEffect(() => {
     try {
@@ -43,7 +48,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaProvider>
-        <StatusBar style="light" />
+        <StatusBar style={isDarkTheme ? 'light' : 'dark'} />
         <Stack
           screenOptions={{
             headerShown: false,

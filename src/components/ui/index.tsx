@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, radius, space, tintBg, PAGE_PADDING, themedStyles } from '@/theme/tokens';
 import { type } from '@/theme/text';
+import { PressableScale } from '@/components/anim/PressableScale';
 
 // ── Screen — page wrapper with safe area + scroll ─────────────────────────────
 
@@ -135,16 +136,15 @@ export function Button({
     variant === 'primary' ? colors.primary : variant === 'success' ? colors.success : 'transparent';
   const fg = variant === 'ghost' ? colors.primary : colors.white;
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
       disabled={disabled || loading}
-      style={({ pressed }) => [
+      style={[
         styles.btn,
         { backgroundColor: bg },
         (disabled || loading) && { opacity: 0.6 },
-        pressed && { transform: [{ scale: 0.97 }] },
         style,
-      ]}
+      ] as ViewStyle[]}
       {...rest}
     >
       {loading ? (
@@ -152,7 +152,7 @@ export function Button({
       ) : (
         <Text style={[styles.btnText, { color: fg }]}>{title}</Text>
       )}
-    </Pressable>
+    </PressableScale>
   );
 }
 

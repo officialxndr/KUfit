@@ -48,6 +48,11 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   `normalizeSupersets` (in both `templateDraftStore` and `sessionStore`).
 - **Workout volume** counts two-arm dumbbell/kettlebell work ×2 via `loadFactor` (`exercise.perSide`,
   default by equipment). 1RM/top-weight stay per-hand. Compute volume from sets × factor, not a stored total.
+- **Motion**: reuse the shared layer — `theme/motion.ts` tokens + `components/anim/*` primitives
+  (`AnimatedNumber`, `PressableScale`, `ScreenTransition`, `GrowBar`, `Confetti`, `Skeleton`). **Always
+  gate animation on `useMotion()`** (`{ animate, confetti }`) so the OS Reduce-Motion setting + the
+  Settings → Motion toggles are honored (render the final state instantly when `animate` is false). Keep
+  it subtle/snappy (150–320ms, springs not bounces); confetti is reserved for big wins + its own toggle.
 
 ## Native builds & platform gotchas
 - **Android builds need JDK 17** (`JAVA_HOME` → JDK 17). The default JDK 25 fails native CMake configure

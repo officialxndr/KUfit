@@ -1,8 +1,10 @@
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { colors, space, PAGE_PADDING, themedStyles } from '@/theme/tokens';
+import { haptic } from '@/lib/haptics';
 import { useNavStore } from '@/stores/navStore';
+import { useRefreshStore } from '@/stores/refreshStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useRoutineStore, getNextTemplateId } from '@/stores/routineStore';
@@ -17,10 +19,12 @@ import {
 import { AppHeader } from './AppHeader';
 import { BottomNav } from './BottomNav';
 import { QuickActionsSheet } from './QuickActionsSheet';
+import { ScreenTransition } from '@/components/anim/ScreenTransition';
+import { FeatureTour } from '@/components/FeatureTour';
 
 import { Target } from 'lucide-react-native';
 import { DashboardOverview } from '@/screens/DashboardOverview';
-import { DashboardGoals } from '@/screens/DashboardGoals';
+import { DashboardReports } from '@/screens/DashboardReports';
 import { FoodToday } from '@/screens/FoodToday';
 import { FoodRecipes } from '@/screens/FoodRecipes';
 import { FoodTrends } from '@/screens/FoodTrends';
@@ -35,9 +39,12 @@ import { HealthBody } from '@/screens/HealthBody';
 import { HealthMeasure } from '@/screens/HealthMeasure';
 import { SettingsView } from '@/screens/SettingsView';
 import { GoalsEditorModal } from '@/components/GoalsEditor';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 const today = () => new Date().toISOString().slice(0, 10);
+
+// Section order (left→right) so a tab change can slide in the right direction.
+const SECTION_ORDER: SectionKey[] = ['dashboard', 'food', 'workout', 'health', 'settings'];
 
 /**
  * The app's main shell — a two-level nav recreated from the design mock:
@@ -53,6 +60,15 @@ export function AppShell() {
   const themeVersion = useThemeStore((s) => s.version);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [goalsOpen, setGoalsOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    haptic.tap();
+    useRefreshStore.getState().bump();
+    // Reads are synchronous; a short spinner just gives the gesture a beat.
+    setTimeout(() => setRefreshing(false), 500);
+  };
 
   const tabs = navTabsFor(section);
   const usesSubTabs = !!SECTION_TABS[section];
@@ -72,6 +88,17 @@ export function AppShell() {
   const showFab = !!fabActions && fabActions.length > 0;
   // Settings is reachable/leavable via the header switcher, so it needs no bottom bar.
   const showBottomNav = section !== 'settings';
+
+  // Direction for the screen transition: compare the new section/sub-tab position
+  // to the previous one so content slides in from the side you moved toward.
+  const subIndex = Math.max(0, tabs.findIndex((t) => t.key === activeSub));
+  const order = SECTION_ORDER.indexOf(section) * 100 + subIndex;
+  const orderRef = useRef(order);
+  const dirRef = useRef(0);
+  if (order !== orderRef.current) {
+    dirRef.current = order > orderRef.current ? 1 : -1;
+    orderRef.current = order;
+  }
 
   // Bottom-nav tap: launcher items switch sections; sub-tabs set the sub-tab.
   const onTab = (key: string) => {
@@ -128,7 +155,7 @@ export function AppShell() {
         section={section}
         onSwitch={(s: SectionKey) => setSection(s)}
         onOpenProfile={() => setSection('settings')}
-        rightAction={section === 'food' || section === 'health' || section === 'workout'
+        rightAction={section === 'dashboard' || section === 'food' || section === 'health' || section === 'workout'
           ? { icon: Target, onPress: () => setGoalsOpen(true) }
           : undefined}
       />
@@ -138,8 +165,13 @@ export function AppShell() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+        }
       >
-        <SectionContent section={section} activeSub={activeSub} />
+        <ScreenTransition transitionKey={`${section}:${activeSub}`} direction={dirRef.current}>
+          <SectionContent section={section} activeSub={activeSub} />
+        </ScreenTransition>
       </ScrollView>
 
       {showBottomNav && (
@@ -149,6 +181,7 @@ export function AppShell() {
           onTab={onTab}
           showFab={showFab}
           onFab={() => setSheetOpen(true)}
+          fabOpen={sheetOpen}
         />
       )}
 
@@ -160,6 +193,8 @@ export function AppShell() {
       />
 
       <GoalsEditorModal visible={goalsOpen} onClose={() => setGoalsOpen(false)} focusSection={section} />
+
+      <FeatureTour />
     </View>
   );
 }
@@ -167,7 +202,7 @@ export function AppShell() {
 function SectionContent({ section, activeSub }: { section: SectionKey; activeSub: string }) {
   switch (section) {
     case 'dashboard':
-      if (activeSub === 'goals') return <DashboardGoals />;
+      if (activeSub === 'reports') return <DashboardReports />;
       return <DashboardOverview />;
     case 'settings':
       return <SettingsView />;

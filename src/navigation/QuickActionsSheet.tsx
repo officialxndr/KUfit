@@ -1,7 +1,10 @@
 import { View, Pressable, StyleSheet } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { FsText } from '@/components/ui';
 import { BottomSheet } from '@/components/BottomSheet';
+import { useMotion } from '@/lib/useMotion';
+import { DURATION } from '@/theme/motion';
 import { colors, space, radius, themedStyles } from '@/theme/tokens';
 import type { FabAction } from './config';
 
@@ -19,24 +22,29 @@ export function QuickActionsSheet({
   onAction: (key: string) => void;
   onClose: () => void;
 }) {
+  const { animate } = useMotion();
   return (
     <BottomSheet visible={visible} onClose={onClose} contentStyle={styles.sheet}>
       <FsText variant="h2" style={styles.title}>
         Quick Actions
       </FsText>
-      {actions.map((a) => {
+      {actions.map((a, i) => {
         const Icon = a.icon;
         return (
-          <Pressable
+          <Animated.View
             key={a.key}
-            style={({ pressed }) => [styles.action, pressed && { backgroundColor: colors.border }]}
-            onPress={() => onAction(a.key)}
+            entering={animate ? FadeInDown.duration(DURATION.base).delay(i * 40) : undefined}
           >
-            <View style={styles.iconWrap}>
-              <Icon color={colors.primary} size={20} />
-            </View>
-            <FsText variant="bodyMedium">{a.label}</FsText>
-          </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.action, pressed && { backgroundColor: colors.border }]}
+              onPress={() => onAction(a.key)}
+            >
+              <View style={styles.iconWrap}>
+                <Icon color={colors.primary} size={20} />
+              </View>
+              <FsText variant="bodyMedium">{a.label}</FsText>
+            </Pressable>
+          </Animated.View>
         );
       })}
     </BottomSheet>

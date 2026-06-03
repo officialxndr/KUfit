@@ -7,6 +7,7 @@ import { Dumbbell, ChevronLeft } from 'lucide-react-native';
 import { FsText, Button, Chip } from '@/components/ui';
 import { DateField } from '@/components/DateField';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useTourStore } from '@/stores/tourStore';
 import { ACTIVITY_DESCRIPTIONS } from '@/lib/tdee';
 import { toKg, UNIT_LABELS } from '@/lib/units';
 import { haptic } from '@/lib/haptics';
@@ -50,6 +51,8 @@ export default function Onboarding() {
     });
     completeOnboarding();
     haptic.success();
+    // Brand-new users land into the guided feature tour (skippable on step 1).
+    useTourStore.getState().start();
     router.replace('/(tabs)');
   };
 

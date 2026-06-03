@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, Dimensions, Animated, Easing } from 'react-native';
+import Reanimated, { ZoomIn } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
@@ -8,6 +9,8 @@ import { Trophy } from 'lucide-react-native';
 
 import { FsText, Button, Card } from '@/components/ui';
 import { WorkoutSummaryBody } from '@/components/WorkoutSummaryBody';
+import { Confetti } from '@/components/anim/Confetti';
+import { useMotion } from '@/lib/useMotion';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useNavStore } from '@/stores/navStore';
@@ -53,6 +56,16 @@ export default function WorkoutSummary() {
   const fromHistory = from === 'history';
 
   const session = useMemo(() => workoutRepo.getSessions(300).find((s) => s.id === id) ?? null, [id]);
+  const { animate, confetti } = useMotion();
+  const prs = useMemo(() => session?.exercises.reduce((n, e) => n + e.sets.filter((s) => s.isPersonalBest).length, 0) ?? 0, [session]);
+  const [burst, setBurst] = useState(false);
+
+  // New PRs are a big win — fire confetti once the celebratory wave reveals the content.
+  useEffect(() => {
+    if (fromHistory || prs === 0 || !confetti) return;
+    const t = setTimeout(() => setBurst(true), 1950);
+    return () => clearTimeout(t);
+  }, [fromHistory, prs, confetti]);
 
   // Layered waves rise to wipe the screen, then content fades in (RN Animated — no worklets).
   // When opened from History it's a plain detail view: skip the celebratory wipe.
@@ -101,28 +114,31 @@ export default function WorkoutSummary() {
           {session && <WorkoutSummaryBody session={session} />}
 
           {target != null && (
-            <Card style={{ marginTop: space[3] }}>
-              <View style={styles.rowBetween}>
-                <FsText variant="cardTitle">Weekly goal</FsText>
-                <FsText variant="bodyMedium" style={{ color: thisWeek >= target ? colors.success : colors.text }}>
-                  {Math.min(thisWeek, target)} / {target}
-                </FsText>
-              </View>
-              <View style={styles.track}>
-                <View style={{ width: `${Math.min(thisWeek / target, 1) * 100}%`, height: '100%', backgroundColor: colors.primary, borderRadius: radius.full }} />
-              </View>
-              {thisWeek >= target ? (
-                <FsText variant="caption" style={{ marginTop: space[2] }}>Weekly target hit — nice work.</FsText>
-              ) : profile.showCoachingNudges ? (
-                <FsText variant="caption" style={{ marginTop: space[2] }}>{target - thisWeek} more this week to hit your goal.</FsText>
-              ) : null}
-            </Card>
+            <Reanimated.View entering={animate && thisWeek >= target ? ZoomIn.springify().damping(12).stiffness(160) : undefined}>
+              <Card style={{ marginTop: space[3] }}>
+                <View style={styles.rowBetween}>
+                  <FsText variant="cardTitle">Weekly goal</FsText>
+                  <FsText variant="bodyMedium" style={{ color: thisWeek >= target ? colors.success : colors.text }}>
+                    {Math.min(thisWeek, target)} / {target}
+                  </FsText>
+                </View>
+                <View style={styles.track}>
+                  <View style={{ width: `${Math.min(thisWeek / target, 1) * 100}%`, height: '100%', backgroundColor: colors.primary, borderRadius: radius.full }} />
+                </View>
+                {thisWeek >= target ? (
+                  <FsText variant="caption" style={{ marginTop: space[2] }}>Weekly target hit — nice work.</FsText>
+                ) : profile.showCoachingNudges ? (
+                  <FsText variant="caption" style={{ marginTop: space[2] }}>{target - thisWeek} more this week to hit your goal.</FsText>
+                ) : null}
+              </Card>
+            </Reanimated.View>
           )}
 
           <View style={{ flex: 1 }} />
           <Button title={fromHistory ? 'Close' : 'Done'} onPress={done} />
         </Animated.View>
       </SafeAreaView>
+      {burst && <Confetti onDone={() => setBurst(false)} />}
     </View>
   );
 }

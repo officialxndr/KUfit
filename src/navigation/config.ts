@@ -61,7 +61,7 @@ export const SECTIONS: Section[] = [
 export const SECTION_TABS: Partial<Record<SectionKey, NavItem[]>> = {
   dashboard: [
     { key: 'overview', label: 'Overview', icon: LayoutDashboard },
-    { key: 'goals', label: 'Goals', icon: Target },
+    { key: 'reports', label: 'Reports', icon: BarChart2 },
   ],
   food: [
     { key: 'today', label: 'Today', icon: Calendar },

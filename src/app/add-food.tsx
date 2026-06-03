@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, TextInput, StyleSheet, Pressable, FlatList, ActivityIndicator, Alert, Keyboard,
+  View, TextInput, StyleSheet, Pressable, FlatList, Alert, Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -8,6 +8,7 @@ import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'ex
 import { X, ScanLine, Search, Plus, Star, Utensils } from 'lucide-react-native';
 
 import { FsText, Button } from '@/components/ui';
+import { Skeleton } from '@/components/anim/Skeleton';
 import { FoodQuantitySheet, type SheetFood } from '@/components/FoodQuantitySheet';
 import { searchFood, barcodeLookup, ensureFoodItem, type FoodCandidate } from '@/lib/foodSearch';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
@@ -230,7 +231,16 @@ export default function AddFoodModal() {
         })}
       </View>
 
-      {loading && <ActivityIndicator color={colors.primary} style={{ marginTop: space[4] }} />}
+      {loading && (
+        <View style={{ paddingHorizontal: space[4], paddingTop: space[3], gap: space[3] }}>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <View key={i} style={{ gap: 6 }}>
+              <Skeleton width="62%" height={15} />
+              <Skeleton width="42%" height={11} />
+            </View>
+          ))}
+        </View>
+      )}
 
       <FlatList
         data={rows}

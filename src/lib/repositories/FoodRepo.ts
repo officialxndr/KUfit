@@ -402,6 +402,54 @@ export class FoodRepo {
     ) as any[];
   }
 
+  /**
+   * Average daily nutrition over a date range, across **logged days only** (so a
+   * gap day doesn't drag the average down). Mirrors `getDailyCalories`'s grouped
+   * join for food-item macros, then folds recipe logs in via `getRecipeNutritionMap`
+   * — bounded queries regardless of window size. Used by the Dashboard Reports page.
+   */
+  getRangeNutrition(from: string, to: string): { days: number; avgCalories: number; avgProtein: number; avgCarbs: number; avgFat: number } {
+    const rows = db.getAllSync(
+      `SELECT fl.date,
+              COALESCE(SUM(fi.calories * fl.servingQty), 0) AS cal,
+              COALESCE(SUM(fi.protein  * fl.servingQty), 0) AS pro,
+              COALESCE(SUM(fi.carbs    * fl.servingQty), 0) AS carb,
+              COALESCE(SUM(fi.fat      * fl.servingQty), 0) AS fat
+       FROM food_logs fl
+       LEFT JOIN food_items fi ON fl.foodItemLocalId = fi.localId
+       WHERE fl.date >= ? AND fl.date <= ? AND fl.deleted = 0 AND fl.foodItemLocalId IS NOT NULL
+       GROUP BY fl.date`,
+      [from, to]
+    ) as any[];
+    const byDate = new Map<string, { cal: number; pro: number; carb: number; fat: number }>();
+    for (const r of rows) byDate.set(r.date, { cal: r.cal, pro: r.pro, carb: r.carb, fat: r.fat });
+
+    const recipeLogs = db.getAllSync(
+      `SELECT date, recipeLocalId, servingQty FROM food_logs
+       WHERE date >= ? AND date <= ? AND deleted = 0 AND recipeLocalId IS NOT NULL`,
+      [from, to]
+    ) as any[];
+    if (recipeLogs.length) {
+      const nutri = this.getRecipeNutritionMap();
+      for (const rl of recipeLogs) {
+        const n = nutri.get(rl.recipeLocalId);
+        if (!n) continue;
+        const cur = byDate.get(rl.date) ?? { cal: 0, pro: 0, carb: 0, fat: 0 };
+        cur.cal += n.calories * rl.servingQty;
+        cur.pro += n.protein * rl.servingQty;
+        cur.carb += n.carbs * rl.servingQty;
+        cur.fat += n.fat * rl.servingQty;
+        byDate.set(rl.date, cur);
+      }
+    }
+
+    const days = byDate.size;
+    if (!days) return { days: 0, avgCalories: 0, avgProtein: 0, avgCarbs: 0, avgFat: 0 };
+    let cal = 0, pro = 0, carb = 0, fat = 0;
+    for (const v of byDate.values()) { cal += v.cal; pro += v.pro; carb += v.carb; fat += v.fat; }
+    return { days, avgCalories: cal / days, avgProtein: pro / days, avgCarbs: carb / days, avgFat: fat / days };
+  }
+
   getDayTotals(date: string): DayNutrients {
     const row = db.getFirstSync(
       `SELECT

@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { View, StyleSheet, Pressable, Modal, ScrollView, Dimensions, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
   Plus,
@@ -19,6 +20,9 @@ import { CalorieMacroCard } from '@/components/CalorieMacroCard';
 import { MonthCalendar } from '@/components/MonthCalendar';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { FoodQuantitySheet, type SheetFood } from '@/components/FoodQuantitySheet';
+import { useMotion } from '@/lib/useMotion';
+import { usePullRefresh } from '@/stores/refreshStore';
+import { DURATION } from '@/theme/motion';
 import { foodRepo, type DayNutrients } from '@/lib/repositories/FoodRepo';
 import { resolveTargets, activeCaloriesForDisplay } from '@/lib/targets';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -62,6 +66,7 @@ const MEALS: { key: MealType; label: string; icon: LucideIcon }[] = [
 export function FoodToday() {
   const profile = useSettingsStore((s) => s.profile);
   const router = useRouter();
+  const { animate } = useMotion();
 
   const [date, setDate] = useState(() => isoDate(new Date()));
   const [logs, setLogs] = useState<FoodLog[]>([]);
@@ -81,6 +86,7 @@ export function FoodToday() {
     useActiveCaloriesStore.getState().refresh(profile.activeCalorieSource);
   }, [date, profile.activeCalorieSource]);
   useFocusEffect(refresh);
+  usePullRefresh(refresh);
 
   // Days with logged food in the visible calendar month (for dots).
   const loadMarks = useCallback((month: Date) => {
@@ -215,15 +221,22 @@ export function FoodToday() {
                   const name = fi?.name ?? l.recipe?.name ?? 'Item';
                   const sub = fi ? `${l.servingQty} × ${fi.servingSize}${fi.servingUnit}` : `${l.servingQty} serving${l.servingQty > 1 ? 's' : ''} · recipe`;
                   return (
-                    <SwipeToDelete key={l.id} marginBottom={0} onDelete={() => remove(l.id)} confirmTitle="Remove item?" confirmMessage={`Remove ${name} from ${meal.label}?`}>
-                      <Pressable style={styles.itemRow} onPress={() => openEdit(l)}>
-                        <View style={{ flex: 1 }}>
-                          <FsText variant="bodyMedium" numberOfLines={1}>{name}</FsText>
-                          <FsText variant="caption">{sub}</FsText>
-                        </View>
-                        <FsText variant="body">{c} kcal</FsText>
-                      </Pressable>
-                    </SwipeToDelete>
+                    <Animated.View
+                      key={l.id}
+                      entering={animate ? FadeInDown.duration(DURATION.base) : undefined}
+                      exiting={animate ? FadeOut.duration(DURATION.fast) : undefined}
+                      layout={animate ? LinearTransition.duration(DURATION.base) : undefined}
+                    >
+                      <SwipeToDelete marginBottom={0} onDelete={() => remove(l.id)} confirmTitle="Remove item?" confirmMessage={`Remove ${name} from ${meal.label}?`}>
+                        <Pressable style={styles.itemRow} onPress={() => openEdit(l)}>
+                          <View style={{ flex: 1 }}>
+                            <FsText variant="bodyMedium" numberOfLines={1}>{name}</FsText>
+                            <FsText variant="caption">{sub}</FsText>
+                          </View>
+                          <FsText variant="body">{c} kcal</FsText>
+                        </Pressable>
+                      </SwipeToDelete>
+                    </Animated.View>
                   );
                 })}
               </View>

@@ -1,6 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
+import { CHART, EASE } from '@/theme/motion';
+import { useMotion } from '@/lib/useMotion';
 import { type } from '@/theme/text';
 
 const MACRO_COLORS = {
@@ -22,6 +25,12 @@ export function MacroBar({
 }) {
   const pct = target && target > 0 ? Math.min(value / target, 1) : 0;
   const color = MACRO_COLORS[kind];
+  const { animate } = useMotion();
+  const p = useSharedValue(animate ? 0 : pct);
+  useEffect(() => {
+    p.value = animate ? withTiming(pct, { duration: CHART.bar, easing: EASE.outStrong }) : pct;
+  }, [pct, animate, p]);
+  const fillStyle = useAnimatedStyle(() => ({ width: `${p.value * 100}%` }));
   return (
     <View style={styles.row}>
       <View style={styles.labelRow}>
@@ -31,7 +40,7 @@ export function MacroBar({
         </Text>
       </View>
       <View style={styles.track}>
-        <View style={[styles.fill, { width: `${pct * 100}%`, backgroundColor: color }]} />
+        <Animated.View style={[styles.fill, { backgroundColor: color }, fillStyle]} />
       </View>
     </View>
   );

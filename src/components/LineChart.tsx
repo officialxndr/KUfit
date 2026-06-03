@@ -1,7 +1,16 @@
+import { useEffect } from 'react';
 import { View } from 'react-native';
-import Svg, { Path, Circle, Line } from 'react-native-svg';
+import Svg, { Path, Circle, Line, G } from 'react-native-svg';
+import Animated, {
+  useSharedValue, useAnimatedProps, withTiming, withDelay,
+} from 'react-native-reanimated';
 import { FsText } from '@/components/ui';
 import { colors, space } from '@/theme/tokens';
+import { CHART, DURATION, EASE } from '@/theme/motion';
+import { useMotion } from '@/lib/useMotion';
+
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+const AnimatedG = Animated.createAnimatedComponent(G);
 
 export interface Series {
   points: number[];
@@ -10,8 +19,9 @@ export interface Series {
 
 /**
  * Minimal multi-series line chart (react-native-svg) with a labelled y-axis.
- * All series share one y-range; each is spread across the width by its own point
- * count, so it's a shape/trend comparison rather than a strictly date-aligned plot.
+ * Lines **draw on** from the left (animated stroke dash) and the point markers
+ * fade in just after. All series share one y-range; each is spread across the
+ * width by its own point count, so it's a shape/trend comparison.
  */
 export function LineChart({
   series,
@@ -57,18 +67,56 @@ export function LineChart({
             <Line key={g} x1={0} y1={H * g} x2={W} y2={H * g} stroke={colors.border} strokeWidth={1} opacity={0.5} />
           ))}
           {drawable.map((s, si) => {
-            const x = (i: number) => (s.points.length === 1 ? W / 2 : (i / (s.points.length - 1)) * W);
-            const path = s.points.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
-            return <Path key={si} d={path} fill="none" stroke={s.color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />;
+            const xAt = (i: number) => (s.points.length === 1 ? W / 2 : (i / (s.points.length - 1)) * W);
+            const coords = s.points.map((v, i) => ({ x: xAt(i), y: y(v) }));
+            const path = coords.map((c, i) => `${i ? 'L' : 'M'}${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(' ');
+            let length = 0;
+            for (let i = 1; i < coords.length; i++) length += Math.hypot(coords[i].x - coords[i - 1].x, coords[i].y - coords[i - 1].y);
+            return <TrendLine key={si} d={path} color={s.color} length={length} />;
           })}
-          {drawable.map((s, si) =>
-            s.points.map((v, i) => {
-              const x = s.points.length === 1 ? W / 2 : (i / (s.points.length - 1)) * W;
-              return <Circle key={`${si}-${i}`} cx={x} cy={y(v)} r={2.5} fill={s.color} />;
-            })
-          )}
+          <DotsLayer>
+            {drawable.map((s, si) =>
+              s.points.map((v, i) => {
+                const x = s.points.length === 1 ? W / 2 : (i / (s.points.length - 1)) * W;
+                return <Circle key={`${si}-${i}`} cx={x} cy={y(v)} r={2.5} fill={s.color} />;
+              })
+            )}
+          </DotsLayer>
         </Svg>
       </View>
     </View>
   );
+}
+
+/** A single series line that draws on from the left via an animated stroke dash. */
+function TrendLine({ d, color, length }: { d: string; color: string; length: number }) {
+  const { animate } = useMotion();
+  const offset = useSharedValue(animate ? length : 0);
+  useEffect(() => {
+    offset.value = animate ? withTiming(0, { duration: CHART.line, easing: EASE.outStrong }) : 0;
+  }, [animate, length, offset]);
+  const props = useAnimatedProps(() => ({ strokeDashoffset: offset.value }));
+  return (
+    <AnimatedPath
+      d={d}
+      fill="none"
+      stroke={color}
+      strokeWidth={2.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeDasharray={length}
+      animatedProps={props}
+    />
+  );
+}
+
+/** Point markers fade in just after the lines finish drawing. */
+function DotsLayer({ children }: { children: React.ReactNode }) {
+  const { animate } = useMotion();
+  const op = useSharedValue(animate ? 0 : 1);
+  useEffect(() => {
+    op.value = animate ? withDelay(CHART.line * 0.7, withTiming(1, { duration: DURATION.base })) : 1;
+  }, [animate, op]);
+  const props = useAnimatedProps(() => ({ opacity: op.value }));
+  return <AnimatedG animatedProps={props}>{children}</AnimatedG>;
 }

@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { View, TextInput, StyleSheet, Pressable, Alert, Switch } from 'react-native';
+import { View, TextInput, StyleSheet, Pressable, Alert, Switch, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { Image } from 'react-native';
 import { UserCircle, Camera } from 'lucide-react-native';
 import { Card, FsText, SectionHeader, Chip, Button } from '@/components/ui';
+import { Confetti } from '@/components/anim/Confetti';
 import { pickAvatar } from '@/lib/avatar';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useTourStore } from '@/stores/tourStore';
 import { useActiveCaloriesStore } from '@/stores/activeCaloriesStore';
 import { DateField } from '@/components/DateField';
 import { useServerStore } from '@/stores/serverStore';
@@ -68,6 +70,7 @@ export function SettingsView() {
   const setSection = useNavStore((s) => s.setSection);
   const router = useRouter();
   const unit = profile.unitSystem;
+  const [previewBurst, setPreviewBurst] = useState(false); // TEMP: confetti preview
 
   const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState('');
@@ -229,6 +232,14 @@ export function SettingsView() {
       </Card>
 
       <Card style={{ marginBottom: space[3] }}>
+        <SectionHeader title="Help" />
+        <FsText variant="caption" style={{ marginBottom: space[3] }}>
+          New here, or want a refresher? Take a quick guided tour of the app's features.
+        </FsText>
+        <Button title="Take the app tour" variant="ghost" onPress={() => useTourStore.getState().start()} />
+      </Card>
+
+      <Card style={{ marginBottom: space[3] }}>
         <SectionHeader title="Offline" />
         <FsText variant="caption" style={{ marginBottom: space[3] }}>
           Download all exercise demo GIFs to this device so the library works without internet.
@@ -295,6 +306,34 @@ export function SettingsView() {
       </Card>
 
       <Card style={{ marginBottom: space[3] }}>
+        <SectionHeader title="Motion" />
+        <View style={styles.toggleRow}>
+          <View style={{ flex: 1, marginRight: space[3] }}>
+            <FsText variant="bodyMedium">Animations</FsText>
+            <FsText variant="caption">Screen transitions, count-ups and micro-interactions. Also respects your device's Reduce Motion setting.</FsText>
+          </View>
+          <Switch
+            value={profile.animationsEnabled}
+            onValueChange={(v) => setProfile({ animationsEnabled: v })}
+            trackColor={{ true: colors.primary, false: colors.border }}
+          />
+        </View>
+        <View style={styles.toggleRow}>
+          <View style={{ flex: 1, marginRight: space[3] }}>
+            <FsText variant="bodyMedium">Celebration confetti</FsText>
+            <FsText variant="caption">A confetti burst on big wins (goal weight, new PRs).</FsText>
+          </View>
+          <Switch
+            value={profile.confettiEnabled}
+            onValueChange={(v) => setProfile({ confettiEnabled: v })}
+            trackColor={{ true: colors.primary, false: colors.border }}
+          />
+        </View>
+        {/* TEMP: preview the celebration confetti on demand. */}
+        <Button title="Preview confetti" variant="ghost" onPress={() => setPreviewBurst(true)} style={{ marginTop: space[3] }} />
+      </Card>
+
+      <Card style={{ marginBottom: space[3] }}>
         <SectionHeader title="Notifications &amp; reminders" />
         <FsText variant="caption" style={{ marginBottom: space[3] }}>
           Reminders to measure your body, log your weight or food, and train — each with its own
@@ -317,6 +356,10 @@ export function SettingsView() {
         )}
       </Card>
 
+      {/* TEMP: full-screen confetti preview overlay (always plays, ignores the toggle). */}
+      <Modal visible={previewBurst} transparent animationType="none" statusBarTranslucent>
+        <Confetti onDone={() => setPreviewBurst(false)} />
+      </Modal>
     </>
   );
 }

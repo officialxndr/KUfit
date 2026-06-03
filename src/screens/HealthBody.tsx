@@ -4,6 +4,7 @@ import { useFocusEffect } from 'expo-router';
 import { Scale } from 'lucide-react-native';
 
 import { Card, FsText, Badge, Button } from '@/components/ui';
+import { AnimatedNumber } from '@/components/anim/AnimatedNumber';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { formatWeight } from '@/lib/units';
@@ -133,9 +134,10 @@ export function HealthBody() {
                 </FsText>
               </View>
             </View>
-            <FsText variant="display" style={{ marginTop: 2 }}>
-              {bf.toFixed(1)}<FsText variant="cardTitle" style={{ color: colors.muted }}>%</FsText>
-            </FsText>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 2 }}>
+              <AnimatedNumber value={bf} format={(n) => n.toFixed(1)} variant="display" />
+              <FsText variant="cardTitle" style={{ color: colors.muted, marginBottom: 4 }}>%</FsText>
+            </View>
           </View>
           <Badge label={band.label} tone={band.tone} />
         </View>

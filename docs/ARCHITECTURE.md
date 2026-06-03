@@ -79,6 +79,14 @@ the profile has hydrated and `onboarded` is false; the wizard (`src/app/onboardi
 name/units/sex/height/activity/goal, writes the profile, calls `completeOnboarding()`, and returns
 to the shell.
 
+**Guided feature tour** (`components/FeatureTour.tsx` + `stores/tourStore.ts` + `lib/tourSteps.ts`). A
+**driven section walkthrough**: an overlay rendered at the top of `AppShell` that, per step, calls
+`navStore.setSection(...)` so the *real* screens slide in behind a docked explainer card
+(icon/title/body + progress dots + Skip/Back/Next). A transparent touch-blocker keeps the live UI
+non-interactive during the tour. `tourStore` is **runtime-only** (no persistence): onboarding `finish()`
+calls `start()` so only **brand-new** users get it once (Skip on step 1); existing users only reach it via
+**Settings → Help → "Take the app tour"**. Skip/Done land back on Dashboard → Overview.
+
 ## Helper libs added
 - `lib/haptics.ts` — crash-safe expo-haptics wrappers (`tap`/`light`/`medium`/`success`/`warning`),
   used on set-complete, nav taps, the FAB, and finishing a workout.
@@ -230,17 +238,32 @@ The main app area is **not** an expo-router tab bar — it's a single custom she
 - **`config.ts`** — `SECTIONS`, per-section `SECTION_TABS`, `LAUNCHER`, `FAB_ACTIONS`.
 Section bodies live in **`src/screens/*`** as plain content fragments (no `Screen` wrapper); the
 shell provides the scroll area, header, and bottom bar. Each still reads on focus via
-`useFocusEffect`. Sub-tabs: Dashboard (Overview/Goals), Food (Today/Recipes/Trends/**Search**),
-Workout (Library/History/Exercises/Stats), Health (Weight/**Trends**/Body/Measure). Goals editing was
-unified: `components/GoalsEditor.tsx` is the single editor (rendered inline on Dashboard → Goals, and
-opened as `GoalsEditorModal` from a **gear `rightAction`** on `AppHeader` for Food/Workout/Health), so
-the old Food/Health Goals tabs were repurposed to Search/Trends. The editor floats the **current
-section's group to the top** (`focusSection`). **Goal Phases & Cycles renders as a sub-page *inside*
-the goals modal** via `components/GoalPhasesPanel.tsx` (an internal `view` state swaps the modal body;
-a "‹ Goals" back arrow returns) — it is **not** a pushed route, because an RN `Modal` left mounted
-over a pushed route renders above it and swallows all touches (which previously locked the header). The
-standalone `app/goal-phases.tsx` route is now a thin wrapper around the same panel, used only by the
-Dashboard inline editor (no modal there to conflict with).
+`useFocusEffect`. Sub-tabs: Dashboard (Overview/**Reports**), Food (Today/Recipes/Trends/**Search**),
+Workout (Library/History/Exercises/Stats), Health (Weight/**Trends**/Body/Measure). Goals editing is
+unified: `components/GoalsEditor.tsx` is the single editor, opened as `GoalsEditorModal` from the **gear
+`rightAction`** on `AppHeader` — now on **all** of Dashboard/Food/Workout/Health (the goal button was
+previously missing on Dashboard, where goals lived in a sub-tab; that inconsistency is gone). The editor
+floats the **current section's group to the top** (`focusSection`; Dashboard passes through to the default
+order). **Goal Phases & Cycles renders as a sub-page *inside* the goals modal** via
+`components/GoalPhasesPanel.tsx` (an internal `view` state swaps the modal body; a "‹ Goals" back arrow
+returns) — it is **not** a pushed route, because an RN `Modal` left mounted over a pushed route renders
+above it and swallows all touches (which previously locked the header).
+- **`screens/DashboardReports.tsx`** replaced the old Goals sub-tab: a cross-domain **at-a-glance digest**.
+  Window controls are a **full-width segmented preset selector** (Week / Month / 3 Mo / Year, each `flex:1`)
+  plus a **navigator toolbar**: ‹ › page by the window length, a tappable range label opens `MonthCalendar`
+  to jump the end date, a **calendar-range icon button** runs a two-step start→end custom pick
+  (`periodKey='custom'`, arbitrary length), and a **clock icon button** jumps the window back to today
+  (disabled when already current). The window `[fromIso, endIso]` is the source of truth (`periodKey` is
+  just the segment highlight); `days` is derived, and the calorie trend is bucketed to ≤180 points so long
+  custom ranges stay cheap. All stats are computed for the selected window (default ending
+  today), so paging back shows that period: nutrition averages (`FoodRepo.getRangeNutrition`, a new
+  aggregate over logged days that folds recipe logs), workouts/volume/PRs, days-active, calorie trend, and
+  **window-aware weight** (`healthRepo.getWeightEntries(from,to)` → current/avg/change as of the window
+  end; ETA + pace via `computeStats` only on the current period). Body-fat/lean/fat/BMI/FFMI via
+  `bodyComposition.ts`. The **`MuscleMap` balance covers the whole window with a target scaled to its
+  length** (`12 sets/wk × weeks`), so the colour fade reads consistently from a week to a year. Reuses
+  `AnimatedNumber`/`GrowBar`/`MacroBars`/`LineChart`/`MuscleMap`; "see detailed" rows route via
+  `setSection` into Food Trends / Workout Stats / Health.
 
 ## Routing (`src/app`, expo-router, file-based)
 - `(tabs)/` — a single `index` route rendering `AppShell`; `_layout.tsx` is a plain Stack (the
@@ -265,12 +288,31 @@ Dashboard inline editor (no modal there to conflict with).
 - `exercise/[id]` — exercise detail with GIF.
 Routes and their presentation are declared in `src/app/_layout.tsx`.
 
-## Animation note
+## Motion & animation
+A shared motion layer makes the app feel dynamic without one-off code per screen. **Gate everything on
+`lib/useMotion.ts`** → `{ animate, confetti }`, which ANDs the OS Reduce-Motion setting (reanimated
+`useReducedMotion`) with the in-app toggles (`profile.animationsEnabled` / `confettiEnabled`, Settings →
+Motion). When `animate` is false, animated components render their final state instantly.
+- **Tokens:** `theme/motion.ts` — `DURATION` (fast/base/slow), `EASE`, `SPRING` (snappy/gentle).
+- **Primitives (`components/anim/`):** `AnimatedNumber` (rAF count-up; `animateOnMount` counts from 0),
+  `PressableScale` (drop-in `Pressable` that springs on press — used by `ui` `Button` + tappable cards),
+  `ScreenTransition` (keyed fade + directional slide; wraps `SectionContent` in `AppShell`), `GrowBar`
+  (bar chart columns grow from baseline; Dashboard + WorkoutStats), `Confetti` (dependency-free reanimated
+  burst for big wins), `Skeleton` (shimmer for async surfaces, e.g. food search).
+- **Where used:** `BottomNav` (sliding active-tab indicator via onLayout + icon pop + FAB "+"→"×"),
+  `CalorieRing` (animated `strokeDashoffset` sweep + `interpolateColor`), `MacroBar` / `LineChart`
+  (width / stroke-dash draw-on), `DashboardOverview` (count-up weight, growing week bars, pulsing streak
+  flame, goal-weight confetti), `workout-summary` (PR confetti + weekly-target pop), `ReminderBanner`
+  (entrance + pulse), `FoodToday` (reanimated `entering`/`exiting`/`LinearTransition` on log rows).
+- **Pull-to-refresh:** `stores/refreshStore.ts` — the shell's `RefreshControl` calls `bump()`; screens opt
+  in with `usePullRefresh(refresh)` (Dashboard/FoodToday/HealthWeight/WorkoutHistory) so the gesture
+  re-runs their focus refresh without remounting (preserving date/section state).
+
 `react-native-reanimated` 4 + `react-native-worklets` are installed and the worklets babel plugin is
-active (auto-enabled by `babel-preset-expo` in SDK 56) — worklets work without extra config. Existing
+active (auto-enabled by `babel-preset-expo` in SDK 56) — worklets work without extra config. Some older
 screens still use React Native's built-in `Animated` where it was simplest: `workout-summary.tsx`
 (SVG wave layers + rising body) and `components/BottomSheet.tsx` (slide + drag-to-dismiss + backdrop
-fade via `Animated`/`PanResponder`). Reanimated is used where the gesture must track the finger:
+fade via `Animated`/`PanResponder`). Reanimated is also used where a gesture must track the finger:
 `components/SwipeToDelete.tsx` (gesture-handler `ReanimatedSwipeable` + `useAnimatedStyle` so the
 Delete button is revealed in lockstep with the swipe) and the template editor's drag-to-reorder
 (`react-native-sortables`, peer-deps gesture-handler + reanimated only — no native rebuild).

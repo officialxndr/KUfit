@@ -49,6 +49,10 @@ export interface Profile {
   showCoachingNudges: boolean;
   /** When false, skip the celebratory summary screen after finishing a workout. */
   showWorkoutSummary: boolean;
+  /** Master switch for UI motion (also gated by the OS Reduce-Motion setting). */
+  animationsEnabled: boolean;
+  /** When false, celebration confetti is suppressed (other motion still plays). */
+  confettiEnabled: boolean;
   // Training goals (Workout section)
   weeklySessionTarget: number | null;
   trainingFocus: TrainingFocus | null;
@@ -81,6 +85,8 @@ const DEFAULT_PROFILE: Profile = {
   activeCalorieSource: 'off',
   showCoachingNudges: true,
   showWorkoutSummary: true,
+  animationsEnabled: true,
+  confettiEnabled: true,
   weeklySessionTarget: null,
   trainingFocus: null,
   nutrientGoals: [],

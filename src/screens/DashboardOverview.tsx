@@ -2,11 +2,17 @@ import { useCallback, useEffect, useState } from 'react';
 import { View, Pressable, StyleSheet, Alert, Image } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { UserCircle, Dumbbell, Ruler, AlertTriangle, Flame } from 'lucide-react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 
 import { Card, FsText } from '@/components/ui';
 import { CalorieMacroCard } from '@/components/CalorieMacroCard';
 import { GoalWarning } from '@/components/GoalWarning';
 import { ReminderBanner } from '@/components/ReminderBanner';
+import { AnimatedNumber } from '@/components/anim/AnimatedNumber';
+import { GrowBar } from '@/components/anim/GrowBar';
+import { PressableScale } from '@/components/anim/PressableScale';
+import { Confetti } from '@/components/anim/Confetti';
+import { useMotion } from '@/lib/useMotion';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
@@ -17,6 +23,7 @@ import { useRemindersStore, type ReminderKey } from '@/stores/remindersStore';
 import { useActiveCaloriesStore } from '@/stores/activeCaloriesStore';
 import { useNavStore } from '@/stores/navStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { usePullRefresh } from '@/stores/refreshStore';
 import { formatWeight } from '@/lib/units';
 import { colors, space, radius, themedStyles } from '@/theme/tokens';
 import type { HealthStats, WorkoutSession } from '@/types';
@@ -60,6 +67,8 @@ export function DashboardOverview() {
   const [streak, setStreak] = useState(0);
   const [recent, setRecent] = useState<WorkoutSession[]>([]);
   const [dueReminder, setDueReminder] = useState<ReminderKey | null>(null);
+  const [celebrate, setCelebrate] = useState(false);
+  const { confetti } = useMotion();
 
   const refresh = useCallback(() => {
     const today = new Date();
@@ -101,6 +110,7 @@ export function DashboardOverview() {
   }, [profile.goalWeightKg, profile.goalDate, profile.activeCalorieSource]);
 
   useFocusEffect(refresh);
+  usePullRefresh(refresh);
 
   // One-time nudge to switch to maintain once the 7-day average reaches the goal.
   // Gated on the trend avg (not a single weigh-in), no active phase, and a per-goal
@@ -114,7 +124,7 @@ export function DashboardOverview() {
     if (healthRepo.getActiveGoalPhase()) return;
     const reached = profile.goalType === 'LOSE' ? avg <= gw : avg >= gw;
     if (!reached) return;
-    Alert.alert(
+    const showPrompt = () => Alert.alert(
       'Goal weight reached 🎉',
       `Your 7-day average (${formatWeight(avg, profile.unitSystem)}) is at your goal. Switch to maintain to hold it here?`,
       [
@@ -122,6 +132,9 @@ export function DashboardOverview() {
         { text: 'Switch to maintain', onPress: () => setProfile({ goalType: 'MAINTAIN', maintainPromptedFor: gw }) },
       ]
     );
+    // Big win — let the confetti land before the prompt interrupts it.
+    if (confetti) { setCelebrate(true); setTimeout(showPrompt, 700); }
+    else showPrompt();
   }, [stats]);
 
   const targets = resolveTargets(profile);
@@ -157,6 +170,7 @@ export function DashboardOverview() {
 
   return (
     <>
+      {celebrate && confetti && <Confetti onDone={() => setCelebrate(false)} />}
       {/* Greeting */}
       <View style={styles.greetRow}>
         <View style={styles.greetLeft}>
@@ -181,7 +195,7 @@ export function DashboardOverview() {
       )}
 
       {/* Calorie + macros */}
-      <Pressable onPress={() => setSection('food', 'today')}>
+      <PressableScale onPress={() => setSection('food', 'today')}>
         <Card style={{ marginBottom: space[3] }}>
           <CalorieMacroCard
             calories={totals.calories}
@@ -193,7 +207,7 @@ export function DashboardOverview() {
           />
           <FsText variant="caption" style={styles.tapHint}>Tap to log food →</FsText>
         </Card>
-      </Pressable>
+      </PressableScale>
 
       {/* This week */}
       <Card style={{ marginBottom: space[3] }}>
@@ -201,7 +215,7 @@ export function DashboardOverview() {
           <FsText variant="cardTitle">This Week</FsText>
           {streak > 0 && (
             <View style={styles.streak}>
-              <Flame color={colors.warning} size={13} />
+              <FlamePulse />
               <FsText variant="caption" style={{ color: colors.warning, fontWeight: '600' }}>
                 {streak} day streak
               </FsText>
@@ -217,9 +231,10 @@ export function DashboardOverview() {
             return (
               <View key={i} style={styles.barCol}>
                 <View style={styles.barTrack}>
-                  <View
+                  <GrowBar
+                    index={i}
+                    height={h}
                     style={{
-                      height: h,
                       borderTopLeftRadius: 3,
                       borderTopRightRadius: 3,
                       backgroundColor: b.calories > 0 ? colors.primary : colors.surfaceHigh,
@@ -235,14 +250,20 @@ export function DashboardOverview() {
       </Card>
 
       {/* Weight */}
-      <Pressable onPress={() => setSection('health', 'weight')}>
+      <PressableScale onPress={() => setSection('health', 'weight')}>
         <Card style={{ marginBottom: space[3] }}>
           <View style={styles.cardHead}>
             <View>
               <FsText variant="caption">Current Weight</FsText>
-              <FsText variant="stat">
-                {stats?.current ? formatWeight(stats.current.weightKg, profile.unitSystem) : '—'}
-              </FsText>
+              {stats?.current ? (
+                <AnimatedNumber
+                  value={stats.current.weightKg}
+                  format={(n) => formatWeight(n, profile.unitSystem)}
+                  variant="stat"
+                />
+              ) : (
+                <FsText variant="stat">—</FsText>
+              )}
               {weeklyChange != null && (
                 <FsText
                   variant="caption"
@@ -259,7 +280,7 @@ export function DashboardOverview() {
             </View>
           </View>
         </Card>
-      </Pressable>
+      </PressableScale>
 
       <GoalWarning message={safetyWarning} />
 
@@ -304,7 +325,7 @@ export function DashboardOverview() {
 
       {/* Quick actions */}
       <View style={{ flexDirection: 'row', gap: space[3] }}>
-        <Pressable
+        <PressableScale
           style={{ flex: 1 }}
           onPress={() => {
             session.startEmpty();
@@ -315,15 +336,35 @@ export function DashboardOverview() {
             <Dumbbell color={colors.primary} size={28} />
             <FsText variant="bodyMedium">Log Workout</FsText>
           </Card>
-        </Pressable>
-        <Pressable style={{ flex: 1 }} onPress={() => router.push('/measurements')}>
+        </PressableScale>
+        <PressableScale style={{ flex: 1 }} onPress={() => router.push('/measurements')}>
           <Card style={styles.quick}>
             <Ruler color={colors.primary} size={28} />
             <FsText variant="bodyMedium">Measurements</FsText>
           </Card>
-        </Pressable>
+        </PressableScale>
       </View>
     </>
+  );
+}
+
+/** The streak flame, gently pulsing to draw the eye when a streak is alive. */
+function FlamePulse() {
+  const { animate } = useMotion();
+  const s = useSharedValue(1);
+  useEffect(() => {
+    if (animate) {
+      s.value = withRepeat(withSequence(
+        withTiming(1.18, { duration: 700 }),
+        withTiming(1, { duration: 700 }),
+      ), -1, false);
+    } else s.value = 1;
+  }, [animate, s]);
+  const st = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
+  return (
+    <Animated.View style={st}>
+      <Flame color={colors.warning} size={13} />
+    </Animated.View>
   );
 }
 

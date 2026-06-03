@@ -9,6 +9,7 @@ import { MonthCalendar } from '@/components/MonthCalendar';
 import { WorkoutSummarySheet } from '@/components/WorkoutSummarySheet';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { usePullRefresh } from '@/stores/refreshStore';
 import { formatVolume } from '@/lib/units';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { WorkoutSession } from '@/types';
@@ -33,6 +34,7 @@ export function WorkoutHistory() {
 
   const refresh = useCallback(() => setSessions(workoutRepo.getSessions(300)), []);
   useFocusEffect(refresh);
+  usePullRefresh(refresh);
 
   const marked = useMemo(() => new Set(sessions.map((s) => isoDay(s.startedAt))), [sessions]);
 

@@ -1,12 +1,16 @@
 import { StyleSheet, TextStyle } from 'react-native';
-import { colors } from './tokens';
+import { colors, themedStyles } from './tokens';
 
 /**
  * Semantic type scale ported from the design system (.fs-* classes).
  * Use as: <Text style={type.h1}>…</Text>. System font only (no webfonts) —
  * RN defaults to SF Pro on iOS, Roboto on Android.
+ *
+ * Wrapped in `themedStyles` so the text/muted colors **rebuild on theme change**
+ * — otherwise the colors captured at module load (e.g. dark theme's near-white
+ * text) would stick, making text invisible after switching to a light theme.
  */
-export const type = StyleSheet.create({
+export const type = themedStyles(() => StyleSheet.create({
   display: {
     fontSize: 30,
     lineHeight: 33,
@@ -70,4 +74,4 @@ export const type = StyleSheet.create({
     letterSpacing: 0.6,
     color: colors.muted,
   },
-} as Record<string, TextStyle>);
+} as Record<string, TextStyle>));

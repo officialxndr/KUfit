@@ -5,6 +5,7 @@ import { Dumbbell, Timer, Flame, Trophy, BarChart2, ChevronRight } from 'lucide-
 
 import { Card, FsText, Badge } from '@/components/ui';
 import { MuscleMap } from '@/components/MuscleMap';
+import { GrowBar } from '@/components/anim/GrowBar';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { formatWeight, formatVolume, toDisplay, UNIT_LABELS } from '@/lib/units';
@@ -139,14 +140,15 @@ export function WorkoutStats() {
         <View style={styles.bars}>
           {weekly.map((v, i) => (
             <View key={i} style={styles.barCol}>
-              <View
+              <GrowBar
+                index={i}
+                height={Math.max((v / maxV) * CHART_H, v > 0 ? 4 : 2)}
                 style={{
                   width: '100%',
                   maxWidth: 22,
-                  height: Math.max((v / maxV) * CHART_H, v > 0 ? 4 : 2),
                   borderTopLeftRadius: 3,
                   borderTopRightRadius: 3,
-                  backgroundColor: i === weekly.length - 1 ? colors.primary : colors.primary,
+                  backgroundColor: colors.primary,
                   opacity: v === 0 ? 0.25 : i === weekly.length - 1 ? 1 : 0.55,
                 }}
               />

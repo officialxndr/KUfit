@@ -127,8 +127,8 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       expandable per-serving nutrient list (compact 6 → "Show all", grouped) plus ingredients/additives
       (`components/FoodDetails.tsx`). Extended nutriments are display-only (not summed into day totals).
 - [x] **Unified Goals editor** — Nutrition/Health/Training collapsed into one shared
-      `components/GoalsEditor.tsx` (Dashboard → Goals renders it; a header **gear** on Food & Health
-      opens it as a modal via `GoalsEditorModal`). Adds **maintain range** (`goalRangeKg`, hides goal
+      `components/GoalsEditor.tsx`, opened as a modal (`GoalsEditorModal`) from the header **gear** on
+      Dashboard/Food/Workout/Health. Adds **maintain range** (`goalRangeKg`, hides goal
       date), an **active-cycle card** (replaces weight controls when a GoalPhase is live), and custom
       **"track other nutrient"** goals (`profile.nutrientGoals`) that drive Food → Today's "Other
       nutrients" bars. Freed sub-tabs: Food **Goals → Search** (`FoodSearch.tsx`), Health
@@ -168,7 +168,7 @@ Honest status of the rebuild. **Update this when features land or plans change.*
 - [x] **Goal Phases as a sub-page** — the Goals modal renders Goal Phases & Cycles **inside itself**
       (`components/GoalPhasesPanel.tsx`, an internal view swap with a "‹ Goals" back arrow) instead of
       pushing `/goal-phases`. Fixes the header lockup: an RN `Modal` left over a pushed route was
-      capturing all touches. The standalone route now just wraps the panel (Dashboard inline editor).
+      capturing all touches. The standalone `/goal-phases` route now just wraps the panel.
 - [x] **Shared draggable bottom sheet** — new `components/BottomSheet.tsx`: slide-in, **grab-strip
       drag-to-dismiss**, a **fade backdrop driven by the sheet's travel** (no more dim popping/sliding
       with the sheet), notch-safe `maxHeight`, and animated close on every path. Rolled out to
@@ -227,6 +227,32 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       build; banners work everywhere.
 - [x] **Workout-summary toggle** — `showWorkoutSummary` (Settings → Coaching & reminders) skips the
       post-workout celebration screen; finishing a session then returns straight to Workout history.
+- [x] **Motion & dynamism pass** — app-wide animation built on a shared layer (`theme/motion.ts` tokens +
+      `lib/useMotion.ts` gate + `components/anim/*`: `AnimatedNumber`, `PressableScale`, `ScreenTransition`,
+      `GrowBar`, `Confetti`, `Skeleton`). Section/sub-tab **screen transitions** (directional fade/slide),
+      a sliding **bottom-nav indicator** + icon pop + FAB "+"→"×" morph + staggered quick-actions, the
+      **calorie ring sweep** + count-up headline numbers, **growing** weekly bars, line-chart **draw-on**,
+      animated macro bars, **press-scale** on cards/buttons, a pulsing streak flame, **confetti** on big
+      wins (goal weight, new PRs), reminder-banner entrance, food-log **add/remove layout** animation,
+      search **skeletons**, and **pull-to-refresh** on the shell. All gated by the OS Reduce-Motion setting
+      + a Settings → Motion toggle (`animationsEnabled`); confetti has its own toggle (`confettiEnabled`).
+
+- [x] **Dashboard Reports + consistent goal button** — the goal (target) header button now appears on
+      **Dashboard** too (was only Food/Workout/Health), opening the same `GoalsEditorModal`. The freed
+      Dashboard **Goals** sub-tab became **`DashboardReports`** — a cross-domain at-a-glance digest
+      (Nutrition, Training, Weight & body comp, Consistency & goals) built from existing repos + a new
+      `FoodRepo.getRangeNutrition` aggregate, with "see detailed" links into Food Trends / Workout Stats /
+      Health. **Date navigation**: a segmented preset selector (Week/Month/3 Mo/Year) + a navigator toolbar
+      (‹ › paging, tappable range → calendar jump, **custom start→end range** picker, **Today** jump). Every
+      stat — including window-aware weight and a **`MuscleMap` whose target scales to the window length** —
+      recomputes for the selected `[from, to]`, so you can browse any past week/month/year or custom range.
+
+- [x] **Guided feature tour** — a skippable, replayable walkthrough that introduces the app. A **driven
+      section tour** (`components/FeatureTour.tsx` + runtime `stores/tourStore.ts` + `lib/tourSteps.ts`):
+      each step navigates the real screens via `navStore.setSection` with a docked explainer card
+      (Skip/Back/Next + dots) and a touch-blocker. **Auto-starts once for brand-new users** from onboarding
+      `finish()` (event-driven, no persisted flag, so existing users aren't prompted); replay anytime from
+      **Settings → Help → "Take the app tour"**.
 
 ## Not built yet (planned)
 - [ ] **Renpho tape on-device test** — built and the protocol is implemented, but the BLE connection is
