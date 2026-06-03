@@ -26,14 +26,18 @@ External network (Open Food Facts, ExerciseDB CDN) is called directly from the d
 `src/lib/foodSearch.ts` and `src/lib/exerciseMedia.ts` — never required for core use.
 
 ## Data layer
-- **`src/lib/db.ts`** — `openDatabaseSync('fitself.db')`, `initDb()` creates all tables + indexes,
-  then runs `runMigrations()`. Run once in `src/app/_layout.tsx` on startup. Columns added after a DB
-  already exists go through `ensureColumn(table, col, decl)` (forward-only, no-op once present) since
-  `CREATE TABLE IF NOT EXISTS` never alters an existing table — e.g. `food_items.saturatedFat`,
-  `food_items.detailsJson`, `food_items.isFavorite`, `recipes.isFavorite`, and
-  `recipes.servingWeightG` (optional grams-per-serving so a recipe can be logged/scaled by weight).
-  An `app_meta` key/value table (`getMeta`/`setMeta`) tracks seed versions
-  (e.g. `baseFoodsVersion`) so bundled data can re-seed in place when bumped.
+- **`src/lib/db.ts`** — `openDatabaseSync('fitself.db', { useNewConnection: true })`, `initDb()` creates
+  all tables + indexes, then runs `runMigrations()`. Run once in `src/app/_layout.tsx` on startup.
+  **`useNewConnection: true` is deliberate**: the default connection is shared with the dev-tools
+  registration (`registerDatabaseForDevToolsAsync`), which in development tears the native connection
+  down out from under us and surfaces as `NativeDatabase.prepareSync … NullPointerException` mid-render
+  → a black screen until reload. A dedicated connection has a lifecycle we control and skips that
+  registration. Columns added after a DB already exists go through `ensureColumn(table, col, decl)`
+  (forward-only, no-op once present) since `CREATE TABLE IF NOT EXISTS` never alters an existing table —
+  e.g. `food_items.saturatedFat`, `food_items.detailsJson`, `food_items.isFavorite`, `recipes.isFavorite`,
+  `recipes.servingWeightG` (optional grams-per-serving), and **`exercises.perSide`** (per-side volume
+  override — see *Per-side load* below). An `app_meta` key/value table (`getMeta`/`setMeta`) tracks seed
+  versions (e.g. `baseFoodsVersion`) so bundled data can re-seed in place when bumped.
   **New columns need a fresh app launch** to run `runMigrations()`.
 - **Repositories** (`FoodRepo`, `HealthRepo`, `WorkoutRepo`) — synchronous SQLite access, mapping
   rows ↔ domain types from `src/types`. Mutations set `syncStatus='pending'`; soft-deletes set
@@ -47,12 +51,18 @@ External network (Open Food Facts, ExerciseDB CDN) is called directly from the d
   older stored data. Source of truth in no-server mode; mirrors the server `UserProfile`.
 - `sessionStore` — in-memory active workout; persisted to SQLite only on `finish()` (which also takes
   the workout's `caloriesBurned`). Holds `pendingSuperset` so the next exercise added from the picker
-  joins a superset (`startSuperset`/`ungroup` toggle `supersetGroup` on exercises).
+  joins a superset (`startSuperset`/`ungroup` toggle `supersetGroup` on exercises). Mutations that can
+  orphan a superset (`removeExercise`, `ungroup`) run **`normalizeSupersets`** (see `lib/supersets.ts`).
+  Per-set rest lives on `LocalSet.restSeconds` (in-memory only — not persisted/columned); the rest after
+  a set is `set.restSeconds ?? exercise.restSeconds ?? 90`.
 - `templateDraftStore` — in-progress template being built; supports **editing** an existing template
   (`loadTemplate` + `editingId` → `WorkoutRepo.updateTemplate`), a `label`, and supersets (same
   `pendingSuperset`/`startSuperset`/`ungroup` pattern, persisted as `supersetGroup`). Order is set by
   drag-to-reorder: the editor groups adjacent superset members into one draggable block, and `setExercises`
-  writes the flattened result back (array index → `sortOrder` on save).
+  writes the flattened result back (array index → `sortOrder` on save). **`linkExerciseInto(draggedId,
+  targetId)`** powers drag-to-superset (the chain handle): it groups the two and places the dragged one
+  right after the target. Every membership/order mutation (`removeExercise`/`ungroup`/`setExercises`/
+  `moveExercise`/`loadTemplate`) runs **`normalizeSupersets`** so a superset never has <2 adjacent members.
 - `navStore` — shell navigation state: active `section` + `subTab` (local-only).
 - `routineStore` — workout **routines** (named template rotations, auto-pick least-recently-done,
   a **default** routine for the FAB quick-action); local-only, persisted via AsyncStorage.
@@ -86,7 +96,29 @@ to the shell.
 - `lib/supersets.ts` — pure superset ordering for the active session: `supersetRuns` (maximal runs of
   adjacent same-`supersetGroup` exercises), `buildSetSequence`/`nextSetCell` (round-interleaved set
   order — A1→B1→A2→B2…, which also gives "Next carries into the next exercise" for solo runs),
-  `restAfterSet` (rest only after the last exercise in a round), and `supersetLabels` (A1/A2…).
+  `restAfterSet` (rest only after the last exercise in a round), and `supersetLabels` (A1/A2…). Plus
+  **`normalizeSupersets(items)`** — a generic invariant enforcer used by both workout stores: a superset
+  needs **≥2 adjacent members**, so it clears `supersetGroup` on any exercise with no adjacent same-group
+  peer (e.g. removing one half of a pair reverts the other to solo). Returns the same array ref when
+  unchanged.
+- `lib/bodyComposition.ts` — body-fat math. `leanMassKg(weight, bf%)`; **`estimateBodyFat(baselineWeight,
+  baselineBf, currentWeight)`** holds the measured baseline's lean mass constant to estimate current
+  BF% as weight changes (accurate on a cut; re-baseline after muscle gain); **`navyBodyFat({sex, heightCm,
+  neckCm, waistCm, hipCm})`** is the U.S. Navy (Hodgdon–Beckett) tape estimate, metric form. Consumed by
+  `screens/HealthBody.tsx` (source priority: measured % on the latest weigh-in → lean-mass estimate from
+  a DEXA baseline → Navy tape estimate), with `HealthRepo.getLatestBodyFatBaseline()` supplying the baseline.
+- `lib/load.ts` — **per-side load** for volume. `defaultPerSide(equipment)` (true for Dumbbell/Kettlebell),
+  `isPerSide(ex)` (explicit `exercise.perSide` override else the equipment default), `loadFactor(ex)` (×2
+  for per-side, else ×1). A two-arm dumbbell logs per-hand weight, so volume = `weight·reps·loadFactor`.
+  Applied in `WorkoutRepo` everywhere volume is computed (`finishSession`, `getVolumeBySession`,
+  `getExerciseSessionHistory`, `mapSession`) so **past sessions recompute correctly** too; 1RM/top-weight
+  stay per-hand. Overridable per exercise on the detail screen (`WorkoutRepo.setExercisePerSide`).
+- `lib/renphoTape.ts` — **Renpho RF-BMF01 smart tape measure** (BLE) integration via `react-native-ble-plx`.
+  `useRenphoTape()` hook: requests permissions → scans for `ES_TAPE` → connects → subscribes to the notify
+  characteristic, exposing `{ status, reading, error, start, stop }`. `parseTapePacket` decodes the
+  reverse-engineered ASCII frame (service `0783B03E-…-CB7`, char `…CB8`: `x[1..4]` low-nibble digits ÷10 =
+  cm, `x[17]&1` = tape's confirm button, `x[18]` = unit). Needs a **dev build + a physical device**
+  (no Bluetooth on emulators/simulators).
 - `lib/activities.ts` — MET table plus `caloriesBurnedFromDuration(min, kg, met=STRENGTH_MET)`, the
   no-watch fallback estimate for workout calories.
 
@@ -120,6 +152,15 @@ to the shell.
 - `components/FoodDetails.tsx` — `FoodBadgeRow` (diet/allergen badges + Nutri/NOVA/Eco score chips)
   and `FoodDetailSections` (expandable per-serving nutrient list + ingredients/additives), driven by
   a `FoodDetails` blob and scaled by the chosen servings.
+- `components/TapeMeasureView.tsx` — the **Renpho tape** measuring UI (swapped in from `measurements.tsx`
+  via a mode toggle). Back button, a live **connection indicator** (dot/label from `useRenphoTape().status`),
+  a big bold **live reading** in the user's unit, body-part selector chips (selected = indigo; measured =
+  green ✓), the `BodyDiagram` guide, a **Save** button (persists via `HealthRepo.upsertMeasurementSite`
+  into one daily snapshot, then auto-advances to the next unmeasured site), and a "This session" list with
+  green dots for measured parts.
+- `components/BodyDiagram.tsx` — a stylised front-facing SVG figure (`react-native-svg`) that draws a
+  **dashed indicator around the body part being measured** (so waist vs. hips is unambiguous), driven by
+  a `site` prop.
 
 ## Navigation shell (`src/navigation`)
 The main app area is **not** an expo-router tab bar — it's a single custom shell
@@ -170,6 +211,22 @@ fade via `Animated`/`PanResponder`). Reanimated is used where the gesture must t
 `components/SwipeToDelete.tsx` (gesture-handler `ReanimatedSwipeable` + `useAnimatedStyle` so the
 Delete button is revealed in lockstep with the swipe) and the template editor's drag-to-reorder
 (`react-native-sortables`, peer-deps gesture-handler + reanimated only — no native rebuild).
+
+**Drag-to-superset (template editor, `template/new.tsx`).** Because the sortable grid reorders the list
+live, "drop one card onto another" can't be the *reorder* drag. Instead each solo card has a separate
+**chain handle** with its **own `Gesture.Pan`** (not the sortable's): on drag it hit-tests the finger
+against cards' measured rects (stable, since nothing is reordering) and highlights the target via a
+shared-value `useAnimatedStyle` overlay (`DropOverlay`); on release it confirms → `linkExerciseInto`.
+The reorder grip is unchanged. **Gesture gotcha:** `template/new.tsx` is a native-stack **modal**, and
+gesture-handler pan gestures don't register in a modal subtree unless it has its **own
+`GestureHandlerRootView`** (taps still work without it — which is why the handle was un-grabbable until
+wrapped).
+
+**Active session (`session.tsx`).** When a set is focused, the screen **auto-scrolls** it above the
+numpad (`row.measureLayout(contentRef, …)` → `scrollTo`; on the New Arch `measureLayout` takes the
+relative **ref**, not a node handle). Marking a set done **pops the checkmark in** (`Animated.View
+entering={ZoomIn}`) and turns the whole row green (the weight/reps cells go transparent so the values sit
+on the fill). Rest dividers are tappable to set a **per-set** rest override.
 
 **Bottom sheets:** any bottom-anchored pop-up should use `components/BottomSheet.tsx` (or, for the
 food/recipe editor, `FoodQuantitySheet`) rather than a raw `Modal` + `flex-end` view, so drag-to-
@@ -296,4 +353,19 @@ Faithful port of `../../apps/api/src/routes/food.ts`, run client-side:
   `react-native-gifted-charts` is installed if richer charts are wanted later.
 - Muscle map: `react-native-body-highlighter` (SVG-only, rides on `react-native-svg` — no native
   rebuild). Slugs are mapped from our `Exercise.muscleGroup` body-part values.
+- **Bluetooth** (`react-native-ble-plx`, Renpho tape): native module + config plugin (adds
+  `BLUETOOTH_SCAN`/`CONNECT` + `NSBluetoothAlwaysUsageDescription`). **Needs a dev build** and a
+  **physical device** — neither the Android emulator nor the iOS simulator has a Bluetooth radio. Core
+  Bluetooth (central) needs **no paid Apple account**.
+- **Android builds require JDK 17.** The machine default may be JDK 25, which fails the native CMake
+  configure for `react-native-nitro-modules`/`react-native-worklets` with
+  *"A restricted method in java.lang.System has been called"* (JDK 24+ native-access restriction; RN/AGP
+  support 17–21). Set `JAVA_HOME` to a JDK 17 before `expo run:android` / `prebuild`; `android/local.properties`
+  carries `sdk.dir`. The `[CXX5304] SDK XML version 4` lines are harmless warnings.
+- **HealthKit build toggle** (`app.config.js`): HealthKit's entitlement requires a **paid** Apple
+  Developer account and otherwise blocks signing under a free Apple ID. `HEALTHKIT=0` strips the
+  `@kingstinct/react-native-healthkit` plugin + its Info.plist strings (and sets
+  `extra.healthKitEnabled=false`) so a HealthKit-free variant signs on a free account — `npm run ios:free`
+  / `npm run prebuild:ios:free`. `lib/health.ts` already no-ops when the module isn't authorized, so no
+  code changes are needed. Default build keeps HealthKit.
 - Native dirs are regenerated by `expo prebuild`; never commit `ios/`, `android/`, `Pods/`.

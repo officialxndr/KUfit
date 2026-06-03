@@ -182,20 +182,47 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       the old "dark/light theme toggle — deferred" note below.) See ARCHITECTURE → Theming.
 - [x] **Settings de-duped** — removed the redundant Goal/Targets cards (they live in the unified Goals
       editor); Settings now links out to Goals. Recipe edit shows **grams per serving** when set.
+- [x] **Android dev build fixed** — builds require **JDK 17** (the default JDK 25 fails the native CMake
+      configure for nitro-modules/worklets); `JAVA_HOME` → JDK 17, `android/local.properties` holds `sdk.dir`.
+- [x] **SQLite black-screen fix** — `openDatabaseSync(..., { useNewConnection: true })` so the dev-tools
+      registration can't tear the native connection down mid-render (`NativeDatabase.prepareSync` NPE).
+- [x] **Superset integrity** — `normalizeSupersets` invariant (a superset needs ≥2 adjacent members):
+      removing/ungrouping one half reverts the other to solo, in both the template editor and live session.
+- [x] **Drag-to-superset** — a dedicated **chain handle** on each solo exercise in the template editor;
+      drag it onto another exercise (its own pan gesture, so the list never reorders) → confirm → linked.
+      Live target highlight; `linkExerciseInto`. (Also fixed: gestures in the modal needed their own
+      `GestureHandlerRootView`.)
+- [x] **Active-session UX** — auto-scroll the focused set above the numpad; **set-complete animation**
+      (checkmark `ZoomIn` + whole row turns green); **per-set rest overrides** (tap a rest divider to set a
+      custom time for that set); long exercise names truncate instead of overlapping the kebab.
+- [x] **Body-fat estimation** — `lib/bodyComposition.ts`: estimate current BF% from a measured (DEXA)
+      baseline holding lean mass constant, **and** the **U.S. Navy tape method** (waist/neck/+hip + height +
+      sex). Body tab labels the source (Measured / Estimated / U.S. Navy) and can log a Navy reading.
+- [x] **Per-side (dumbbell) volume fix** — two-arm dumbbell/kettlebell work counts **×2** (weight is
+      per-hand). `lib/load.ts` + `exercises.perSide` override (toggle on the exercise detail page);
+      volume recomputed from sets × factor everywhere, so **past sessions correct themselves**. 1RM/top
+      weight stay per-hand.
+- [x] **Renpho smart tape measure (BLE)** — `react-native-ble-plx` + `lib/renphoTape.ts` (reverse-engineered
+      RF-BMF01 protocol). Measurements → **"Measure with Renpho tape"** opens a view with connection status,
+      a big live reading in your unit, body-part chips (green when measured), a **`BodyDiagram` guide**
+      (dashed line around the part to measure), and per-part Save. Needs a dev build + physical device.
+- [x] **Native Health activated** — `@kingstinct/react-native-healthkit` (iOS) + `react-native-health-connect`
+      (Android) are installed with config plugins/permissions and wired through `lib/health.ts` (weight,
+      active energy, heart rate). HealthKit needs a paid Apple account at runtime.
+- [x] **HealthKit build toggle** — `app.config.js` reads `HEALTHKIT`; `HEALTHKIT=0` strips HealthKit so a
+      free Apple ID can sideload (e.g. to test Bluetooth). `npm run ios:free` / `prebuild:ios:free`.
 
 ## Not built yet (planned)
+- [ ] **Renpho tape on-device test** — built and the protocol is implemented, but the BLE connection is
+      **untested against the physical tape** (emulator/simulator have no Bluetooth). Verify on a real device
+      (live reading, the `S`/`P` confirm flag, and metric/imperial `x[18]` handling).
 - [ ] **Server sync engine** — `lib/sync.ts` does a real **connection test** (Settings → Server
       backup); the full bidirectional push/pull must match the `apps/api` route contract and be
       validated against a running server. Schema is already sync-ready (localId/serverId/syncStatus).
-- [ ] **Native Health activation** — `lib/health.ts` is a **cross-platform seam** (Apple HealthKit on
-      iOS, Health Connect on Android) wired into Settings. Not installed yet on purpose: iOS HealthKit
-      via `@kingstinct/react-native-healthkit` pulls **`react-native-nitro-modules`** (bleeding-edge
-      native codegen) which can't be verified without a rebuild + device, and risks the working build.
-      To activate: `npx expo install react-native-health-connect @kingstinct/react-native-healthkit
-      react-native-nitro-modules`, add their config plugins + permissions, implement the providers in
-      `health.ts` (guarded `require`s), then `expo prebuild` + a native build and test on-device.
-      The seam now also reads **active energy burned** (`getActiveEnergyBurned`) for workout calories —
-      it lights up with the same native rebuild; in Expo Go it returns `null` and the MET estimate is used.
+- [ ] **Health on-device verification** — the providers are installed and wired (see Done → *Native Health
+      activated*), but real reads (weight backfill, active energy, heart rate) still need validation on a
+      physical iPhone (paid account for HealthKit auth) / Android with Health Connect. In Expo Go and the
+      free-account HealthKit-stripped build, the seam returns `null` and the MET estimate is used.
 - [ ] **Home Assistant add-on** — lives in the web/api repos, **not this mobile app**; expose
       `/api/health/stats` there for automations.
 - [ ] **Apple home-screen widgets (native milestone)** — quick-action widgets: start the default

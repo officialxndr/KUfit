@@ -56,6 +56,8 @@
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
+    "ios:free": "HEALTHKIT=0 expo run:ios --device",
+    "prebuild:ios:free": "HEALTHKIT=0 expo prebuild -p ios --clean",
     "web": "expo start --web",
     "lint": "expo lint"
   },

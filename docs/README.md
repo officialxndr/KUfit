@@ -24,13 +24,16 @@ self-hosted server can be added later for backup and Home Assistant automations.
   whole foods, offline); **recipes** (builder + log serving); calorie **trends** (7/30/90d); nutrition **goals**.
 - **Exercises**: open-source ExerciseDB catalog (~440 unique) bundled + imported on first launch;
   grouped/searchable library; **create custom exercises**; detail with animated GIF demos cached for offline.
-- **Workouts**: routines (create/edit/default + auto-rotation), templates (reorderable builder),
-  redesigned **active set logger** (ghost values, per-set rest timers, per-exercise notes & rest
-  config, custom numpad), **post-workout summary** (liquid-wave animation), history with month
-  navigator + calendar + delete, and a **Stats** page (volume, PRs, per-exercise reports + compare,
-  and an anatomical **muscle heatmap**).
+- **Workouts**: routines (create/edit/default + auto-rotation), templates (reorderable builder with
+  **drag-to-superset** via a chain handle), redesigned **active set logger** (ghost values, **per-set**
+  rest timers, set-complete animation + auto-scroll to the active set, per-exercise notes, custom numpad),
+  **supersets** (with a ≥2-member integrity rule), **post-workout summary** (liquid-wave animation),
+  history + calendar, and a **Stats** page (volume — counting two-arm **dumbbell work ×2** — PRs,
+  per-exercise reports + compare, muscle heatmap).
 - **Health**: weight logging + trend chart + pace guidance with **MET activity suggestions**; body
-  composition (BF%/lean/fat/BMI/FFMI); measurements; weight **goals** + **goal phases/cycles**; TDEE.
+  composition (BF%/lean/fat/BMI/FFMI) with **body-fat estimation** (lean-mass-from-DEXA-baseline **and**
+  the **U.S. Navy tape method**); measurements — incl. a **Renpho smart tape measure (Bluetooth)** flow
+  with a body-diagram guide; weight **goals** + **goal phases/cycles**; TDEE.
 - **Settings**: units, full profile, **profile picture** (photo library), offline-demo download,
   **server backup** (connection test), **Health integration** (Apple Health / Health Connect seam).
 - **Consistent UX**: swipe-left-to-delete with confirmation on user logs; haptics throughout.
@@ -43,6 +46,9 @@ the full server-sync engine, native Health activation, Home Assistant add-on).
 ## Prerequisites
 - Node 20+ (developed on Node 26), npm.
 - For iOS device builds: macOS + Xcode, and an Apple ID (free is fine for sideloading).
+- **For Android builds: JDK 17** (set `JAVA_HOME` to it). The native build fails on JDK 24/25 — see
+  *Building & deploying*. Android Studio SDK with `ANDROID_HOME` set; `android/local.properties` holds `sdk.dir`.
+- Bluetooth features (Renpho tape) need a **dev build on a physical device** — no emulator/simulator has Bluetooth.
 
 ## Running in development
 ```bash
@@ -93,10 +99,23 @@ eas build --profile production  --platform ios         # App Store build
 
 **Local:**
 ```bash
-npx expo run:ios        # or: npx expo run:android   (regenerates native + installs a dev build)
+npx expo run:ios                      # regenerates native + installs a dev build (full app, incl. HealthKit)
+JAVA_HOME=<jdk17> npx expo run:android # Android MUST build under JDK 17 (default JDK 25 fails native CMake)
 ```
 iOS sideload: sign with a free Apple ID in Xcode, Archive → ad-hoc `.ipa`, then **AltStore** (re-signs
 every 7 days on the same Wi-Fi). Android: install the `preview` `.apk` directly.
+
+**HealthKit-free iOS build (free Apple ID).** HealthKit's entitlement needs a *paid* developer account
+and otherwise blocks signing. A dynamic config (`app.config.js`) strips it when `HEALTHKIT=0`, so you can
+sideload to a personal device on a free account (e.g. to test the Bluetooth tape):
+```bash
+npm run prebuild:ios:free    # HEALTHKIT=0 expo prebuild -p ios --clean  (no HealthKit entitlement)
+# first time: open ios/FitSelf.xcworkspace → target → Signing & Capabilities → Team = your Personal Team
+npm run ios:free             # HEALTHKIT=0 expo run:ios --device
+```
+Free-provisioning caveats: needs a Mac + Xcode; the app expires after ~7 days (just rerun); HealthKit
+features are inert in this build (`lib/health.ts` no-ops). Build the default (no flag) once you have a
+paid account to get HealthKit back. **Bluetooth needs a physical device** either way.
 
 ## Optional integrations
 - **Server backup**: Settings → "Server backup & sync" sets a self-hosted FitSelf server URL/token
@@ -110,3 +129,8 @@ every 7 days on the same Wi-Fi). Android: install the `preview` `.apk` directly.
   Watch / Health Connect and only resolve in a native/dev build (same activation as above); in Expo Go
   Automatic falls back to the app's MET workout estimate. Automatic avoids double-counting by only adding
   the app estimate for workout windows the watch didn't track.
+- **Renpho smart tape measure (Bluetooth)**: Health → Measurements → **"Measure with Renpho tape"** scans
+  for the RF-BMF01 (`ES_TAPE`), connects, and streams live circumferences into the selected body part —
+  which feed the U.S. Navy body-fat estimate. Implemented in `lib/renphoTape.ts` (`react-native-ble-plx`,
+  reverse-engineered protocol). Requires a **dev build + a physical device** (no Bluetooth on
+  emulators/simulators); no paid Apple account needed for Bluetooth itself.

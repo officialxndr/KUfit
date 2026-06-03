@@ -21,7 +21,11 @@ Assistant automations via the sync layer (`serverStore` is null by default).
 - **Data**: `src/lib/db.ts` (SQLite schema, mirrors the server Prisma models with
   `localId`/`serverId`/`syncStatus` for future sync) + `src/lib/repositories/{Food,Health,Workout}Repo.ts`.
   Repos are the only thing that touches the DB. Mutations mark rows `syncStatus='pending'`.
-- **Calc libs** (pure TS, ported from web): `tdee.ts`, `epley.ts`, `activities.ts`, `units.ts`, `targets.ts`.
+- **Calc libs** (pure TS): `tdee.ts`, `epley.ts`, `activities.ts`, `units.ts`, `targets.ts`,
+  `supersets.ts` (superset ordering + `normalizeSupersets`), `bodyComposition.ts` (body-fat estimate +
+  U.S. Navy method), `load.ts` (per-side dumbbell volume factor).
+- **Bluetooth**: `src/lib/renphoTape.ts` — Renpho RF-BMF01 tape (`react-native-ble-plx`); the
+  `useRenphoTape()` hook drives `components/TapeMeasureView.tsx` (opened from `measurements.tsx`).
 - **Design**: `src/theme/tokens.ts` + `src/theme/text.ts` (ported from `../FitSelf Design System/colors_and_type.css`).
   Dark-first, one indigo accent (`#6366f1`), flat, lucide icons, no emoji in UI chrome.
 - **UI kit**: `src/components/ui/index.tsx` (Screen, Card, Button, Badge, Chip, FsText, SectionHeader).
@@ -31,12 +35,26 @@ Assistant automations via the sync layer (`serverStore` is null by default).
 - Screens read from repos in a `useFocusEffect(refresh)` callback so data refreshes on tab focus.
 - Calorie/macro targets resolve via `resolveTargets(profile)` (active GoalPhase → profile → TDEE).
 - Native dirs (`ios/`, `android/`) are git-ignored and regenerated via `expo prebuild` / EAS.
+- **DB connection**: open with `{ useNewConnection: true }` (don't revert) — the shared connection's
+  dev-tools registration tears the native handle down in dev → black-screen `prepareSync` NPEs.
+- **Supersets** must always have **≥2 adjacent members**; route membership/order changes through
+  `normalizeSupersets` (in both `templateDraftStore` and `sessionStore`).
+- **Workout volume** counts two-arm dumbbell/kettlebell work ×2 via `loadFactor` (`exercise.perSide`,
+  default by equipment). 1RM/top-weight stay per-hand. Compute volume from sets × factor, not a stored total.
+
+## Native builds & platform gotchas
+- **Android builds need JDK 17** (`JAVA_HOME` → JDK 17). The default JDK 25 fails native CMake configure
+  (nitro-modules/worklets: *"restricted method in java.lang.System"*). `android/local.properties` holds `sdk.dir`.
+- **Bluetooth (Renpho tape)** needs a dev build **and a physical device** — emulators/simulators have no BLE.
+- **HealthKit toggle**: `app.config.js` strips HealthKit when `HEALTHKIT=0` (free Apple ID can't sign its
+  entitlement). `npm run ios:free` / `prebuild:ios:free` for the stripped build; default keeps HealthKit.
 
 ## Verify
 - Typecheck: `npx tsc --noEmit`
 - Headless bundle (catches import/resolution errors, no device needed):
   `npx expo export --platform ios --output-dir /tmp/x`
-- On device: `npx expo start` (Expo Go) then a dev build for camera/SQLite-heavy testing.
+- On device: `npx expo start` (Expo Go) then a dev build for camera/SQLite/Bluetooth testing
+  (Android dev build requires JDK 17).
 
 ## Keep docs current (required)
 After a change is made and the user has reviewed/accepted it, **update the docs before moving on**:
