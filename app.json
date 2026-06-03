@@ -48,9 +48,10 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "FitSelf uses the camera to scan food barcodes."
+          "cameraPermission": "FitSelf uses the camera to scan food barcodes and nutrition labels."
         }
       ],
+      "./plugins/withoutPushEntitlement",
       [
         "expo-splash-screen",
         {

@@ -214,6 +214,19 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       active energy, heart rate). HealthKit needs a paid Apple account at runtime.
 - [x] **HealthKit build toggle** — `app.config.js` reads `HEALTHKIT`; `HEALTHKIT=0` strips HealthKit so a
       free Apple ID can sideload (e.g. to test Bluetooth). `npm run ios:free` / `prebuild:ios:free`.
+- [x] **Nutrition-label OCR** — Custom Food gains a **"Scan nutrition label"** action: capture the panel
+      with the camera and auto-fill the nutrition fields. Fully **on-device** (Google ML Kit via
+      `@react-native-ml-kit/text-recognition`, no cloud/LLM cost). `lib/nutritionOcr.ts` =
+      `recognizeNutritionLabel(uri)` + a pure, testable `parseNutritionText` heuristic; always lands on the
+      editable form (never auto-saves). Needs a dev build + physical device.
+- [x] **Reminders system** — per-reminder **schedule** (daily / weekly / custom weekdays + time) for
+      **measure body, log weight, log food, workout**. Each fires a **local notification**
+      (`expo-notifications`, `lib/reminders.ts`) and surfaces a **dismissible Dashboard banner**
+      (`ReminderBanner` + pure `lib/reminderStatus.ts`). Opt-in (`remindersStore`, all off by default);
+      managed from **Settings → Notifications & reminders** (`app/reminders.tsx`). Notifications need a dev
+      build; banners work everywhere.
+- [x] **Workout-summary toggle** — `showWorkoutSummary` (Settings → Coaching & reminders) skips the
+      post-workout celebration screen; finishing a session then returns straight to Workout history.
 
 ## Not built yet (planned)
 - [ ] **Renpho tape on-device test** — built and the protocol is implemented, but the BLE connection is

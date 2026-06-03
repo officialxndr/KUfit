@@ -47,6 +47,8 @@ export interface Profile {
   activeCalorieSource: ActiveCalorieSource;
   /** When false, hide proactive goal-coaching nudges (pace alerts, "cut calories", etc.). */
   showCoachingNudges: boolean;
+  /** When false, skip the celebratory summary screen after finishing a workout. */
+  showWorkoutSummary: boolean;
   // Training goals (Workout section)
   weeklySessionTarget: number | null;
   trainingFocus: TrainingFocus | null;
@@ -78,6 +80,7 @@ const DEFAULT_PROFILE: Profile = {
   lockedMacro: null,
   activeCalorieSource: 'off',
   showCoachingNudges: true,
+  showWorkoutSummary: true,
   weeklySessionTarget: null,
   trainingFocus: null,
   nutrientGoals: [],

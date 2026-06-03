@@ -8,7 +8,11 @@ import { View, ActivityIndicator } from 'react-native';
 import { initDb } from '@/lib/db';
 import { seedExercisesIfEmpty } from '@/lib/exerciseSeed';
 import { seedBaseFoodsIfNeeded } from '@/lib/baseFoodsSeed';
+import { configureNotifications, syncScheduledNotifications } from '@/lib/reminders';
+import { useRemindersStore } from '@/stores/remindersStore';
 import { colors } from '@/theme/tokens';
+
+configureNotifications();
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
@@ -21,6 +25,10 @@ export default function RootLayout() {
     } catch (e) {
       console.error('startup init failed', e);
     }
+    // Re-assert the local notification schedule from the persisted reminder settings.
+    const sync = () => syncScheduledNotifications(useRemindersStore.getState().reminders);
+    if (useRemindersStore.getState().hydrated) sync();
+    else { const unsub = useRemindersStore.subscribe((s) => { if (s.hydrated) { unsub(); sync(); } }); }
     setReady(true);
   }, []);
 
@@ -59,6 +67,7 @@ export default function RootLayout() {
           <Stack.Screen name="measurements" options={{ presentation: 'modal' }} />
           <Stack.Screen name="log-weight" options={{ presentation: 'modal' }} />
           <Stack.Screen name="custom-food" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="reminders" options={{ presentation: 'modal' }} />
         </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>

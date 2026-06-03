@@ -204,6 +204,31 @@ export class HealthRepo {
     ) as any[]).map(mapMeasurement);
   }
 
+  /**
+   * A synthetic snapshot using the **most recent non-null value for each site**.
+   * Sites are often logged across different days/rows (e.g. waist+neck one day,
+   * chest another), so the single newest row may be missing the parts a consumer
+   * needs (e.g. the U.S. Navy body-fat estimate needs waist+neck together). This
+   * coalesces history into one complete-as-possible reading. Returns null if there
+   * are no measurements. `id`/`date` carry the newest row's values.
+   */
+  getLatestMeasurementBySite(): BodyMeasurement | null {
+    const rows = this.getMeasurements(); // newest first
+    if (!rows.length) return null;
+    const sites: (keyof BodyMeasurement)[] = [
+      'neck', 'shoulders', 'chest', 'leftArm', 'rightArm', 'waist',
+      'hips', 'leftThigh', 'rightThigh', 'leftCalf', 'rightCalf',
+    ];
+    const merged: BodyMeasurement = { ...rows[0] };
+    for (const site of sites) {
+      if (merged[site] == null) {
+        const found = rows.find((r) => r[site] != null);
+        if (found) (merged as unknown as Record<string, unknown>)[site as string] = found[site];
+      }
+    }
+    return merged;
+  }
+
   addMeasurement(data: Partial<Omit<BodyMeasurement, 'id' | 'createdAt'>> & { date: string }): void {
     db.runSync(
       `INSERT INTO body_measurements

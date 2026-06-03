@@ -6,11 +6,14 @@ import { UserCircle, Dumbbell, Ruler, AlertTriangle, Flame } from 'lucide-react-
 import { Card, FsText } from '@/components/ui';
 import { CalorieMacroCard } from '@/components/CalorieMacroCard';
 import { GoalWarning } from '@/components/GoalWarning';
+import { ReminderBanner } from '@/components/ReminderBanner';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { resolveTargets, goalSafetyWarning, describePace, activeCaloriesForDisplay } from '@/lib/targets';
+import { topDueReminder } from '@/lib/reminderStatus';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useRemindersStore, type ReminderKey } from '@/stores/remindersStore';
 import { useActiveCaloriesStore } from '@/stores/activeCaloriesStore';
 import { useNavStore } from '@/stores/navStore';
 import { useSessionStore } from '@/stores/sessionStore';
@@ -56,13 +59,26 @@ export function DashboardOverview() {
   const [week, setWeek] = useState<WeekBar[]>([]);
   const [streak, setStreak] = useState(0);
   const [recent, setRecent] = useState<WorkoutSession[]>([]);
+  const [dueReminder, setDueReminder] = useState<ReminderKey | null>(null);
 
   const refresh = useCallback(() => {
     const today = new Date();
     const todayIso = isoDate(today);
-    setTotals(foodRepo.getDayTotals(todayIso));
+    const dayTotals = foodRepo.getDayTotals(todayIso);
+    const sessions = workoutRepo.getSessions(3);
+    setTotals(dayTotals);
     setStats(healthRepo.computeStats(profile.goalWeightKg, profile.goalDate));
-    setRecent(workoutRepo.getSessions(3));
+    setRecent(sessions);
+
+    // Pick the top "due" reminder for the Dashboard banner from current settings.
+    setDueReminder(topDueReminder(useRemindersStore.getState().reminders, {
+      today: todayIso,
+      todayWeekday: today.getDay(),
+      lastWeightDate: healthRepo.getLatestWeightEntry()?.date ?? null,
+      lastMeasurementDate: healthRepo.getMeasurements()[0]?.date ?? null,
+      lastWorkoutDate: sessions[0]?.startedAt?.slice(0, 10) ?? null,
+      caloriesToday: dayTotals.calories,
+    }));
 
     // Last 7 days of calories (oldest → today), filling gaps with 0.
     const from = isoDate(new Date(today.getTime() - 6 * DAY_MS));
@@ -125,6 +141,20 @@ export function DashboardOverview() {
     : null;
   const safetyWarning = goalSafetyWarning(profile, stats?.current?.weightKg ?? null);
 
+  const onReminderPress = () => {
+    switch (dueReminder) {
+      case 'measurements': router.push('/measurements'); break;
+      case 'weight': router.push('/log-weight'); break;
+      case 'food': setSection('food', 'today'); break;
+      case 'workout': session.startEmpty(); router.push('/session'); break;
+    }
+  };
+  const onReminderDismiss = () => {
+    if (!dueReminder) return;
+    useRemindersStore.getState().dismissBanner(dueReminder, isoDate(new Date()));
+    setDueReminder(null);
+  };
+
   return (
     <>
       {/* Greeting */}
@@ -144,6 +174,11 @@ export function DashboardOverview() {
         </View>
         <FsText variant="caption">{dateLabel}</FsText>
       </View>
+
+      {/* Reminder nudge (dismissible) */}
+      {dueReminder && (
+        <ReminderBanner reminderKey={dueReminder} onPress={onReminderPress} onDismiss={onReminderDismiss} />
+      )}
 
       {/* Calorie + macros */}
       <Pressable onPress={() => setSection('food', 'today')}>

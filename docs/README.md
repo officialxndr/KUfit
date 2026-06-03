@@ -49,6 +49,14 @@ the full server-sync engine, native Health activation, Home Assistant add-on).
 - **For Android builds: JDK 17** (set `JAVA_HOME` to it). The native build fails on JDK 24/25 — see
   *Building & deploying*. Android Studio SDK with `ANDROID_HOME` set; `android/local.properties` holds `sdk.dir`.
 - Bluetooth features (Renpho tape) need a **dev build on a physical device** — no emulator/simulator has Bluetooth.
+- Nutrition-label OCR (`@react-native-ml-kit/text-recognition`) and local notifications
+  (`expo-notifications`) are native modules — they link via `expo prebuild` and need a **dev build** (not
+  Expo Go); both no-op gracefully in Expo Go. The reminder **banner** still works everywhere.
+- We only use **local** notifications, so `plugins/withoutPushEntitlement.js` strips the `aps-environment`
+  push entitlement that prebuild's bundled `expo-notifications` plugin adds. **Push Notifications is the one
+  capability a personal/free Apple team can never sign** (paid or not), so stripping it lets the normal
+  `npm run ios` build sign on a personal team. Android gets `POST_NOTIFICATIONS` from the module's manifest.
+  (HealthKit signing is a separate concern — see the `HEALTHKIT=0` notes below.)
 
 ## Running in development
 ```bash

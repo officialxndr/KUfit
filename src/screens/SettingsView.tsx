@@ -281,6 +281,26 @@ export function SettingsView() {
             trackColor={{ true: colors.primary, false: colors.border }}
           />
         </View>
+        <View style={styles.toggleRow}>
+          <View style={{ flex: 1, marginRight: space[3] }}>
+            <FsText variant="bodyMedium">Show workout summary</FsText>
+            <FsText variant="caption">The celebratory recap shown after you finish a workout.</FsText>
+          </View>
+          <Switch
+            value={profile.showWorkoutSummary}
+            onValueChange={(v) => setProfile({ showWorkoutSummary: v })}
+            trackColor={{ true: colors.primary, false: colors.border }}
+          />
+        </View>
+      </Card>
+
+      <Card style={{ marginBottom: space[3] }}>
+        <SectionHeader title="Notifications &amp; reminders" />
+        <FsText variant="caption" style={{ marginBottom: space[3] }}>
+          Reminders to measure your body, log your weight or food, and train — each with its own
+          schedule. Off until you turn them on.
+        </FsText>
+        <Button title="Manage reminders" variant="ghost" onPress={() => router.push('/reminders')} />
       </Card>
 
       <Card style={{ marginBottom: space[3] }}>

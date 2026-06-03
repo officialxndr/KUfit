@@ -16,6 +16,12 @@ const shortDate = (d: string) =>
   new Date(`${d}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 const today = () => new Date().toISOString().slice(0, 10);
 
+/** "a", "a and b", "a, b and c" — for listing what's missing in a sentence. */
+function joinList(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? '';
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
 function bfBand(bf: number): { label: string; tone: 'success' | 'warning' | 'danger' | 'primary' } {
   if (bf < 14) return { label: 'Athletic range', tone: 'success' };
   if (bf < 22) return { label: 'Fitness range', tone: 'primary' };
@@ -33,7 +39,9 @@ export function HealthBody() {
   const refresh = useCallback(() => {
     setLatest(healthRepo.getLatestWeightEntry());
     setBaseline(healthRepo.getLatestBodyFatBaseline());
-    setMeasurement(healthRepo.getMeasurements()[0] ?? null);
+    // Coalesce the latest non-null value per site — waist & neck may live on
+    // different dated rows, and the Navy estimate needs them together.
+    setMeasurement(healthRepo.getLatestMeasurementBySite());
   }, []);
   useFocusEffect(refresh);
 
@@ -78,12 +86,27 @@ export function HealthBody() {
   }
 
   if (bf == null) {
-    return (
-      <Empty
-        message="Enter a body-fat % when you log your weight (e.g. from a DEXA scan), or log your waist & neck in Measurements to estimate it with the U.S. Navy method."
-        action={navyBf != null ? { label: `Use measurements · ${navyBf.toFixed(1)}%`, onPress: () => logReading(navyBf) } : undefined}
-      />
-    );
+    // Name exactly what the U.S. Navy estimate still needs, so the empty state is
+    // actionable instead of vaguely asking for a body-fat %.
+    const needSettings: string[] = [];
+    if (profile.sex !== 'MALE' && profile.sex !== 'FEMALE') needSettings.push('sex');
+    if (!profile.heightCm) needSettings.push('height');
+    const needMeasure: string[] = [];
+    if (!measurement?.neck) needMeasure.push('neck');
+    if (!measurement?.waist) needMeasure.push('waist');
+    if (profile.sex === 'FEMALE' && !measurement?.hips) needMeasure.push('hips');
+
+    let message: string;
+    if (!needSettings.length && !needMeasure.length) {
+      // Everything's present but the formula is out of domain (e.g. waist ≤ neck).
+      message = 'Your measurements don’t fit the U.S. Navy formula (waist must exceed neck). Re-check your waist/neck' + (profile.sex === 'FEMALE' ? '/hips' : '') + ', or enter a body-fat % when you log your weight.';
+    } else {
+      const parts: string[] = [];
+      if (needSettings.length) parts.push(`set your ${joinList(needSettings)} in Settings`);
+      if (needMeasure.length) parts.push(`log your ${joinList(needMeasure)} in Measurements`);
+      message = `To estimate body fat with the U.S. Navy method, ${parts.join(' and ')}. Or enter a body-fat % when you log your weight (e.g. from a DEXA scan).`;
+    }
+    return <Empty message={message} />;
   }
 
   const weightKg = latest.weightKg;

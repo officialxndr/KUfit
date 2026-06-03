@@ -17,7 +17,8 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   shell owns the scroll/header/bottom bar). Standalone routes/modals stay in `src/app/**`
   (expo-router, file-based).
 - **State**: Zustand in `src/stores/` (`settingsStore` = local user profile; `navStore` = shell
-  section/sub-tab; `routineStore` = workout routines; `serverStore` = optional server).
+  section/sub-tab; `routineStore` = workout routines; `serverStore` = optional server;
+  `remindersStore` = per-reminder notification/banner schedules, opt-in).
 - **Data**: `src/lib/db.ts` (SQLite schema, mirrors the server Prisma models with
   `localId`/`serverId`/`syncStatus` for future sync) + `src/lib/repositories/{Food,Health,Workout}Repo.ts`.
   Repos are the only thing that touches the DB. Mutations mark rows `syncStatus='pending'`.
@@ -26,6 +27,12 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   U.S. Navy method), `load.ts` (per-side dumbbell volume factor).
 - **Bluetooth**: `src/lib/renphoTape.ts` — Renpho RF-BMF01 tape (`react-native-ble-plx`); the
   `useRenphoTape()` hook drives `components/TapeMeasureView.tsx` (opened from `measurements.tsx`).
+- **Nutrition-label OCR**: `src/lib/nutritionOcr.ts` — on-device ML Kit text recognition
+  (`@react-native-ml-kit/text-recognition`); `parseNutritionText` is the pure parser. Drives the
+  "Scan nutrition label" action in `custom-food.tsx`. Needs a dev build (native; no Expo Go).
+- **Reminders/notifications**: `remindersStore` + `src/lib/reminders.ts` (schedules `expo-notifications`)
+  + pure `src/lib/reminderStatus.ts` (Dashboard banner due-logic). Managed in `src/app/reminders.tsx`
+  (Settings → Notifications & reminders). Notifications need a dev build; banners work in Expo Go.
 - **Design**: `src/theme/tokens.ts` + `src/theme/text.ts` (ported from `../FitSelf Design System/colors_and_type.css`).
   Dark-first, one indigo accent (`#6366f1`), flat, lucide icons, no emoji in UI chrome.
 - **UI kit**: `src/components/ui/index.tsx` (Screen, Card, Button, Badge, Chip, FsText, SectionHeader).
@@ -46,6 +53,15 @@ Assistant automations via the sync layer (`serverStore` is null by default).
 - **Android builds need JDK 17** (`JAVA_HOME` → JDK 17). The default JDK 25 fails native CMake configure
   (nitro-modules/worklets: *"restricted method in java.lang.System"*). `android/local.properties` holds `sdk.dir`.
 - **Bluetooth (Renpho tape)** needs a dev build **and a physical device** — emulators/simulators have no BLE.
+- **Nutrition-label OCR** (`@react-native-ml-kit/text-recognition`) links via `expo prebuild` (no Expo Go);
+  best tested on a physical device with a real label. The flow alerts gracefully when the module is absent.
+- **Local notifications** (`expo-notifications`) need a dev build; scheduling is a no-op in Expo Go.
+  Android 13+ `POST_NOTIFICATIONS` comes from the module's own manifest (no config plugin needed). Prebuild
+  auto-applies the bundled `expo-notifications` plugin, which adds the `aps-environment` **Push
+  Notifications** entitlement — the one capability a **personal/free Apple team can never sign** (paid or
+  not). We only use *local* notifications (no APNs), so `plugins/withoutPushEntitlement.js` strips it,
+  letting a personal team sign the **normal `npm run ios`** build (HealthKit included). HealthKit signing is
+  a *separate* axis (`HEALTHKIT=0` / `npm run ios:free`) — unrelated to notifications.
 - **HealthKit toggle**: `app.config.js` strips HealthKit when `HEALTHKIT=0` (free Apple ID can't sign its
   entitlement). `npm run ios:free` / `prebuild:ios:free` for the stripped build; default keeps HealthKit.
 

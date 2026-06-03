@@ -67,6 +67,11 @@ External network (Open Food Facts, ExerciseDB CDN) is called directly from the d
 - `routineStore` — workout **routines** (named template rotations, auto-pick least-recently-done,
   a **default** routine for the FAB quick-action); local-only, persisted via AsyncStorage.
 - `serverStore` — optional server URL + token; **null by default** (sync inactive until set).
+- `remindersStore` — per-reminder schedules for the **reminders system** (`measurements`/`weight`/
+  `workout`/`food`): each has `enabled`, `frequency` (daily/weekly/custom), `weekdays[]`, `hour`/`minute`,
+  and `bannerDismissedFor`. **Opt-in** (all disabled by default); persisted via AsyncStorage with a `merge`
+  that backfills newly-added reminder keys. Drives both scheduled local notifications (`lib/reminders.ts`)
+  and the Dashboard banner (`lib/reminderStatus.ts`).
 
 ## First-run & onboarding
 `settingsStore` carries `onboarded`/`hydrated`. `(tabs)/index.tsx` redirects to `onboarding` once
@@ -133,6 +138,27 @@ to the shell.
   - Needs a **dev build + a physical device** (no Bluetooth on emulators/simulators).
 - `lib/activities.ts` — MET table plus `caloriesBurnedFromDuration(min, kg, met=STRENGTH_MET)`, the
   no-watch fallback estimate for workout calories.
+- `lib/nutritionOcr.ts` — **on-device Nutrition Facts OCR** for the Custom Food "Scan label" flow.
+  `recognizeNutritionLabel(uri)` runs Google ML Kit text recognition
+  (`@react-native-ml-kit/text-recognition`, fully offline — no cloud/LLM cost) then hands the raw text to
+  the **pure, unit-testable `parseNutritionText`**: a keyword/number heuristic (mirroring `offNutrients.ts`'s
+  style) that pulls the standard U.S. label fields (serving, calories, protein, carbs, fat, sat fat, fiber,
+  sugar, sodium-as-mg). Every field optional — the screen prefills an editable form and never auto-saves.
+  Needs a dev build + physical device (native module; absent in Expo Go, where the flow alerts gracefully).
+- `lib/reminders.ts` + `lib/reminderStatus.ts` — the **reminders system** (driven by `remindersStore`).
+  `reminders.ts` orchestrates `expo-notifications`: `configureNotifications()` (handler, called once at
+  module load in `_layout.tsx`), `ensurePermission()`, and **`syncScheduledNotifications(reminders)`** which
+  cancels all app-scheduled notifications and reschedules each enabled reminder (daily → DAILY trigger;
+  weekly/custom → one WEEKLY trigger per weekday, Expo weekday = `(jsDay % 7) + 1`); wrapped in try/catch so
+  it no-ops in Expo Go. `reminderStatus.ts` is **pure**: given a `ReminderContext` (today + last-logged
+  dates from the repos) it decides which reminders are "due" (enabled + scheduled today + not dismissed +
+  action outstanding) — `dueReminders` / `topDueReminder` (priority measurements > weight > food > workout).
+  Local-only — so `plugins/withoutPushEntitlement.js` strips the `aps-environment` entitlement that
+  prebuild's bundled `expo-notifications` plugin adds. **Push Notifications is the one capability a
+  personal/free Apple team can't sign** (independent of paid status / HealthKit), so stripping it lets the
+  normal `npm run ios` build sign on a personal team. Android `POST_NOTIFICATIONS` comes from the module's
+  own manifest. The strip mod runs *after* the notifications plugin in the entitlements chain (it's
+  registered earlier, and the last-registered mod runs first), so the key it deletes stays deleted.
 
 ## Components added
 - `components/MuscleMap.tsx` — anatomical front/back body (`react-native-body-highlighter`) shaded by
@@ -185,6 +211,13 @@ to the shell.
   the arm. Ring coords are tuned to the outline's native 724×1448 space; the viewBox is cropped to the
   figure's bounds (`19 138 687 1243`) so it isn't floating in empty headroom. Ring `left`/`right` are
   **mirror-view** (subject's left limb on the viewer's left).
+- `components/ReminderBanner.tsx` — the dismissible **Dashboard reminder nudge**: per-reminder icon +
+  title + CTA, tap routes to the action (Measure / Log weight / Log food / Start workout), the X dismisses
+  it for the day. The Dashboard (`DashboardOverview`) computes the single `topDueReminder(...)` in its
+  focus `refresh` and renders at most one banner at a time.
+- `components/TimeField.tsx` — JS-only tappable **time picker** (consistent with `DateField` — no native
+  datetime dependency, works in Expo Go): opens a popup with hour/minute `StepperField`s and displays
+  12-hour AM/PM via the exported `formatTime(hour, minute)`. Used by the Reminders screen.
 
 ## Navigation shell (`src/navigation`)
 The main app area is **not** an expo-router tab bar — it's a single custom shell
@@ -214,9 +247,15 @@ Dashboard inline editor (no modal there to conflict with).
   old per-section tab screens were removed). Cross-section navigation goes through `navStore`.
 - Modals: `add-food`, `custom-food`, `exercises` (also a picker via `?pick=session|template`),
   `tdee`, `measurements`, `template/new`, `recipe/new`, `exercise/new` (custom exercise),
-  `goal-phases`, `exercise-reports`, `exercise-progress`.
-- `session` — full-screen active workout → on finish routes to `workout-summary` (a `finishing` ref
-  guards the inactive-redirect so the summary shows); both return to the shell via `navStore`.
+  `goal-phases`, `exercise-reports`, `exercise-progress`, `reminders`.
+- `custom-food` — manual food create; its **"Scan nutrition label"** action opens an in-screen
+  `CameraView` capture overlay → `lib/nutritionOcr.ts` → prefills the form fields (Feature: on-device OCR).
+- `reminders` — the **Notifications & reminders** screen (opened from Settings): one card per reminder with
+  an enable switch, frequency chips (Daily/Weekly/Custom + weekday chips), and a `TimeField`. Each change
+  persists to `remindersStore` and re-runs `syncScheduledNotifications`.
+- `session` — full-screen active workout → on finish routes to `workout-summary` **unless**
+  `profile.showWorkoutSummary` is off, in which case it returns straight to Workout history (a `finishing`
+  ref guards the inactive-redirect so the summary shows when enabled); both return to the shell via `navStore`.
 - `workout-summary` — full-screen post-workout summary with the liquid-wave animation. The stats body
   (duration/calories/volume/sets/exercises grid + PR callout + heart-rate panel) lives in the shared
   `components/WorkoutSummaryBody.tsx`, reused by the History detail sheet (`WorkoutSummarySheet`) so the

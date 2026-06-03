@@ -158,7 +158,7 @@ export default function SessionScreen() {
         })
         .catch(() => {});
     }
-    if (id) router.replace({ pathname: '/workout-summary', params: { id } });
+    if (id && useSettingsStore.getState().profile.showWorkoutSummary) router.replace({ pathname: '/workout-summary', params: { id } });
     else backToWorkout('history');
   };
 
