@@ -44,6 +44,7 @@ const T = {
   goals: 'goals goal weight target calorie calories macro macros protein carbs fat phase',
   tools: 'tools tdee calculator',
   help: 'help tour guide guided walkthrough onboarding tutorial intro',
+  feedback: 'feedback bug report issue problem crash feature request idea suggestion contact developer',
   support: 'support hale donate donation contribute tip sponsor give back',
   data: 'data backup export import restore merge replace wipe delete erase reset',
   offline: 'offline download demos gifs exercise media cache',
@@ -384,6 +385,15 @@ export function SettingsView() {
           New here, or want a refresher? Take a quick guided tour of the app's features.
         </FsText>
         <Button title="Take the app tour" variant="ghost" onPress={() => useTourStore.getState().start()} />
+      </Card>
+
+      <Card hidden={!show(T.feedback)} style={{ marginBottom: space[3] }}>
+        <SectionHeader title="Feedback" />
+        <FsText variant="caption" style={{ marginBottom: space[3] }}>
+          Hit a bug or have an idea? Send it my way — it shapes what gets built next. (On a TestFlight build
+          you can also just take a screenshot to report a bug instantly.)
+        </FsText>
+        <Button title="Send feedback" variant="ghost" onPress={() => router.push('/feedback')} />
       </Card>
 
       <Card hidden={!show(T.support)} style={{ marginBottom: space[3] }}>

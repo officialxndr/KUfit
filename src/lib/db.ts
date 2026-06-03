@@ -204,6 +204,21 @@ export function initDb() {
       deleted INTEGER DEFAULT 0
     );
 
+    CREATE TABLE IF NOT EXISTS feedback (
+      localId TEXT PRIMARY KEY,
+      serverId TEXT,
+      syncStatus TEXT DEFAULT 'local',
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT,
+      steps TEXT,
+      diagnostics TEXT,
+      status TEXT DEFAULT 'draft',
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT,
+      deleted INTEGER DEFAULT 0
+    );
+
     CREATE TABLE IF NOT EXISTS app_meta (
       key TEXT PRIMARY KEY,
       value TEXT

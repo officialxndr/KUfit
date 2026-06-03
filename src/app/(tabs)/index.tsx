@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { AppShell } from '@/navigation/AppShell';
+import { WhatsNew } from '@/components/WhatsNew';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 export default function Main() {
@@ -14,5 +15,10 @@ export default function Main() {
   }, [hydrated, onboarded]);
 
   if (hydrated && !onboarded) return null; // avoid flashing the shell pre-redirect
-  return <AppShell />;
+  return (
+    <>
+      <AppShell />
+      <WhatsNew />
+    </>
+  );
 }

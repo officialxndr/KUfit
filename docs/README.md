@@ -53,6 +53,9 @@ self-hosted server can be added later for backup and Home Assistant automations.
   toggle. First-run **onboarding wizard** plus a skippable **guided feature tour** that walks the real
   screens.
 - **Consistent UX**: swipe-left-to-delete with confirmation on user logs; pull-to-refresh; haptics throughout.
+- **Feedback**: Settings → Feedback (and a once-per-version What's-New sheet) with **bug + feature-request**
+  forms that email the developer (no server) and keep a local history; beta bug reports also use TestFlight's
+  native screenshot feedback.
 
 See **[ROADMAP.md](./ROADMAP.md)** for what's intentionally not built yet (on-device verification of
 Health & the Renpho tape, the full server-sync engine, the Home Assistant add-on, native home-screen widgets).

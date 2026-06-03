@@ -48,6 +48,11 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   (`components/FeatureTour.tsx` + `tourStore` + `src/lib/tourSteps.ts`) drives the real screens. Replay from
   Settings → Help. Hidden **dev tools** (tap the Settings version footer 7× → `devStore`) reveal a
   demo-data seeder (`src/lib/demoSeed.ts`: Load / Clear) that fills realistic activity for screenshots.
+- **Feedback**: `src/app/feedback.tsx` (bug + feature forms) → `src/lib/feedback.ts` emails the report
+  (mailto, **no server**) with auto diagnostics, and saves it via `FeedbackRepo` (`feedback` table, with
+  sync-ready columns for a future community-voting board). `components/WhatsNew.tsx` shows a
+  once-per-`WHATS_NEW_VERSION` "what to test" sheet (tracked in `app_meta`); **bump `WHATS_NEW_VERSION` in
+  `feedback.ts` each beta**. Beta bug reports also lean on **TestFlight's native screenshot/crash feedback**.
 - **Design**: `src/theme/tokens.ts` + `src/theme/text.ts` (ported from `../FitSelf Design System/colors_and_type.css`).
   Dark-first, one indigo accent (`#6366f1`), flat, lucide icons, no emoji in UI chrome.
 - **UI kit**: `src/components/ui/index.tsx` (Screen, Card, Button, Badge, Chip, FsText, SectionHeader).

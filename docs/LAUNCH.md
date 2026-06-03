@@ -22,6 +22,10 @@ you, and the donation setup. See also **[PRIVACY.md](./PRIVACY.md)**.
   Ruby 2.6 is too old for `gem install`). Cloud builds (drop `--local`) also work but consume EAS build credits.
 - Android: `eas build -p android --profile production` → `eas submit -p android`.
 - Beta first: **TestFlight** (iOS) + Play **internal testing**.
+- **Tester feedback:** rely on **TestFlight's built-in feedback** — testers screenshot → send a note, and
+  crashes are auto-collected, all landing in **App Store Connect → TestFlight → Feedback**. In-app
+  **Settings → Feedback** (+ the What's-New sheet) adds bug + **feature-request** forms that email you, which
+  also cover the public release + Android. (Community upvoting of feature requests is a future add.)
 - **OTA**: `expo-updates` is wired (production channel) — ship JS-only fixes with `eas update`, no resubmit.
 
 > **iOS status (2026-06-03): LIVE on TestFlight.** App = **Hale**, bundle `com.zanderhalverson.hale`,

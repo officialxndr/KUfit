@@ -76,6 +76,7 @@ export default function RootLayout() {
           <Stack.Screen name="log-weight" options={{ presentation: 'modal' }} />
           <Stack.Screen name="custom-food" options={{ presentation: 'modal' }} />
           <Stack.Screen name="reminders" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="feedback" options={{ presentation: 'modal' }} />
         </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>

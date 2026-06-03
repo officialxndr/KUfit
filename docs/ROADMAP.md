@@ -126,6 +126,14 @@ Honest status of the rebuild. **Update this when features land or plans change.*
 - [x] **Build variants** — `app.config.js` suffixes name + bundle id for non-production builds
       (`Hale Dev` / `com.zanderhalverson.hale.dev`) via `APP_VARIANT` (set per profile in `eas.json`), so a
       local `expo run:ios` dev build installs **alongside** the TestFlight release and is easy to tell apart.
+- [x] **In-app feedback (bug + feature)** — `app/feedback.tsx` + `lib/feedback.ts` + `FeedbackRepo` /
+      `feedback` table. Forms **email** the report to the dev (mailto, no server) with auto diagnostics
+      (app version, variant, device, OS) and keep a local "Mine" history; `serverId`/`syncStatus` columns
+      leave room for a future **community-voting board**. Reachable from Settings → Feedback and the
+      What's-New sheet. Beta bug reports also lean on **TestFlight's native screenshot/crash feedback**.
+- [x] **What's-New / beta sheet** — `components/WhatsNew.tsx` shows once per `WHATS_NEW_VERSION` (tracked in
+      `app_meta`): lists what to test, nudges feedback, adds a "test build" note on non-prod variants, and
+      points testers at the TestFlight screenshot flow. Bump `WHATS_NEW_VERSION` in `lib/feedback.ts` per beta.
 - [x] **Standard swipe-to-delete + confirm** (`SwipeToDelete`) across user logs: food items, weight
       entries, measurements, workout history (recipes/routines/phases keep explicit delete + confirm).
 - [x] **Quick-log weight** modal (`log-weight`) wired to the FAB + dashboard (the inline Health form
