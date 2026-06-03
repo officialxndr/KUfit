@@ -254,6 +254,49 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       `finish()` (event-driven, no persisted flag, so existing users aren't prompted); replay anytime from
       **Settings → Help → "Take the app tour"**.
 
+- [x] **Demo/sample data + richer tour** — a **hidden Developer tool** (unlock by tapping the Settings
+      version footer **7×** → `devMode` in `stores/devStore.ts`) that seeds ~10 weeks of realistic food
+      logs, weigh-ins, body measurements and progressive-overload workouts (`lib/demoSeed.ts` +
+      `WorkoutRepo.seedFinishedSession` + repo `clearAll…` helpers) so every screen looks alive for the
+      feature tour and App Store screenshots; **Load / Clear / turn-off** buttons, never shown to normal
+      users. The guided tour gained **auto-scroll + more steps** (`lib/appScroll.ts` registers the shell's
+      scroll; steps carry a `scroll` offset) so it walks down each section.
+
+- [x] **Shared date-range controls (Reports + Food Trends)** — extracted the Reports date machinery into a
+      reusable `lib/useDateRange.ts` hook + `components/DateRangeBar.tsx` (segmented presets + ‹ › paging +
+      custom start→end picker + Today). **Food Trends** now uses the same controls — full Week/Month/3 Mo/
+      Year + custom ranges + paging (was a basic 7/30/90 pager) — and `FoodRepo.getRangeNutrition` gained
+      fiber/sugar/sodium/sat-fat averages so its macro + nutrient cards come from one bounded query.
+
+- [x] **Unified section "Stats" tabs** — each main section's stats page is now the **far-right sub-tab,
+      named "Stats"** (Food: was Trends → Stats; Workout: Stats; Health: was Trends → Stats) and all three
+      use the shared `DateRangeBar` + `useDateRange`. `WorkoutStats` and `HealthTrends` were made
+      window-aware (workouts/volume/PRs/muscle-balance and weight/measurement deltas now reflect the
+      selected Week/Month/3 Mo/Year or custom range), matching `FoodTrends` and Dashboard Reports.
+
+- [x] **Data export / import / wipe** — user-owned backups (no server): `lib/backup.ts` exports all data
+      tables + persisted stores to a JSON file (`expo-file-system` + `expo-sharing`); import
+      (`expo-document-picker`) offers **Replace** (exact clone) or **Merge** (add records by `localId`).
+      A guarded **Wipe all data** (acknowledge toggle + `SwipeToConfirm` drag bar) clears user data, keeps
+      the seeded catalog, and returns to onboarding. Settings → Data & backup.
+- [x] **Launch prep** — hidden dev tools gated behind `__DEV__`, removed the temp confetti preview, a
+      "Support FitSelf" donation link (`expo-web-browser` → external page, to dodge store fees), plus
+      `docs/PRIVACY.md` (hostable policy) and `docs/LAUNCH.md` (deployment / marketing / listing / analytics
+      / donations reference).
+- [x] **Settings search** — a search bar at the top of Settings filters which section cards render,
+      matching a per-section keyword map (synonyms, e.g. "dark" → Appearance, "backup" → Data). Built on a
+      new `Card` `hidden` prop so each section guards with one line; empty-state when nothing matches.
+- [x] **Body-fat-over-time (Health → Stats)** — `HealthTrends` gains a **Body fat** card with start /
+      current / change over the window + a bar **sparkline**. Per-weigh-in body fat via the shared
+      `bodyFatForEntry` (measured → lean-mass estimate from the last measured baseline), falling back to a
+      U.S. Navy tape series; labels the method (Measured / Estimated / U.S. Navy). Weight card's 4th cell is
+      now a **weekly rate**.
+- [x] **Tour preview data** — `lib/tourPreview.ts` loads the demo dataset as a **temporary preview** when
+      the tour starts on an **empty** account so screens look alive, then removes it (and reverts the demo's
+      profile fills) when the tour ends. Never touches a real account; a persisted marker + launch-time
+      `recoverTourPreview()` undo a preview a force-quit interrupted. Also toned down the tour card's
+      entrance (was an overshooting spring → a 220 ms standard-ease slide).
+
 ## Not built yet (planned)
 - [ ] **Renpho tape on-device test** — built and the protocol is implemented, but the BLE connection is
       **untested against the physical tape** (emulator/simulator have no Bluetooth). Verify on a real device

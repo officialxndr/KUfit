@@ -108,6 +108,14 @@ export class HealthRepo {
     );
   }
 
+  /** Hard-wipe all weigh-ins / measurements (used by the demo-data tool). */
+  clearAllWeightEntries(): void {
+    db.runSync(`DELETE FROM weight_entries`);
+  }
+  clearAllMeasurements(): void {
+    db.runSync(`DELETE FROM body_measurements`);
+  }
+
   upsertWeightEntryFromServer(entry: WeightEntry): void {
     const existing = db.getFirstSync(
       `SELECT localId FROM weight_entries WHERE serverId = ? OR date = ?`,

@@ -85,7 +85,41 @@ to the shell.
 (icon/title/body + progress dots + Skip/Back/Next). A transparent touch-blocker keeps the live UI
 non-interactive during the tour. `tourStore` is **runtime-only** (no persistence): onboarding `finish()`
 calls `start()` so only **brand-new** users get it once (Skip on step 1); existing users only reach it via
-**Settings → Help → "Take the app tour"**. Skip/Done land back on Dashboard → Overview.
+**Settings → Help → "Take the app tour"**. Skip/Done land back on Dashboard → Overview. Steps can carry a
+`scroll` y-offset; `FeatureTour` `setSection`s then scrolls the shell via `lib/appScroll.ts` (`AppShell`
+registers its main `ScrollView`'s `scrollTo`), so the tour walks **down** each section, not just to its top.
+
+**Tour preview data** (`lib/tourPreview.ts`). So the tour isn't a blank app, `tourStore.start()` calls
+`beginTourPreview()`, which — **only when the account has no logged data** — loads the demo dataset as a
+temporary preview; every tour-end path (`stop`, `next` past the last step) calls `endTourPreview()` to
+remove it and restore the prior profile. It's guarded so a real account is never touched (an existing user
+replaying the tour sees their own data), the demo's profile fills (`DEMO_PROFILE_KEYS`) are snapshotted and
+reverted, and a persisted marker lets `recoverTourPreview()` (called from `_layout` on launch) undo a
+preview a force-quit left behind — gated on the `demo:whey-shake` food still being present so a stale marker
+can't wipe a real account.
+
+**Developer tools + demo data** (`stores/devStore.ts` + `lib/demoSeed.ts`). Hidden from normal users:
+tapping the **version footer in Settings 7×** unlocks `devMode` (persisted), revealing a **Developer** card
+with **Load sample data** / **Clear logged data** / **Turn off developer tools**. `loadDemoData()`
+clears-then-seeds ~10 weeks of realistic activity for screenshots + the tour — meals composed from the
+**enriched base foods** (logged by their `base:<slug>` barcode, so each carries the full OFF-style detail:
+micronutrients, Nutri-Score, NOVA, allergens) plus one branded `demo:` shake with additives/labels, a
+weight trend + body measurements, and progressive-overload workouts (via `WorkoutRepo.seedFinishedSession`, which backdates `startedAt`)
+that flag PRs as weights climb; fills demographics + goal/weekly-target (`DEMO_PROFILE_KEYS`: height, sex,
+birth date, goal weight, weekly target) **only where unset** — without height/sex/birth date `resolveTargets`
+can't produce a calorie/macro target, so the calorie ring + macro bars would render empty. All inside `db.withTransactionSync`.
+Bulk clears (`{Food,Workout,Health}Repo.clearAll…`) wipe logs/sessions/weigh-ins/measurements but keep the
+profile, theme, exercises and base foods.
+
+**Data backup / restore / wipe** (`lib/backup.ts` + `components/SwipeToConfirm.tsx`, Settings → Data &
+backup). Local-first means users own their backups: `exportData()` dumps all 13 data tables (`SELECT *`,
+excluding `app_meta`) + the persisted stores to JSON, written via `expo-file-system/legacy` and shared with
+`expo-sharing`. Import (via `expo-document-picker`) offers **Replace** (wipe + restore an exact clone,
+stores included) or **Merge** (`INSERT OR IGNORE` by each table's `localId` PK — adds records, keeps your
+current settings); both run in `db.withTransactionSync`. **Wipe** deletes the user's rows + custom
+foods/exercises but **keeps the seeded base foods + exercise catalog**, resets the profile (→ onboarding),
+and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar so it can't be accidental.
+(`expo-sharing`/`expo-document-picker` are native modules — need a dev build.)
 
 ## Helper libs added
 - `lib/haptics.ts` — crash-safe expo-haptics wrappers (`tap`/`light`/`medium`/`success`/`warning`),
@@ -238,8 +272,10 @@ The main app area is **not** an expo-router tab bar — it's a single custom she
 - **`config.ts`** — `SECTIONS`, per-section `SECTION_TABS`, `LAUNCHER`, `FAB_ACTIONS`.
 Section bodies live in **`src/screens/*`** as plain content fragments (no `Screen` wrapper); the
 shell provides the scroll area, header, and bottom bar. Each still reads on focus via
-`useFocusEffect`. Sub-tabs: Dashboard (Overview/**Reports**), Food (Today/Recipes/Trends/**Search**),
-Workout (Library/History/Exercises/Stats), Health (Weight/**Trends**/Body/Measure). Goals editing is
+`useFocusEffect`. Sub-tabs: Dashboard (Overview/**Reports**), Food (Today/Recipes/Search/**Stats**),
+Workout (Library/History/Exercises/**Stats**), Health (Weight/Body/Measure/**Stats**) — each section's
+**Stats** tab is the far-right sub-tab, consistently named, and shares the `DateRangeBar` controls (Food
+Stats = `FoodTrends`, Workout Stats = `WorkoutStats`, Health Stats = `HealthTrends`). Goals editing is
 unified: `components/GoalsEditor.tsx` is the single editor, opened as `GoalsEditorModal` from the **gear
 `rightAction`** on `AppHeader` — now on **all** of Dashboard/Food/Workout/Health (the goal button was
 previously missing on Dashboard, where goals lived in a sub-tab; that inconsistency is gone). The editor
@@ -248,22 +284,37 @@ order). **Goal Phases & Cycles renders as a sub-page *inside* the goals modal** 
 `components/GoalPhasesPanel.tsx` (an internal `view` state swaps the modal body; a "‹ Goals" back arrow
 returns) — it is **not** a pushed route, because an RN `Modal` left mounted over a pushed route renders
 above it and swallows all touches (which previously locked the header).
-- **`screens/DashboardReports.tsx`** replaced the old Goals sub-tab: a cross-domain **at-a-glance digest**.
-  Window controls are a **full-width segmented preset selector** (Week / Month / 3 Mo / Year, each `flex:1`)
-  plus a **navigator toolbar**: ‹ › page by the window length, a tappable range label opens `MonthCalendar`
-  to jump the end date, a **calendar-range icon button** runs a two-step start→end custom pick
-  (`periodKey='custom'`, arbitrary length), and a **clock icon button** jumps the window back to today
-  (disabled when already current). The window `[fromIso, endIso]` is the source of truth (`periodKey` is
-  just the segment highlight); `days` is derived, and the calorie trend is bucketed to ≤180 points so long
-  custom ranges stay cheap. All stats are computed for the selected window (default ending
-  today), so paging back shows that period: nutrition averages (`FoodRepo.getRangeNutrition`, a new
-  aggregate over logged days that folds recipe logs), workouts/volume/PRs, days-active, calorie trend, and
+- **Shared date-window controls** (`lib/useDateRange.ts` + `components/DateRangeBar.tsx`) — used by
+  **Dashboard Reports** and all three section **Stats** tabs (`FoodTrends` / `WorkoutStats` / `HealthTrends`)
+  so they behave identically and recompute for the same selected window. `useDateRange(initial)` owns the
+  window `[fromIso, endIso]` (the source of truth; `periodKey` is just the segment highlight) and exposes
+  `days`/`isCurrent`/`rangeLabel`/`fmt` + actions (`selectPeriod`/`jumpToday`/`goBack`/`goFwd`/`jumpEnd`/
+  `setCustom`). `DateRangeBar` renders the **full-width segmented presets** (Week / Month / 3 Mo / Year)
+  plus the **navigator toolbar**: ‹ › page by the window length, a tappable range label → `MonthCalendar`
+  jump, a **calendar-range icon** for a two-step start→end custom pick, and a **clock icon** to jump back to
+  today. `FoodRepo.getRangeNutrition(from,to)` (one aggregate over logged days, folding recipe logs) returns
+  avg **calories + macros + fiber/sugar/sodium/sat-fat**, powering both screens' averages.
+- **`screens/DashboardReports.tsx`** replaced the old Goals sub-tab: a cross-domain **at-a-glance digest**
+  using the shared controls above. The calorie trend is bucketed to ≤180 points so long custom ranges stay
+  cheap. All stats are computed for the selected window (default ending
+  today), so paging back shows that period: nutrition averages (`FoodRepo.getRangeNutrition`),
+  workouts/volume/PRs, days-active, calorie trend, and
   **window-aware weight** (`healthRepo.getWeightEntries(from,to)` → current/avg/change as of the window
   end; ETA + pace via `computeStats` only on the current period). Body-fat/lean/fat/BMI/FFMI via
   `bodyComposition.ts`. The **`MuscleMap` balance covers the whole window with a target scaled to its
   length** (`12 sets/wk × weeks`), so the colour fade reads consistently from a week to a year. Reuses
   `AnimatedNumber`/`GrowBar`/`MacroBars`/`LineChart`/`MuscleMap`; "see detailed" rows route via
-  `setSection` into Food Trends / Workout Stats / Health.
+  `setSection` into the Food / Workout **Stats** tabs and Health.
+- **`screens/HealthTrends.tsx`** (Health → Stats) adds a **Body fat** card alongside the weight/measurement
+  deltas: start / current / change over the window + a bar **sparkline**. Each weigh-in's body fat comes
+  from `bodyComposition.bodyFatForEntry(entry, baseline)` (measured value wins, else a lean-mass estimate
+  from the last *measured* baseline — same priority as the Body subview), giving a continuous series; if no
+  weigh-in yields one it falls back to a **U.S. Navy** series computed from the window's tape measurements.
+  The card labels its method (Measured / Estimated / U.S. Navy). The weight card's 4th cell is a weekly rate.
+- **Settings search** — `SettingsView` renders a search bar that filters which section cards show via a
+  per-section keyword map (`T`, with synonyms). Built on the `Card` `hidden` prop (returns null) so each
+  section guards in one line; shows an empty-state when nothing matches and hides the version footer
+  (the 7×-tap dev unlock) while searching.
 
 ## Routing (`src/app`, expo-router, file-based)
 - `(tabs)/` — a single `index` route rendering `AppShell`; `_layout.tsx` is a plain Stack (the

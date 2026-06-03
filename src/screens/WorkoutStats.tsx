@@ -1,117 +1,111 @@
 import { useCallback, useState } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Dumbbell, Timer, Flame, Trophy, BarChart2, ChevronRight } from 'lucide-react-native';
+import { Dumbbell, Timer, Trophy, BarChart2, ChevronRight, Activity } from 'lucide-react-native';
 
 import { Card, FsText, Badge } from '@/components/ui';
 import { MuscleMap } from '@/components/MuscleMap';
+import { DateRangeBar } from '@/components/DateRangeBar';
 import { GrowBar } from '@/components/anim/GrowBar';
+import { AnimatedNumber } from '@/components/anim/AnimatedNumber';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
+import { useDateRange } from '@/lib/useDateRange';
+import { usePullRefresh } from '@/stores/refreshStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { formatWeight, formatVolume, toDisplay, UNIT_LABELS } from '@/lib/units';
+import { formatWeight, formatVolume } from '@/lib/units';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
-import type { WorkoutSession } from '@/types';
 
 const DAY_MS = 86_400_000;
-const CHART_H = 80;
-const isoDay = (d: Date) => d.toISOString().slice(0, 10);
+const CHART_H = 60;
+const parse = (iso: string) => new Date(`${iso}T00:00:00`);
 
-interface PR {
-  name: string;
-  detail: string;
-  date: string;
+interface PR { name: string; detail: string; date: string }
+interface StatsData {
+  hasAny: boolean;
+  workouts: number;
+  totalVolume: number;
+  avgDuration: number | null;
+  prCount: number;
+  prs: PR[];
+  muscleCounts: Record<string, number>;
+  volBars: number[];
 }
 
+/** Workout → Stats: training stats for the selected date window. */
 export function WorkoutStats() {
   const router = useRouter();
   const unit = useSettingsStore((s) => s.profile.unitSystem);
-  const [sessions, setSessions] = useState<WorkoutSession[]>([]);
+  const range = useDateRange('month');
+  const { fromIso, endIso, days } = range;
+  const [data, setData] = useState<StatsData | null>(null);
 
-  const refresh = useCallback(() => setSessions(workoutRepo.getSessions(120)), []);
+  const refresh = useCallback(() => {
+    const fromMs = parse(fromIso).getTime();
+    const endMs = parse(endIso).getTime();
+    const all = workoutRepo.getSessions(500);
+    const inWindow = all.filter((s) => { const t = new Date(s.startedAt).getTime(); return t >= fromMs && t < endMs + DAY_MS; });
+
+    const workouts = inWindow.length;
+    const totalVolume = inWindow.reduce((a, s) => a + (s.totalVolume ?? 0), 0);
+    const durations = inWindow.filter((s) => s.finishedAt)
+      .map((s) => (new Date(s.finishedAt!).getTime() - new Date(s.startedAt).getTime()) / 60000)
+      .filter((m) => m > 0);
+    const avgDuration = durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null;
+
+    let prCount = 0;
+    const prs: PR[] = [];
+    const muscleCounts: Record<string, number> = {};
+    for (const s of inWindow) {
+      for (const e of s.exercises) {
+        const k = (e.exercise.muscleGroup ?? '').toLowerCase();
+        if (k) muscleCounts[k] = (muscleCounts[k] ?? 0) + e.sets.length;
+        for (const st of e.sets) {
+          if (st.isPersonalBest) {
+            prCount++;
+            if (prs.length < 6) prs.push({
+              name: e.exercise.name,
+              detail: `${formatWeight(st.weightKg, unit)} × ${st.reps}`,
+              date: new Date(s.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            });
+          }
+        }
+      }
+    }
+
+    // Volume bucketed across the window (sum per bucket), bounded for long ranges.
+    const nB = Math.min(Math.max(days, 1), 30);
+    const volBars = new Array(nB).fill(0);
+    for (const s of inWindow) {
+      const di = Math.floor((new Date(s.startedAt).getTime() - fromMs) / DAY_MS);
+      const b = Math.min(nB - 1, Math.max(0, Math.floor((di / days) * nB)));
+      volBars[b] += s.totalVolume ?? 0;
+    }
+
+    setData({ hasAny: all.length > 0, workouts, totalVolume, avgDuration, prCount, prs, muscleCounts, volBars });
+  }, [fromIso, endIso, days, unit]);
+
   useFocusEffect(refresh);
+  usePullRefresh(refresh);
 
-  if (sessions.length === 0) {
+  if (!data) return null;
+  if (!data.hasAny) {
     return (
       <View style={styles.empty}>
-        <View style={styles.emptyIcon}><Dumbbell color={colors.muted} size={28} /></View>
+        <View style={styles.emptyIcon}><BarChart2 color={colors.muted} size={28} /></View>
         <FsText variant="cardTitle" style={{ color: colors.muted }}>No stats yet</FsText>
         <FsText variant="caption" style={{ textAlign: 'center', maxWidth: 260 }}>
-          Finish a few workouts and your volume trends and PRs will appear here.
+          Finish a few workouts and your training stats will appear here.
         </FsText>
       </View>
     );
   }
 
-  const now = new Date();
-  const workoutsThisMonth = sessions.filter((s) => {
-    const d = new Date(s.startedAt);
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  }).length;
-
-  const durations = sessions
-    .filter((s) => s.finishedAt)
-    .map((s) => (new Date(s.finishedAt!).getTime() - new Date(s.startedAt).getTime()) / 60000)
-    .filter((m) => m > 0);
-  const avgDuration = durations.length
-    ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
-    : null;
-
-  // Streak: consecutive calendar days (ending today/yesterday) with a session.
-  const dayset = new Set(sessions.map((s) => isoDay(new Date(s.startedAt))));
-  let streak = 0;
-  for (let i = 0; ; i++) {
-    const d = isoDay(new Date(now.getTime() - i * DAY_MS));
-    if (dayset.has(d)) streak++;
-    else if (i === 0) continue; // allow today to be empty
-    else break;
-  }
-
-  // Weekly volume, last 8 weeks (week 0 = current). Bucket on the session's
-  // start-of-day so TODAY's workouts land in week 0 (a timestamp vs midnight
-  // comparison otherwise made them negative and dropped them).
-  const weeks = new Array(8).fill(0);
-  const todayMid = new Date(now); todayMid.setHours(0, 0, 0, 0);
-  for (const s of sessions) {
-    const sDay = new Date(s.startedAt); sDay.setHours(0, 0, 0, 0);
-    const days = Math.round((todayMid.getTime() - sDay.getTime()) / DAY_MS);
-    const wk = Math.floor(days / 7);
-    if (wk >= 0 && wk < 8) weeks[wk] += s.totalVolume ?? 0;
-  }
-  const weekly = weeks.slice().reverse(); // oldest → newest
-  const bestWeek = Math.max(...weekly, 0);
-  const maxV = Math.max(bestWeek, 1);
-
-  const prs: PR[] = [];
-  for (const s of sessions) {
-    for (const e of s.exercises) {
-      for (const st of e.sets) {
-        if (st.isPersonalBest) {
-          prs.push({
-            name: e.exercise.name,
-            detail: `${formatWeight(st.weightKg, unit)} × ${st.reps}`,
-            date: new Date(s.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          });
-        }
-      }
-    }
-    if (prs.length >= 6) break;
-  }
-
-  // Weekly sets per muscle group (for the body heatmap).
-  const weekAgo = now.getTime() - 7 * DAY_MS;
-  const muscleCounts: Record<string, number> = {};
-  for (const s of sessions) {
-    if (new Date(s.startedAt).getTime() < weekAgo) continue;
-    for (const e of s.exercises) {
-      const key = (e.exercise.muscleGroup ?? '').toLowerCase();
-      if (key) muscleCounts[key] = (muscleCounts[key] ?? 0) + e.sets.length;
-    }
-  }
-
-  const fmtVol = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v)));
+  const maxVol = Math.max(...data.volBars, 1);
 
   return (
     <>
+      <DateRangeBar range={range} />
+
       <Pressable onPress={() => router.push('/exercise-reports')}>
         <Card style={styles.reportsRow}>
           <BarChart2 color={colors.primary} size={22} />
@@ -124,52 +118,40 @@ export function WorkoutStats() {
       </Pressable>
 
       <View style={styles.grid}>
-        <StatCard icon={Dumbbell} label="Workouts / mo" value={String(workoutsThisMonth)} />
-        <StatCard icon={Timer} label="Avg duration" value={avgDuration != null ? `${avgDuration} min` : '—'} />
-        <StatCard icon={Flame} label="Streak" value={`${streak} day${streak === 1 ? '' : 's'}`} />
-        <StatCard icon={Trophy} label="Best week" value={formatVolume(bestWeek, unit)} />
+        <StatCard icon={Dumbbell} label="Workouts" value={data.workouts} />
+        <StatCard icon={Timer} label="Avg duration" value={data.avgDuration ?? 0} suffix=" min" />
+        <StatCard icon={Activity} label="Volume" value={data.totalVolume} format={(v) => formatVolume(v, unit)} />
+        <StatCard icon={Trophy} label="New PRs" value={data.prCount} />
       </View>
 
-      <Card style={{ marginBottom: space[3] }}>
-        <FsText variant="cardTitle" style={{ marginBottom: space[2] }}>Muscle activity · last 7 days</FsText>
-        <MuscleMap counts={muscleCounts} target={12} />
-      </Card>
+      {Object.keys(data.muscleCounts).length > 0 && (
+        <Card style={{ marginBottom: space[3] }}>
+          <FsText variant="cardTitle" style={{ marginBottom: space[2] }}>Muscle activity · {range.rangeLabel}</FsText>
+          <MuscleMap counts={data.muscleCounts} target={Math.round(12 * days / 7)} />
+        </Card>
+      )}
 
       <Card style={{ marginBottom: space[3] }}>
-        <FsText variant="cardTitle" style={{ marginBottom: space[3] }}>Weekly Volume · {UNIT_LABELS[unit].weight}</FsText>
+        <FsText variant="cardTitle" style={{ marginBottom: space[3] }}>Training Volume</FsText>
         <View style={styles.bars}>
-          {weekly.map((v, i) => (
+          {data.volBars.map((v, i) => (
             <View key={i} style={styles.barCol}>
               <GrowBar
                 index={i}
-                height={Math.max((v / maxV) * CHART_H, v > 0 ? 4 : 2)}
-                style={{
-                  width: '100%',
-                  maxWidth: 22,
-                  borderTopLeftRadius: 3,
-                  borderTopRightRadius: 3,
-                  backgroundColor: colors.primary,
-                  opacity: v === 0 ? 0.25 : i === weekly.length - 1 ? 1 : 0.55,
-                }}
+                height={Math.max((v / maxVol) * CHART_H, v > 0 ? 4 : 2)}
+                style={{ width: '100%', maxWidth: data.volBars.length <= 8 ? 22 : undefined, borderTopLeftRadius: 3, borderTopRightRadius: 3, backgroundColor: colors.primary, opacity: v === 0 ? 0.25 : i === data.volBars.length - 1 ? 1 : 0.6 }}
               />
             </View>
-          ))}
-        </View>
-        <View style={styles.barLabels}>
-          {weekly.map((v, i) => (
-            <FsText key={i} variant="caption" style={{ flex: 1, textAlign: 'center', fontSize: 9 }}>
-              {v > 0 ? fmtVol(toDisplay(v, unit)) : '—'}
-            </FsText>
           ))}
         </View>
       </Card>
 
       <Card>
         <FsText variant="cardTitle" style={{ marginBottom: space[2] }}>Recent PRs</FsText>
-        {prs.length === 0 ? (
-          <FsText variant="caption">No personal bests logged yet.</FsText>
+        {data.prs.length === 0 ? (
+          <FsText variant="caption">No personal bests in this range.</FsText>
         ) : (
-          prs.map((p, i) => (
+          data.prs.map((p, i) => (
             <View key={i} style={[styles.prRow, i > 0 && styles.divider]}>
               <View style={{ flex: 1 }}>
                 <FsText variant="bodyMedium">{p.name}</FsText>
@@ -187,30 +169,31 @@ export function WorkoutStats() {
   );
 }
 
-function StatCard({ icon: Icon, label, value }: { icon: typeof Dumbbell; label: string; value: string }) {
+function StatCard({ icon: Icon, label, value, suffix, format }: {
+  icon: typeof Dumbbell; label: string; value: number; suffix?: string; format?: (v: number) => string;
+}) {
   return (
     <Card style={styles.statCard}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
         <Icon color={colors.primary} size={14} />
         <FsText variant="overline">{label}</FsText>
       </View>
-      <FsText variant="stat" style={{ marginTop: 6 }}>{value}</FsText>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 6 }}>
+        <AnimatedNumber value={value} variant="stat" format={format} animateOnMount />
+        {suffix ? <FsText variant="caption">{suffix}</FsText> : null}
+      </View>
     </Card>
   );
 }
 
 const styles = themedStyles(() => StyleSheet.create({
   empty: { alignItems: 'center', paddingVertical: space[8], gap: space[2] },
-  emptyIcon: {
-    width: 56, height: 56, borderRadius: radius.lg, backgroundColor: colors.surface,
-    alignItems: 'center', justifyContent: 'center', marginBottom: space[2],
-  },
+  emptyIcon: { width: 56, height: 56, borderRadius: radius.lg, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', marginBottom: space[2] },
   reportsRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], marginBottom: space[3] },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginBottom: space[3] },
   statCard: { width: '48%', flexGrow: 1 },
-  bars: { flexDirection: 'row', alignItems: 'flex-end', height: CHART_H, gap: space[2] },
+  bars: { flexDirection: 'row', alignItems: 'flex-end', height: CHART_H, gap: 2 },
   barCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: '100%' },
-  barLabels: { flexDirection: 'row', marginTop: space[2], gap: space[2] },
   prRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: space[2] },
   divider: { borderTopWidth: 1, borderTopColor: colors.border },
 }));

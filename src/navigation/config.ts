@@ -66,8 +66,8 @@ export const SECTION_TABS: Partial<Record<SectionKey, NavItem[]>> = {
   food: [
     { key: 'today', label: 'Today', icon: Calendar },
     { key: 'recipes', label: 'Recipes', icon: Utensils },
-    { key: 'trends', label: 'Trends', icon: Flame },
     { key: 'search', label: 'Search', icon: Search },
+    { key: 'trends', label: 'Stats', icon: BarChart2 },
   ],
   workout: [
     { key: 'library', label: 'Library', icon: LayoutGrid },
@@ -77,9 +77,9 @@ export const SECTION_TABS: Partial<Record<SectionKey, NavItem[]>> = {
   ],
   health: [
     { key: 'weight', label: 'Weight', icon: Activity },
-    { key: 'trends', label: 'Trends', icon: TrendingUp },
     { key: 'body', label: 'Body', icon: Scale },
     { key: 'measure', label: 'Measure', icon: Ruler },
+    { key: 'trends', label: 'Stats', icon: BarChart2 },
   ],
 };
 

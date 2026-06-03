@@ -52,6 +52,7 @@
         }
       ],
       "./plugins/withoutPushEntitlement",
+      "expo-sharing",
       [
         "expo-splash-screen",
         {

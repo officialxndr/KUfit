@@ -61,3 +61,21 @@ export function estimateBodyFat(
   const bf = (fat / currentWeightKg) * 100;
   return Math.max(3, Math.min(70, bf));
 }
+
+/**
+ * Body-fat % for a single weigh-in, mirroring the Body subview's source priority:
+ * a value measured on the entry itself wins; otherwise estimate from a measured
+ * `baseline` (holding its lean mass constant). Returns null when neither is available
+ * (the caller can then fall back to a Navy tape estimate). `measured` flags which
+ * path was taken so a trend can label itself honestly.
+ */
+export function bodyFatForEntry(
+  entry: { weightKg: number; bodyFat?: number | null },
+  baseline: { weightKg: number; bodyFat?: number | null } | null
+): { bf: number; measured: boolean } | null {
+  if (entry.bodyFat != null) return { bf: entry.bodyFat, measured: true };
+  if (baseline?.bodyFat != null) {
+    return { bf: estimateBodyFat(baseline.weightKg, baseline.bodyFat, entry.weightKg), measured: false };
+  }
+  return null;
+}

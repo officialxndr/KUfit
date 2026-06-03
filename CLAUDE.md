@@ -17,8 +17,10 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   shell owns the scroll/header/bottom bar). Standalone routes/modals stay in `src/app/**`
   (expo-router, file-based).
 - **State**: Zustand in `src/stores/` (`settingsStore` = local user profile; `navStore` = shell
-  section/sub-tab; `routineStore` = workout routines; `serverStore` = optional server;
-  `remindersStore` = per-reminder notification/banner schedules, opt-in).
+  section/sub-tab; `sessionStore`/`templateDraftStore` = active workout / template builder;
+  `routineStore` = workout routines; `serverStore` = optional server; `remindersStore` = per-reminder
+  schedules; `themeStore` = appearance; `refreshStore` = pull-to-refresh signal; `tourStore` = guided
+  feature tour; `devStore` = hidden developer mode).
 - **Data**: `src/lib/db.ts` (SQLite schema, mirrors the server Prisma models with
   `localId`/`serverId`/`syncStatus` for future sync) + `src/lib/repositories/{Food,Health,Workout}Repo.ts`.
   Repos are the only thing that touches the DB. Mutations mark rows `syncStatus='pending'`.
@@ -33,6 +35,14 @@ Assistant automations via the sync layer (`serverStore` is null by default).
 - **Reminders/notifications**: `remindersStore` + `src/lib/reminders.ts` (schedules `expo-notifications`)
   + pure `src/lib/reminderStatus.ts` (Dashboard banner due-logic). Managed in `src/app/reminders.tsx`
   (Settings → Notifications & reminders). Notifications need a dev build; banners work in Expo Go.
+- **Stats / date windows**: Dashboard → Reports and each section's far-right **Stats** tab
+  (`FoodTrends` / `WorkoutStats` / `HealthTrends`) share `src/lib/useDateRange.ts` +
+  `components/DateRangeBar.tsx` (segmented Week/Month/3 Mo/Year + ‹ › paging + custom range + Today) and
+  recompute every metric for the selected window. `FoodRepo.getRangeNutrition` is the shared nutrition aggregate.
+- **Onboarding & tour**: first run → `src/app/onboarding.tsx`; then a skippable **guided feature tour**
+  (`components/FeatureTour.tsx` + `tourStore` + `src/lib/tourSteps.ts`) drives the real screens. Replay from
+  Settings → Help. Hidden **dev tools** (tap the Settings version footer 7× → `devStore`) reveal a
+  demo-data seeder (`src/lib/demoSeed.ts`: Load / Clear) that fills realistic activity for screenshots.
 - **Design**: `src/theme/tokens.ts` + `src/theme/text.ts` (ported from `../FitSelf Design System/colors_and_type.css`).
   Dark-first, one indigo accent (`#6366f1`), flat, lucide icons, no emoji in UI chrome.
 - **UI kit**: `src/components/ui/index.tsx` (Screen, Card, Button, Badge, Chip, FsText, SectionHeader).

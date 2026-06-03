@@ -187,6 +187,11 @@ export class FoodRepo {
     );
   }
 
+  /** Hard-wipe every food log (used by the demo-data tool). Leaves the food library intact. */
+  clearAllLogs(): void {
+    db.runSync(`DELETE FROM food_logs`);
+  }
+
   // ── Favorites ─────────────────────────────────────────────────────────────
   toggleFavorite(localId: string): void {
     db.runSync(
@@ -408,21 +413,27 @@ export class FoodRepo {
    * join for food-item macros, then folds recipe logs in via `getRecipeNutritionMap`
    * — bounded queries regardless of window size. Used by the Dashboard Reports page.
    */
-  getRangeNutrition(from: string, to: string): { days: number; avgCalories: number; avgProtein: number; avgCarbs: number; avgFat: number } {
+  getRangeNutrition(from: string, to: string): { days: number; avgCalories: number; avgProtein: number; avgCarbs: number; avgFat: number; avgFiber: number; avgSugar: number; avgSodium: number; avgSaturatedFat: number } {
+    type Acc = { cal: number; pro: number; carb: number; fat: number; fib: number; sug: number; sod: number; sat: number };
+    const empty = (): Acc => ({ cal: 0, pro: 0, carb: 0, fat: 0, fib: 0, sug: 0, sod: 0, sat: 0 });
     const rows = db.getAllSync(
       `SELECT fl.date,
               COALESCE(SUM(fi.calories * fl.servingQty), 0) AS cal,
               COALESCE(SUM(fi.protein  * fl.servingQty), 0) AS pro,
               COALESCE(SUM(fi.carbs    * fl.servingQty), 0) AS carb,
-              COALESCE(SUM(fi.fat      * fl.servingQty), 0) AS fat
+              COALESCE(SUM(fi.fat      * fl.servingQty), 0) AS fat,
+              COALESCE(SUM(fi.fiber    * fl.servingQty), 0) AS fib,
+              COALESCE(SUM(fi.sugar    * fl.servingQty), 0) AS sug,
+              COALESCE(SUM(fi.sodium   * fl.servingQty), 0) AS sod,
+              COALESCE(SUM(fi.saturatedFat * fl.servingQty), 0) AS sat
        FROM food_logs fl
        LEFT JOIN food_items fi ON fl.foodItemLocalId = fi.localId
        WHERE fl.date >= ? AND fl.date <= ? AND fl.deleted = 0 AND fl.foodItemLocalId IS NOT NULL
        GROUP BY fl.date`,
       [from, to]
     ) as any[];
-    const byDate = new Map<string, { cal: number; pro: number; carb: number; fat: number }>();
-    for (const r of rows) byDate.set(r.date, { cal: r.cal, pro: r.pro, carb: r.carb, fat: r.fat });
+    const byDate = new Map<string, Acc>();
+    for (const r of rows) byDate.set(r.date, { cal: r.cal, pro: r.pro, carb: r.carb, fat: r.fat, fib: r.fib, sug: r.sug, sod: r.sod, sat: r.sat });
 
     const recipeLogs = db.getAllSync(
       `SELECT date, recipeLocalId, servingQty FROM food_logs
@@ -434,20 +445,23 @@ export class FoodRepo {
       for (const rl of recipeLogs) {
         const n = nutri.get(rl.recipeLocalId);
         if (!n) continue;
-        const cur = byDate.get(rl.date) ?? { cal: 0, pro: 0, carb: 0, fat: 0 };
-        cur.cal += n.calories * rl.servingQty;
-        cur.pro += n.protein * rl.servingQty;
-        cur.carb += n.carbs * rl.servingQty;
-        cur.fat += n.fat * rl.servingQty;
+        const cur = byDate.get(rl.date) ?? empty();
+        cur.cal += n.calories * rl.servingQty; cur.pro += n.protein * rl.servingQty;
+        cur.carb += n.carbs * rl.servingQty; cur.fat += n.fat * rl.servingQty;
+        cur.fib += n.fiber * rl.servingQty; cur.sug += n.sugar * rl.servingQty;
+        cur.sod += n.sodium * rl.servingQty; cur.sat += n.saturatedFat * rl.servingQty;
         byDate.set(rl.date, cur);
       }
     }
 
     const days = byDate.size;
-    if (!days) return { days: 0, avgCalories: 0, avgProtein: 0, avgCarbs: 0, avgFat: 0 };
-    let cal = 0, pro = 0, carb = 0, fat = 0;
-    for (const v of byDate.values()) { cal += v.cal; pro += v.pro; carb += v.carb; fat += v.fat; }
-    return { days, avgCalories: cal / days, avgProtein: pro / days, avgCarbs: carb / days, avgFat: fat / days };
+    if (!days) return { days: 0, avgCalories: 0, avgProtein: 0, avgCarbs: 0, avgFat: 0, avgFiber: 0, avgSugar: 0, avgSodium: 0, avgSaturatedFat: 0 };
+    const t = empty();
+    for (const v of byDate.values()) { t.cal += v.cal; t.pro += v.pro; t.carb += v.carb; t.fat += v.fat; t.fib += v.fib; t.sug += v.sug; t.sod += v.sod; t.sat += v.sat; }
+    return {
+      days, avgCalories: t.cal / days, avgProtein: t.pro / days, avgCarbs: t.carb / days, avgFat: t.fat / days,
+      avgFiber: t.fib / days, avgSugar: t.sug / days, avgSodium: t.sod / days, avgSaturatedFat: t.sat / days,
+    };
   }
 
   getDayTotals(date: string): DayNutrients {

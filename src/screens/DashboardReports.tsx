@@ -1,15 +1,15 @@
 import { useCallback, useState } from 'react';
-import { View, StyleSheet, Pressable, Modal } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import {
-  Flame, Dumbbell, Utensils, Trophy, Activity, ChevronRight, ChevronLeft, CalendarCheck, Scale, Target, CalendarClock, CalendarRange,
+  Flame, Dumbbell, Utensils, Trophy, Activity, ChevronRight, CalendarCheck, Scale, Target,
 } from 'lucide-react-native';
 
-import { Card, FsText, Chip, Badge, SectionHeader } from '@/components/ui';
+import { Card, FsText, Badge, SectionHeader } from '@/components/ui';
 import { MacroBars } from '@/components/MacroBar';
 import { LineChart } from '@/components/LineChart';
 import { MuscleMap } from '@/components/MuscleMap';
-import { MonthCalendar } from '@/components/MonthCalendar';
+import { DateRangeBar } from '@/components/DateRangeBar';
 import { AnimatedNumber } from '@/components/anim/AnimatedNumber';
 import { GrowBar } from '@/components/anim/GrowBar';
 import { PressableScale } from '@/components/anim/PressableScale';
@@ -18,6 +18,7 @@ import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { resolveTargets, describePace } from '@/lib/targets';
 import { navyBodyFat, estimateBodyFat } from '@/lib/bodyComposition';
+import { useDateRange } from '@/lib/useDateRange';
 import { formatWeight, formatVolume } from '@/lib/units';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useNavStore } from '@/stores/navStore';
@@ -29,18 +30,6 @@ const DAY_MS = 86_400_000;
 const MAX_TREND_POINTS = 180;
 const isoDate = (d: Date) => d.toISOString().slice(0, 10);
 const parse = (iso: string) => new Date(`${iso}T00:00:00`);
-const addDaysIso = (iso: string, n: number) => isoDate(new Date(parse(iso).getTime() + n * DAY_MS));
-const dayDiff = (a: string, b: string) => Math.round((parse(b).getTime() - parse(a).getTime()) / DAY_MS);
-const addMonths = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth() + n, 1);
-
-type Period = 'week' | 'month' | 'q' | 'year';
-const PERIODS: { key: Period; label: string; days: number }[] = [
-  { key: 'week', label: 'Week', days: 7 },
-  { key: 'month', label: 'Month', days: 30 },
-  { key: 'q', label: '3 Mo', days: 90 },
-  { key: 'year', label: 'Year', days: 365 },
-];
-type CalMode = 'jump' | 'start' | 'end';
 
 interface ReportData {
   loggedDays: number; totalDays: number;
@@ -71,40 +60,26 @@ export function DashboardReports() {
   const profile = useSettingsStore((s) => s.profile);
   const unit = profile.unitSystem;
   const setSection = useNavStore((s) => s.setSection);
-  const todayIso = isoDate(new Date());
-
-  // The window is the source of truth; `periodKey` is just for chip highlight.
-  const [periodKey, setPeriodKey] = useState<Period | 'custom'>('month');
-  const [fromIso, setFromIso] = useState(() => addDaysIso(todayIso, -29));
-  const [endIso, setEndIso] = useState(todayIso);
+  const range = useDateRange('month');
+  const { fromIso, endIso, days, isCurrent, todayIso } = range;
   const [data, setData] = useState<ReportData | null>(null);
-  const [calOpen, setCalOpen] = useState(false);
-  const [calMode, setCalMode] = useState<CalMode>('jump');
-  const [pendingStart, setPendingStart] = useState<string | null>(null);
-  const [calMonth, setCalMonth] = useState(() => new Date());
-
-  const days = dayDiff(fromIso, endIso) + 1;
-  const isCurrent = endIso >= todayIso;
 
   const refresh = useCallback(() => {
-    const from = fromIso;
-    const end = endIso;
-    const span = dayDiff(from, end) + 1;
-    const endMs = parse(end).getTime();
-    const fromMs = parse(from).getTime();
-    const current = end >= todayIso;
+    const endMs = parse(endIso).getTime();
+    const fromMs = parse(fromIso).getTime();
+    const current = endIso >= todayIso;
 
     // ── Nutrition ──
-    const n = foodRepo.getRangeNutrition(from, end);
-    const daily = foodRepo.getDailyCalories(from, end);
+    const n = foodRepo.getRangeNutrition(fromIso, endIso);
+    const daily = foodRepo.getDailyCalories(fromIso, endIso);
     const byDate = new Map(daily.map((r) => [r.date, r.calories]));
     // Bucket the calorie trend so the chart stays bounded for long custom ranges.
-    const buckets = Math.min(span, MAX_TREND_POINTS);
+    const buckets = Math.min(days, MAX_TREND_POINTS);
     const tSum = new Array(buckets).fill(0);
     const tCnt = new Array(buckets).fill(0);
-    for (let i = 0; i < span; i++) {
+    for (let i = 0; i < days; i++) {
       const cal = byDate.get(isoDate(new Date(fromMs + i * DAY_MS))) ?? 0;
-      const b = Math.min(buckets - 1, Math.floor((i / span) * buckets));
+      const b = Math.min(buckets - 1, Math.floor((i / days) * buckets));
       tSum[b] += cal; tCnt[b] += 1;
     }
     const calorieTrend = tSum.map((s, i) => (tCnt[i] ? s / tCnt[i] : 0));
@@ -158,7 +133,7 @@ export function DashboardReports() {
     // ── Streaks + consistency (ending at the window end) ──
     const foodDaysWindow = new Set(daily.filter((r) => r.calories > 0).map((r) => r.date));
     const longFrom = isoDate(new Date(endMs - 90 * DAY_MS));
-    const foodDaysLong = new Set(foodRepo.getDailyCalories(longFrom, end).filter((r) => r.calories > 0).map((r) => r.date));
+    const foodDaysLong = new Set(foodRepo.getDailyCalories(longFrom, endIso).filter((r) => r.calories > 0).map((r) => r.date));
     const workoutDays = new Set(sessions.map((s) => isoDate(new Date(s.startedAt))));
     const foodStreak = streakFrom(foodDaysLong, endMs);
     const workoutStreak = streakFrom(workoutDays, endMs);
@@ -166,9 +141,9 @@ export function DashboardReports() {
     const daysActive = new Set([...foodDaysWindow, ...windowWorkoutDays]).size;
 
     // ── Weight & body composition (as of the window end) ──
-    const entriesUpTo = healthRepo.getWeightEntries('1970-01-01', end); // ascending
+    const entriesUpTo = healthRepo.getWeightEntries('1970-01-01', endIso); // ascending
     const currentEntry = entriesUpTo[entriesUpTo.length - 1] ?? null;
-    const windowEntries = entriesUpTo.filter((e) => e.date >= from);
+    const windowEntries = entriesUpTo.filter((e) => e.date >= fromIso);
     const currentKg = currentEntry?.weightKg ?? null;
     const windowChange = windowEntries.length >= 2 ? windowEntries[windowEntries.length - 1].weightKg - windowEntries[0].weightKg : null;
     const windowAvg = windowEntries.length ? windowEntries.reduce((a, e) => a + e.weightKg, 0) / windowEntries.length : null;
@@ -209,73 +184,22 @@ export function DashboardReports() {
     }
 
     setData({
-      loggedDays: n.days, totalDays: span, avgCalories: n.avgCalories, avgProtein: n.avgProtein,
+      loggedDays: n.days, totalDays: days, avgCalories: n.avgCalories, avgProtein: n.avgProtein,
       avgCarbs: n.avgCarbs, avgFat: n.avgFat, calorieTrend, foodStreak, workoutStreak, workouts,
       totalVolume, burned, prCount, recentPRs, muscleCounts, weeklyVolume, daysActive,
       currentKg, windowAvg, windowChange, goalEta, pace, bf, leanKg, fatKg, bmi, ffmi,
       phase, goalProgress, startKg, goalKg,
     });
-  }, [fromIso, endIso, todayIso, profile.goalWeightKg, profile.goalDate, profile.heightCm, profile.sex, profile.showCoachingNudges, unit]);
+  }, [fromIso, endIso, days, todayIso, profile.goalWeightKg, profile.goalDate, profile.heightCm, profile.sex, profile.showCoachingNudges, unit]);
 
   useFocusEffect(refresh);
   usePullRefresh(refresh);
 
   const targets = resolveTargets(profile);
 
-  // ── Window controls ──
-  const selectPeriod = (p: typeof PERIODS[number]) => { setPeriodKey(p.key); setFromIso(addDaysIso(endIso, -(p.days - 1))); };
-  const jumpToday = () => { setEndIso(todayIso); setFromIso(addDaysIso(todayIso, -(days - 1))); };
-  const goBack = () => { setFromIso(addDaysIso(fromIso, -days)); setEndIso(addDaysIso(endIso, -days)); };
-  const goFwd = () => {
-    let nextEnd = addDaysIso(endIso, days);
-    if (nextEnd > todayIso) nextEnd = todayIso;
-    setEndIso(nextEnd); setFromIso(addDaysIso(nextEnd, -(days - 1)));
-  };
-  const openJump = () => { setCalMode('jump'); setCalMonth(parse(endIso)); setCalOpen(true); };
-  const openCustom = () => { setPendingStart(null); setCalMode('start'); setCalMonth(parse(endIso)); setCalOpen(true); };
-  const onCalSelect = (picked: string) => {
-    const d = picked > todayIso ? todayIso : picked;
-    if (calMode === 'jump') {
-      setEndIso(d); setFromIso(addDaysIso(d, -(days - 1))); setCalOpen(false);
-    } else if (calMode === 'start') {
-      setPendingStart(d); setCalMode('end');
-    } else {
-      const a = pendingStart ?? d;
-      setFromIso(a <= d ? a : d); setEndIso(a <= d ? d : a); setPeriodKey('custom'); setCalOpen(false);
-    }
-  };
-
-  const sameYear = fromIso.slice(0, 4) === endIso.slice(0, 4);
-  const fmtRange = (iso: string) => parse(iso).toLocaleDateString('en-US', sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: '2-digit' });
-  const rangeLabel = `${fmtRange(fromIso)} – ${fmtRange(endIso)}`;
-  const calTitle = calMode === 'start' ? 'Select start date' : calMode === 'end' ? 'Select end date' : 'Jump to date';
-
   return (
     <>
-      {/* Preset windows — a full-width segmented control (equal columns, one line) */}
-      <View style={styles.periodRow}>
-        {PERIODS.map((p) => (
-          <Chip key={p.key} label={p.label} selected={periodKey === p.key} onPress={() => selectPeriod(p)} style={styles.segChip} />
-        ))}
-      </View>
-
-      {/* Navigator: ‹ range ›  + custom-range and jump-to-today buttons */}
-      <View style={styles.navRow}>
-        <Pressable onPress={goBack} hitSlop={8} style={styles.navArrow}><ChevronLeft color={colors.muted} size={20} /></Pressable>
-        <Pressable onPress={openJump} hitSlop={6} style={styles.rangeBtn}>
-          <FsText variant="bodyMedium" numberOfLines={1}>{rangeLabel}</FsText>
-          <FsText variant="caption" style={{ color: periodKey === 'custom' ? colors.primary : colors.muted }}>
-            {periodKey === 'custom' ? `custom · ${days} days` : `${days} days`}
-          </FsText>
-        </Pressable>
-        <Pressable onPress={goFwd} hitSlop={8} disabled={isCurrent} style={[styles.navArrow, isCurrent && { opacity: 0.3 }]}><ChevronRight color={colors.muted} size={20} /></Pressable>
-        <Pressable onPress={openCustom} hitSlop={6} style={[styles.navArrow, periodKey === 'custom' && styles.navArrowOn]} accessibilityLabel="Custom range">
-          <CalendarRange color={periodKey === 'custom' ? colors.white : colors.primary} size={18} />
-        </Pressable>
-        <Pressable onPress={jumpToday} hitSlop={6} disabled={isCurrent} style={[styles.navArrow, isCurrent && { opacity: 0.35 }]} accessibilityLabel="Jump to today">
-          <CalendarClock color={colors.primary} size={18} />
-        </Pressable>
-      </View>
+      <DateRangeBar range={range} />
 
       {!data ? null : (
         <>
@@ -321,7 +245,7 @@ export function DashboardReports() {
             <SectionHeader title="Weight &amp; body" />
             <View style={styles.rowBetween}>
               <View>
-                <FsText variant="caption">{isCurrent ? 'Current' : 'As of ' + fmtRange(endIso)}</FsText>
+                <FsText variant="caption">{isCurrent ? 'Current' : 'As of ' + range.fmt(endIso)}</FsText>
                 {data.currentKg != null
                   ? <AnimatedNumber value={data.currentKg} format={(v) => formatWeight(v, unit)} variant="stat" />
                   : <FsText variant="stat">—</FsText>}
@@ -365,11 +289,11 @@ export function DashboardReports() {
                 Weekly target: {profile.weeklySessionTarget} session{profile.weeklySessionTarget === 1 ? '' : 's'}.
               </FsText>
             )}
-            <FsText variant="caption" style={{ marginBottom: space[3] }}>Volume · 8 weeks to {fmtRange(endIso)}</FsText>
+            <FsText variant="caption" style={{ marginBottom: space[3] }}>Volume · 8 weeks to {range.fmt(endIso)}</FsText>
             <VolumeBars values={data.weeklyVolume} />
             {Object.keys(data.muscleCounts).length > 0 && (
               <View style={{ marginTop: space[4] }}>
-                <FsText variant="caption" style={{ marginBottom: space[2] }}>Muscle balance · {rangeLabel}</FsText>
+                <FsText variant="caption" style={{ marginBottom: space[2] }}>Muscle balance · {range.rangeLabel}</FsText>
                 <MuscleMap counts={data.muscleCounts} target={Math.round(12 * days / 7)} />
               </View>
             )}
@@ -419,32 +343,12 @@ export function DashboardReports() {
 
           {/* Drill-downs */}
           <Card style={styles.detailCard}>
-            <DetailLink icon={Flame} label="Food trends" onPress={() => setSection('food', 'trends')} />
+            <DetailLink icon={Flame} label="Food stats" onPress={() => setSection('food', 'trends')} />
             <DetailLink icon={Dumbbell} label="Workout stats" onPress={() => setSection('workout', 'stats')} />
             <DetailLink icon={Scale} label="Weight &amp; body" onPress={() => setSection('health', 'weight')} />
           </Card>
         </>
       )}
-
-      {/* Date picker — single-tap jump, or two-step custom range */}
-      <Modal visible={calOpen} transparent animationType="fade" onRequestClose={() => setCalOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setCalOpen(false)}>
-          <Pressable style={styles.calCard} onPress={(e) => e.stopPropagation()}>
-            <FsText variant="cardTitle" style={{ marginBottom: space[2] }}>{calTitle}</FsText>
-            {calMode === 'end' && pendingStart && (
-              <FsText variant="caption" style={{ marginBottom: space[2], color: colors.primary }}>From {fmtRange(pendingStart)} — pick the end date</FsText>
-            )}
-            <MonthCalendar
-              month={calMonth}
-              marked={new Set()}
-              selected={calMode === 'end' && pendingStart ? pendingStart : endIso}
-              allowAllDays
-              onMonthChange={(delta) => setCalMonth((m) => addMonths(m, delta))}
-              onSelectDay={onCalSelect}
-            />
-          </Pressable>
-        </Pressable>
-      </Modal>
     </>
   );
 }
@@ -503,12 +407,6 @@ function DetailLink({ icon: Icon, label, onPress }: { icon: typeof Flame; label:
 }
 
 const styles = themedStyles(() => StyleSheet.create({
-  periodRow: { flexDirection: 'row', gap: space[1], marginBottom: space[2] },
-  segChip: { flex: 1, alignItems: 'center', paddingHorizontal: space[2] },
-  navRow: { flexDirection: 'row', alignItems: 'center', gap: space[2], marginBottom: space[3] },
-  navArrow: { width: 38, height: 38, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
-  navArrowOn: { backgroundColor: colors.primary },
-  rangeBtn: { flex: 1, alignItems: 'center' },
   card: { marginBottom: space[3] },
   detailCard: { marginBottom: space[3], paddingVertical: space[2] },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginBottom: space[3] },
@@ -522,6 +420,4 @@ const styles = themedStyles(() => StyleSheet.create({
   divider: { borderTopWidth: 1, borderTopColor: colors.border },
   track: { height: 10, borderRadius: radius.full, backgroundColor: colors.surfaceHigh, overflow: 'hidden', marginTop: space[2] },
   detailRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[3] },
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: space[4] },
-  calCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: space[4] },
 }));

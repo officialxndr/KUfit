@@ -8,6 +8,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { initDb } from '@/lib/db';
 import { seedExercisesIfEmpty } from '@/lib/exerciseSeed';
 import { seedBaseFoodsIfNeeded } from '@/lib/baseFoodsSeed';
+import { recoverTourPreview } from '@/lib/tourPreview';
 import { configureNotifications, syncScheduledNotifications } from '@/lib/reminders';
 import { useRemindersStore } from '@/stores/remindersStore';
 import { useThemeStore } from '@/stores/themeStore';
@@ -27,6 +28,8 @@ export default function RootLayout() {
       initDb();
       seedExercisesIfEmpty();
       seedBaseFoodsIfNeeded();
+      // Undo any tour preview data a force-quit mid-tour may have left behind.
+      recoverTourPreview();
     } catch (e) {
       console.error('startup init failed', e);
     }

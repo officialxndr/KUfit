@@ -39,7 +39,8 @@ import { HealthBody } from '@/screens/HealthBody';
 import { HealthMeasure } from '@/screens/HealthMeasure';
 import { SettingsView } from '@/screens/SettingsView';
 import { GoalsEditorModal } from '@/components/GoalsEditor';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { registerMainScroll } from '@/lib/appScroll';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -61,6 +62,13 @@ export function AppShell() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [goalsOpen, setGoalsOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Expose the main scroll so the feature tour can scroll a section into view.
+  const scrollRef = useRef<ScrollView>(null);
+  useEffect(() => {
+    registerMainScroll((y, animated) => scrollRef.current?.scrollTo({ y, animated }));
+    return () => registerMainScroll(null);
+  }, []);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -161,6 +169,7 @@ export function AppShell() {
       />
 
       <ScrollView
+        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"

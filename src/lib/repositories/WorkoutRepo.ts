@@ -349,6 +349,32 @@ export class WorkoutRepo {
     db.runSync(`DELETE FROM workout_sessions WHERE localId = ?`, [localId]);
   }
 
+  /** Seed a fully-formed past session (demo data). Inserts with an explicit
+   *  `startedAt`, then reuses `finishSession` for the exercises/sets + volume. */
+  seedFinishedSession(opts: {
+    name: string;
+    startedAt: string;
+    finishedAt: string;
+    caloriesBurned?: number | null;
+    exercises: Parameters<WorkoutRepo['finishSession']>[1];
+  }): string {
+    const localId = Crypto.randomUUID();
+    db.runSync(
+      `INSERT INTO workout_sessions (localId, name, startedAt, syncStatus, updatedAt)
+       VALUES (?, ?, ?, 'pending', ?)`,
+      [localId, opts.name, opts.startedAt, new Date().toISOString()]
+    );
+    this.finishSession(localId, opts.exercises, opts.finishedAt, opts.caloriesBurned ?? null);
+    return localId;
+  }
+
+  /** Wipe every logged session (+ its exercises/sets). Used by the demo-data tool. */
+  clearAllSessions(): void {
+    db.runSync(`DELETE FROM exercise_sets`);
+    db.runSync(`DELETE FROM session_exercises`);
+    db.runSync(`DELETE FROM workout_sessions`);
+  }
+
   /** Delete a session and all of its exercises/sets (used from history). */
   deleteSession(localId: string): void {
     const ses = db.getAllSync(

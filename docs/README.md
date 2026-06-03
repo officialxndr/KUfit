@@ -9,6 +9,8 @@ self-hosted server can be added later for backup and Home Assistant automations.
 - **README.md** (this file) — overview, setup, running, seeding, building.
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)** — how the app is wired: data layer, stores, routing, theming, the two ported features (Open Food Facts search, ExerciseDB media).
 - **[ROADMAP.md](./ROADMAP.md)** — what's built vs. what's still planned. Keep this current.
+- **[LAUNCH.md](./LAUNCH.md)** — go-to-market reference: App Store/Play deployment, pre-submission checklist, marketing, listing copy, store analytics, and the donation setup.
+- **[PRIVACY.md](./PRIVACY.md)** — the privacy policy (host this at a public URL for App Store / Play review).
 
 > **Keeping docs current:** after a change is made and reviewed/accepted, update the relevant
 > doc here (and `../CLAUDE.md` if conventions change) before moving on. This is also stated in
@@ -20,8 +22,10 @@ self-hosted server can be added later for backup and Home Assistant automations.
 - **Local-first data layer**: SQLite (`src/lib/db.ts`) + repositories. Schema mirrors the server's
   Prisma models (`localId`/`serverId`/`syncStatus`) so a future sync stays 1:1.
 - **Food**: per-day log (date nav) with calorie ring + macro bars; Open Food Facts search; barcode
-  scanning; custom foods; tap-to-edit servings; a bundled **base-ingredient database** (~95 common
-  whole foods, offline); **recipes** (builder + log serving); calorie **trends** (7/30/90d); nutrition **goals**.
+  scanning; **on-device nutrition-label OCR** (snap a label to auto-fill a food); custom foods;
+  tap-to-edit servings; a bundled **base-ingredient database** (~95 common whole foods with full
+  OFF-style detail, offline); **recipes** (builder + log serving); a date-range **Stats** tab
+  (calorie/macro/nutrient trends over Week/Month/3 Mo/Year or any custom range); nutrition **goals**.
 - **Exercises**: open-source ExerciseDB catalog (~440 unique) bundled + imported on first launch;
   grouped/searchable library; **create custom exercises**; detail with animated GIF demos cached for offline.
 - **Workouts**: routines (create/edit/default + auto-rotation), templates (reorderable builder with
@@ -29,19 +33,27 @@ self-hosted server can be added later for backup and Home Assistant automations.
   rest timers, set-complete animation + auto-scroll to the active set, per-exercise notes, custom numpad),
   **supersets** (with a ≥2-member integrity rule), **post-workout summary** (liquid-wave animation),
   history + calendar, and a **Stats** page (volume — counting two-arm **dumbbell work ×2** — PRs,
-  per-exercise reports + compare, muscle heatmap).
+  per-exercise reports + compare, muscle heatmap) — now driven by the shared **date-range** selector.
 - **Health**: weight logging + trend chart + pace guidance with **MET activity suggestions**; body
   composition (BF%/lean/fat/BMI/FFMI) with **body-fat estimation** (lean-mass-from-DEXA-baseline **and**
   the **U.S. Navy tape method**); measurements — incl. a **Renpho smart tape measure (Bluetooth)** flow
   with a body-diagram guide; weight **goals** + **goal phases/cycles**; TDEE.
-- **Settings**: units, full profile, **profile picture** (photo library), offline-demo download,
-  **server backup** (connection test), **Health integration** (Apple Health / Health Connect seam).
-- **Consistent UX**: swipe-left-to-delete with confirmation on user logs; haptics throughout.
-- **Dashboard**: Overview (ring, macros, weekly chart, weight + ETA, pace alert, recent workouts) +
-  a **Goals** master list grouped by section.
+- **Settings**: units, full profile, **profile picture**; **appearance themes** (charcoal/slate/mocha/
+  light + custom accent); **reminders** (per-reminder schedules → local notifications + dashboard banners);
+  **motion** toggles; **Help → replay the guided tour**; offline-demo download; **server backup**
+  (connection test); **Health integration** (Apple Health / Health Connect seam). A hidden **dev menu**
+  (tap the version footer 7×) seeds realistic demo data for screenshots.
+- **Dashboard**: Overview (ring, macros, weekly chart, weight + ETA, pace alert, recent workouts) + a
+  cross-domain **Reports** digest (Nutrition / Training / Weight & body / Goals over any date range). The
+  goal editor opens from the header gear on every section.
+- **Motion & onboarding**: app-wide animation (screen transitions, count-up numbers, animated rings/charts,
+  press feedback, confetti on PRs/goal-weight) — all behind the OS Reduce-Motion setting + a Settings
+  toggle. First-run **onboarding wizard** plus a skippable **guided feature tour** that walks the real
+  screens.
+- **Consistent UX**: swipe-left-to-delete with confirmation on user logs; pull-to-refresh; haptics throughout.
 
-See **[ROADMAP.md](./ROADMAP.md)** for what's intentionally not built yet (runtime dark/light theme,
-the full server-sync engine, native Health activation, Home Assistant add-on).
+See **[ROADMAP.md](./ROADMAP.md)** for what's intentionally not built yet (on-device verification of
+Health & the Renpho tape, the full server-sync engine, the Home Assistant add-on, native home-screen widgets).
 
 ## Prerequisites
 - Node 20+ (developed on Node 26), npm.

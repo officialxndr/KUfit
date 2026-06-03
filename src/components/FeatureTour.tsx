@@ -6,9 +6,10 @@ import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
 import { FsText, Button } from '@/components/ui';
 import { useTourStore } from '@/stores/tourStore';
 import { useNavStore } from '@/stores/navStore';
+import { scrollMainTo } from '@/lib/appScroll';
 import { TOUR_STEPS } from '@/lib/tourSteps';
 import { useMotion } from '@/lib/useMotion';
-import { DURATION } from '@/theme/motion';
+import { DURATION, EASE } from '@/theme/motion';
 import { haptic } from '@/lib/haptics';
 import { colors, radius, space, shadow, themedStyles } from '@/theme/tokens';
 
@@ -27,11 +28,16 @@ export function FeatureTour() {
   const insets = useSafeAreaInsets();
   const { animate } = useMotion();
 
-  // Drive the shell to the step's screen.
+  // Drive the shell to the step's screen, then scroll it into view.
   useEffect(() => {
     if (!active) return;
     const s = TOUR_STEPS[step];
     useNavStore.getState().setSection(s.section, s.subTab ?? null);
+    // Reset to top immediately, then scroll to the step's target once the new
+    // screen has mounted/laid out.
+    scrollMainTo(0, false);
+    const t = setTimeout(() => scrollMainTo(s.scroll ?? 0, true), 280);
+    return () => clearTimeout(t);
   }, [active, step]);
 
   if (!active) return null;
@@ -50,7 +56,7 @@ export function FeatureTour() {
       <Pressable style={StyleSheet.absoluteFill} onPress={() => {}} />
 
       <View style={[styles.cardWrap, { bottom: insets.bottom + 70 }]} pointerEvents="box-none">
-        <Animated.View entering={animate ? SlideInDown.springify().damping(18) : undefined} style={styles.card}>
+        <Animated.View entering={animate ? SlideInDown.duration(DURATION.base).easing(EASE.standard) : undefined} style={styles.card}>
           <Animated.View key={step} entering={animate ? FadeIn.duration(DURATION.base) : undefined}>
             <View style={styles.iconWrap}><Icon color={colors.primary} size={22} /></View>
             <FsText variant="h2" style={{ marginTop: space[3] }}>{s.title}</FsText>

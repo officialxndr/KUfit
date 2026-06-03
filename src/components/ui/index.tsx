@@ -49,7 +49,10 @@ export const Card = React.forwardRef<View, {
   children: React.ReactNode;
   style?: ViewStyle;
   outlined?: boolean;
-}>(function Card({ children, style, outlined = false }, ref) {
+  /** When true, the card renders nothing (used by Settings search to filter sections). */
+  hidden?: boolean;
+}>(function Card({ children, style, outlined = false, hidden = false }, ref) {
+  if (hidden) return null;
   return <View ref={ref} style={[styles.card, outlined && styles.cardOutlined, style]}>{children}</View>;
 });
 

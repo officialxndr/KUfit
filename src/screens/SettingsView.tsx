@@ -1,11 +1,17 @@
 import { useState } from 'react';
 import { View, TextInput, StyleSheet, Pressable, Alert, Switch, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 
 import { Image } from 'react-native';
-import { UserCircle, Camera } from 'lucide-react-native';
+import { UserCircle, Camera, Heart, Search, X } from 'lucide-react-native';
+import Constants from 'expo-constants';
 import { Card, FsText, SectionHeader, Chip, Button } from '@/components/ui';
-import { Confetti } from '@/components/anim/Confetti';
+import { SwipeToConfirm } from '@/components/SwipeToConfirm';
+import { useDevStore } from '@/stores/devStore';
+import { useRefreshStore } from '@/stores/refreshStore';
+import { loadDemoData, clearLoggedData } from '@/lib/demoSeed';
+import { writeAndShareBackup, importFromUri, wipeAllData } from '@/lib/backup';
 import { pickAvatar } from '@/lib/avatar';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -21,6 +27,32 @@ import { downloadAllMedia } from '@/lib/exerciseMedia';
 import { colors, radius, space, themedStyles, SURFACE_PRESETS, ACCENT_PRESETS } from '@/theme/tokens';
 import { useThemeStore } from '@/stores/themeStore';
 import type { ActiveCalorieSource, ActivityLevel, Sex, UnitSystem } from '@/types';
+
+// Donation link — opens in the browser (no in-app payment, to stay within Apple's
+// rules; external donations are 0% on Android and exempt from Apple's IAP cut).
+// TODO: replace with your real GitHub Sponsors / Ko-fi / Stripe link before launch.
+const SUPPORT_URL = 'https://github.com/sponsors/your-handle';
+
+// Searchable keywords per Settings section — synonyms a user might type, so the search
+// matches intent ("dark" → Appearance, "backup" → Data, "calorie" → Health) not just titles.
+const T = {
+  units: 'units metric imperial kg lbs pounds cm centimeters measurement system',
+  appearance: 'appearance theme dark light mode colour color accent scheme display',
+  profile: 'profile name height birth date birthday age sex gender avatar photo picture',
+  activity: 'activity level sedentary light moderate active very tdee maintenance',
+  goals: 'goals goal weight target calorie calories macro macros protein carbs fat phase',
+  tools: 'tools tdee calculator',
+  help: 'help tour guide guided walkthrough onboarding tutorial intro',
+  support: 'support fitself donate donation contribute tip sponsor give back',
+  data: 'data backup export import restore merge replace wipe delete erase reset',
+  offline: 'offline download demos gifs exercise media cache',
+  health: 'health apple healthkit health connect steps active calories watch import weight',
+  coaching: 'coaching reminders nudges prompts workout summary recap warnings',
+  motion: 'motion animation animations confetti celebration reduce transitions',
+  notifications: 'notifications reminders alerts schedule notify food weight measurement',
+  server: 'server backup sync self hosted url token connection',
+  developer: 'developer dev demo data sample seed debug',
+} as const;
 
 const SEXES: Sex[] = ['MALE', 'FEMALE', 'OTHER'];
 const ACTIVITIES: ActivityLevel[] = ['SEDENTARY', 'LIGHT', 'MODERATE', 'ACTIVE', 'VERY_ACTIVE'];
@@ -70,7 +102,104 @@ export function SettingsView() {
   const setSection = useNavStore((s) => s.setSection);
   const router = useRouter();
   const unit = profile.unitSystem;
-  const [previewBurst, setPreviewBurst] = useState(false); // TEMP: confetti preview
+
+  // Hidden developer tools — only in development builds, so the shipped App Store
+  // build never exposes them. Tap the version footer 7× to unlock the demo-data card.
+  const devMode = useDevStore((s) => s.devMode);
+  const setDevMode = useDevStore((s) => s.setDevMode);
+
+  // ── Settings search — filters which section cards render ──
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+  const show = (terms: string) => q === '' || terms.includes(q);
+  const [versionTaps, setVersionTaps] = useState(0);
+  const [seeding, setSeeding] = useState(false);
+  const appVersion = Constants.expoConfig?.version ?? '1.0.0';
+  const devUnlocked = __DEV__ && devMode;
+
+  // Whether any visible section matches the query (developer card only counts if unlocked).
+  const noResults = q !== '' && ![
+    T.units, T.appearance, T.profile, T.activity, T.goals, T.tools, T.help, T.support,
+    T.data, T.offline, T.health, T.coaching, T.motion, T.notifications, T.server,
+    ...(devUnlocked ? [T.developer] : []),
+  ].some(show);
+
+  const tapVersion = () => {
+    if (!__DEV__ || devMode) return;
+    const n = versionTaps + 1;
+    setVersionTaps(n);
+    if (n >= 7) {
+      setVersionTaps(0);
+      setDevMode(true);
+      Alert.alert('Developer tools', 'Demo-data tools are now available at the bottom of Settings.');
+    }
+  };
+
+  const openSupport = () => { WebBrowser.openBrowserAsync(SUPPORT_URL).catch(() => {}); };
+
+  // ── Data backup / restore / wipe ──
+  const [busy, setBusy] = useState(false);
+  const [wipeOpen, setWipeOpen] = useState(false);
+  const [wipeAck, setWipeAck] = useState(false);
+
+  const onExport = () => { writeAndShareBackup().catch((e) => Alert.alert('Export', `Couldn't export: ${String(e)}`)); };
+
+  const runImport = async (uri: string, mode: 'replace' | 'merge') => {
+    setBusy(true);
+    try {
+      await importFromUri(uri, mode);
+      useRefreshStore.getState().bump();
+      Alert.alert('Import complete', mode === 'replace' ? 'Your backup was restored.' : 'Records were merged into your data.');
+    } catch (e) {
+      Alert.alert('Import failed', String(e));
+    } finally { setBusy(false); }
+  };
+
+  const onImport = async () => {
+    let DocumentPicker: typeof import('expo-document-picker');
+    try { DocumentPicker = await import('expo-document-picker'); }
+    catch { Alert.alert('Import', 'Backup import needs a dev build of the app — rebuild and try again.'); return; }
+    try {
+      const res = await DocumentPicker.getDocumentAsync({ type: ['application/json', 'public.json', '*/*'], copyToCacheDirectory: true });
+      if (res.canceled || !res.assets?.[0]) return;
+      const uri = res.assets[0].uri;
+      Alert.alert('Import data', 'How should this backup be applied?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Merge (add records)', onPress: () => runImport(uri, 'merge') },
+        {
+          text: 'Replace all', style: 'destructive',
+          onPress: () => Alert.alert('Replace everything?', 'This deletes your current data and restores the backup. This cannot be undone.', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Replace', style: 'destructive', onPress: () => runImport(uri, 'replace') },
+          ]),
+        },
+      ]);
+    } catch (e) {
+      Alert.alert('Import', `Couldn't read that file: ${String(e)}`);
+    }
+  };
+
+  const onWipe = () => {
+    setWipeOpen(false);
+    setWipeAck(false);
+    try { wipeAllData(); router.replace('/onboarding'); }
+    catch (e) { Alert.alert('Wipe', String(e)); }
+  };
+
+  const runSeed = (fn: () => void, doneMsg: string) => {
+    setSeeding(true);
+    // Defer so the loading state paints before the synchronous SQLite work runs.
+    setTimeout(() => {
+      try { fn(); Alert.alert('Demo data', doneMsg); }
+      catch (e) { Alert.alert('Demo data', `Something went wrong: ${String(e)}`); }
+      finally { setSeeding(false); }
+    }, 60);
+  };
+  const onLoadDemo = () => runSeed(loadDemoData, 'Sample data loaded across food, workouts, weight and measurements.');
+  const onClearDemo = () => Alert.alert('Clear logged data?', 'Removes all food logs, workouts, weigh-ins and measurements. Your profile, goals and theme are kept.', [
+    { text: 'Cancel', style: 'cancel' },
+    { text: 'Clear', style: 'destructive', onPress: () => runSeed(clearLoggedData, 'Logged data cleared.') },
+  ]);
 
   const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState('');
@@ -148,7 +277,31 @@ export function SettingsView() {
 
   return (
     <>
-      <Card style={{ marginBottom: space[3] }}>
+      <View style={styles.searchRow}>
+        <Search color={colors.muted} size={18} />
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search settings"
+          placeholderTextColor={colors.muted}
+          autoCapitalize="none"
+          autoCorrect={false}
+          style={styles.searchInput}
+        />
+        {query !== '' && (
+          <Pressable onPress={() => setQuery('')} hitSlop={8}>
+            <X color={colors.muted} size={18} />
+          </Pressable>
+        )}
+      </View>
+
+      {noResults && (
+        <Card style={{ marginBottom: space[3] }}>
+          <FsText variant="caption">No settings match “{query.trim()}”.</FsText>
+        </Card>
+      )}
+
+      <Card hidden={!show(T.units)} style={{ marginBottom: space[3] }}>
         <SectionHeader title="Units" />
         <View style={{ flexDirection: 'row', gap: space[2] }}>
           <Chip label="Metric (kg, cm)" selected={unit === 'METRIC'} onPress={() => switchUnit('METRIC')} />
@@ -156,9 +309,9 @@ export function SettingsView() {
         </View>
       </Card>
 
-      <Appearance />
+      <Appearance hidden={!show(T.appearance)} />
 
-      <Card style={{ marginBottom: space[3] }}>
+      <Card hidden={!show(T.profile)} style={{ marginBottom: space[3] }}>
         <SectionHeader title="Profile" />
         <Pressable onPress={changeAvatar} style={styles.avatarRow}>
           {profile.avatarUri ? (
@@ -199,7 +352,7 @@ export function SettingsView() {
         </View>
       </Card>
 
-      <Card style={{ marginBottom: space[3] }}>
+      <Card hidden={!show(T.activity)} style={{ marginBottom: space[3] }}>
         <SectionHeader title="Activity Level" />
         <View style={{ gap: space[2] }}>
           {ACTIVITIES.map((a) => (
@@ -217,7 +370,7 @@ export function SettingsView() {
         </View>
       </Card>
 
-      <Card style={{ marginBottom: space[3] }}>
+      <Card hidden={!show(T.goals)} style={{ marginBottom: space[3] }}>
         <SectionHeader title="Goals" />
         <FsText variant="caption" style={{ marginBottom: space[3] }}>
           Your weight goal, calorie & macro targets, training and nutrient goals all live in one place
@@ -226,12 +379,12 @@ export function SettingsView() {
         <Button title="Edit goals" variant="ghost" onPress={() => setSection('dashboard', 'goals')} />
       </Card>
 
-      <Card style={{ marginBottom: space[3] }}>
+      <Card hidden={!show(T.tools)} style={{ marginBottom: space[3] }}>
         <SectionHeader title="Tools" />
         <Button title="Open TDEE Calculator" variant="ghost" onPress={() => router.push('/tdee')} />
       </Card>
 
-      <Card style={{ marginBottom: space[3] }}>
+      <Card hidden={!show(T.help)} style={{ marginBottom: space[3] }}>
         <SectionHeader title="Help" />
         <FsText variant="caption" style={{ marginBottom: space[3] }}>
           New here, or want a refresher? Take a quick guided tour of the app's features.
@@ -239,7 +392,30 @@ export function SettingsView() {
         <Button title="Take the app tour" variant="ghost" onPress={() => useTourStore.getState().start()} />
       </Card>
 
-      <Card style={{ marginBottom: space[3] }}>
+      <Card hidden={!show(T.support)} style={{ marginBottom: space[3] }}>
+        <SectionHeader title="Support FitSelf" />
+        <FsText variant="caption" style={{ marginBottom: space[3] }}>
+          FitSelf is free with no ads, no account, and nothing locked behind a paywall. If it helps you,
+          an optional donation keeps it free for everyone and covers the developer costs — never required.
+        </FsText>
+        <Pressable onPress={openSupport} style={styles.supportBtn}>
+          <Heart color={colors.white} size={18} />
+          <FsText variant="bodyMedium" style={{ color: colors.white, fontWeight: '600' }}>Donate / support development</FsText>
+        </Pressable>
+      </Card>
+
+      <Card hidden={!show(T.data)} style={{ marginBottom: space[3] }}>
+        <SectionHeader title="Data &amp; backup" />
+        <FsText variant="caption" style={{ marginBottom: space[3] }}>
+          Your data lives only on this device. Export a backup file you can keep anywhere, then import it to
+          restore or merge — on this device or a new one.
+        </FsText>
+        <Button title="Export data" onPress={onExport} disabled={busy} />
+        <Button title={busy ? 'Working…' : 'Import data'} variant="ghost" onPress={onImport} loading={busy} disabled={busy} style={{ marginTop: space[2] }} />
+        <Button title="Wipe all data" variant="ghost" onPress={() => { setWipeAck(false); setWipeOpen(true); }} disabled={busy} style={{ marginTop: space[2] }} />
+      </Card>
+
+      <Card hidden={!show(T.offline)} style={{ marginBottom: space[3] }}>
         <SectionHeader title="Offline" />
         <FsText variant="caption" style={{ marginBottom: space[3] }}>
           Download all exercise demo GIFs to this device so the library works without internet.
@@ -252,7 +428,7 @@ export function SettingsView() {
         />
       </Card>
 
-      <Card style={{ marginBottom: space[3] }}>
+      <Card hidden={!show(T.health)} style={{ marginBottom: space[3] }}>
         <SectionHeader title={`Health · ${healthPlatformLabel}`} />
         <FsText variant="caption" style={{ marginBottom: space[3] }}>
           Import weight and steps from {healthPlatformLabel}. Activates in a native build with the
@@ -279,7 +455,7 @@ export function SettingsView() {
         </View>
       </Card>
 
-      <Card style={{ marginBottom: space[3] }}>
+      <Card hidden={!show(T.coaching)} style={{ marginBottom: space[3] }}>
         <SectionHeader title="Coaching &amp; reminders" />
         <View style={styles.toggleRow}>
           <View style={{ flex: 1, marginRight: space[3] }}>
@@ -305,7 +481,7 @@ export function SettingsView() {
         </View>
       </Card>
 
-      <Card style={{ marginBottom: space[3] }}>
+      <Card hidden={!show(T.motion)} style={{ marginBottom: space[3] }}>
         <SectionHeader title="Motion" />
         <View style={styles.toggleRow}>
           <View style={{ flex: 1, marginRight: space[3] }}>
@@ -329,11 +505,9 @@ export function SettingsView() {
             trackColor={{ true: colors.primary, false: colors.border }}
           />
         </View>
-        {/* TEMP: preview the celebration confetti on demand. */}
-        <Button title="Preview confetti" variant="ghost" onPress={() => setPreviewBurst(true)} style={{ marginTop: space[3] }} />
       </Card>
 
-      <Card style={{ marginBottom: space[3] }}>
+      <Card hidden={!show(T.notifications)} style={{ marginBottom: space[3] }}>
         <SectionHeader title="Notifications &amp; reminders" />
         <FsText variant="caption" style={{ marginBottom: space[3] }}>
           Reminders to measure your body, log your weight or food, and train — each with its own
@@ -342,7 +516,7 @@ export function SettingsView() {
         <Button title="Manage reminders" variant="ghost" onPress={() => router.push('/reminders')} />
       </Card>
 
-      <Card style={{ marginBottom: space[3] }}>
+      <Card hidden={!show(T.server)} style={{ marginBottom: space[3] }}>
         <SectionHeader title="Server backup &amp; sync" />
         <FsText variant="caption" style={{ marginBottom: space[3] }}>
           Optional. Point at your self-hosted FitSelf server to test a connection. The app stays
@@ -356,9 +530,46 @@ export function SettingsView() {
         )}
       </Card>
 
-      {/* TEMP: full-screen confetti preview overlay (always plays, ignores the toggle). */}
-      <Modal visible={previewBurst} transparent animationType="none" statusBarTranslucent>
-        <Confetti onDone={() => setPreviewBurst(false)} />
+      {devUnlocked && show(T.developer) && (
+        <Card style={{ marginBottom: space[3] }}>
+          <SectionHeader title="Developer" />
+          <FsText variant="caption" style={{ marginBottom: space[3] }}>
+            Demo data for screenshots & the feature tour. Loading replaces any logged data with ~10 weeks of realistic sample activity.
+          </FsText>
+          <Button title={seeding ? 'Working…' : 'Load sample data'} onPress={onLoadDemo} loading={seeding} disabled={seeding} />
+          <Button title="Clear logged data" variant="ghost" onPress={onClearDemo} disabled={seeding} style={{ marginTop: space[2] }} />
+          <Button title="Turn off developer tools" variant="ghost" onPress={() => setDevMode(false)} disabled={seeding} style={{ marginTop: space[2] }} />
+        </Card>
+      )}
+
+      {q === '' && (
+        <Pressable onPress={tapVersion} style={{ alignItems: 'center', paddingVertical: space[4] }}>
+          <FsText variant="caption" style={{ color: colors.muted }}>FitSelf v{appVersion}</FsText>
+        </Pressable>
+      )}
+
+      {/* Wipe-all confirm: acknowledge toggle + slide-to-confirm so it can't be accidental. */}
+      <Modal visible={wipeOpen} transparent animationType="fade" onRequestClose={() => setWipeOpen(false)}>
+        <View style={styles.wipeBackdrop}>
+          <Card style={styles.wipeCard}>
+            <SectionHeader title="Wipe all data" />
+            <FsText variant="caption" style={{ marginBottom: space[4] }}>
+              This permanently deletes all your food logs, workouts, weigh-ins, measurements, recipes, goals
+              and profile, and returns the app to first-run setup. This cannot be undone — export a backup
+              first if you want to keep it.
+            </FsText>
+            <View style={styles.toggleRow}>
+              <View style={{ flex: 1, marginRight: space[3] }}>
+                <FsText variant="bodyMedium">I understand this is permanent</FsText>
+              </View>
+              <Switch value={wipeAck} onValueChange={setWipeAck} trackColor={{ true: colors.danger, false: colors.border }} />
+            </View>
+            <View style={{ marginTop: space[4] }}>
+              <SwipeToConfirm label="Slide to wipe everything" disabled={!wipeAck} onConfirm={onWipe} />
+            </View>
+            <Button title="Cancel" variant="ghost" onPress={() => setWipeOpen(false)} style={{ marginTop: space[3] }} />
+          </Card>
+        </View>
       </Modal>
     </>
   );
@@ -367,7 +578,7 @@ export function SettingsView() {
 const HEX_RE = /^#?[0-9a-fA-F]{6}$/;
 
 /** Theme picker: surface preset + accent (presets or a custom hex). Applies live. */
-function Appearance() {
+function Appearance({ hidden }: { hidden?: boolean }) {
   const preset = useThemeStore((s) => s.preset);
   const accent = useThemeStore((s) => s.accent);
   const setPreset = useThemeStore((s) => s.setPreset);
@@ -377,7 +588,7 @@ function Appearance() {
   const applyHex = () => { if (hexValid) setAccent(hex.startsWith('#') ? hex.toLowerCase() : `#${hex.toLowerCase()}`); };
 
   return (
-    <Card style={{ marginBottom: space[3] }}>
+    <Card hidden={hidden} style={{ marginBottom: space[3] }}>
       <SectionHeader title="Appearance" />
       <FsText variant="caption" style={{ marginBottom: space[2] }}>Theme</FsText>
       <View style={styles.themeRow}>
@@ -427,6 +638,18 @@ function Appearance() {
 }
 
 const styles = themedStyles(() => StyleSheet.create({
+  searchRow: {
+    flexDirection: 'row', alignItems: 'center', gap: space[2],
+    backgroundColor: colors.surfaceHigh, borderRadius: radius.md,
+    paddingHorizontal: 14, marginBottom: space[3],
+  },
+  searchInput: { flex: 1, color: colors.text, paddingVertical: 12, fontSize: 15 },
+  supportBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space[2],
+    backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 13,
+  },
+  wipeBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: space[4] },
+  wipeCard: { borderWidth: 1, borderColor: colors.danger },
   toggleRow: { flexDirection: 'row', alignItems: 'center', marginTop: space[3] },
   sourceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
   themeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
