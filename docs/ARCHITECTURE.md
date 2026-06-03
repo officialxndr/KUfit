@@ -114,11 +114,23 @@ to the shell.
   `getExerciseSessionHistory`, `mapSession`) so **past sessions recompute correctly** too; 1RM/top-weight
   stay per-hand. Overridable per exercise on the detail screen (`WorkoutRepo.setExercisePerSide`).
 - `lib/renphoTape.ts` — **Renpho RF-BMF01 smart tape measure** (BLE) integration via `react-native-ble-plx`.
-  `useRenphoTape()` hook: requests permissions → scans for `ES_TAPE` → connects → subscribes to the notify
-  characteristic, exposing `{ status, reading, error, start, stop }`. `parseTapePacket` decodes the
-  reverse-engineered ASCII frame (service `0783B03E-…-CB7`, char `…CB8`: `x[1..4]` low-nibble digits ÷10 =
-  cm, `x[17]&1` = tape's confirm button, `x[18]` = unit). Needs a **dev build + a physical device**
-  (no Bluetooth on emulators/simulators).
+  `useRenphoTape()` hook exposes `{ status, reading, error, start, stop }` and is **continuous**: it scans
+  the whole time the screen is open and **auto-reconnects** — the tape powers itself off when idle, so on
+  disconnect it simply resumes scanning and re-links the moment it's switched back on. Everything is driven
+  by a **BLE power-state listener** (`onStateChange(…, true)`): the *only* hard error (`status='error'`) is
+  the phone's Bluetooth being off, which **auto-recovers** when it's turned back on; a missing tape is not
+  an error, just "scanning" + an on-screen prompt to ready the tape. A `closingRef` guards the device's
+  `onDisconnected` so an intentional stop/unmount doesn't trigger a phantom rescan.
+  - **Device match:** the tape advertises its name as **`ES-Tape`** (and `serviceUUIDs` is null in the
+    advert), so matching is by **name, normalised** (`normalizeName` strips case + non-alphanumerics, so
+    `ES_TAPE`/`ES-Tape`/`es tape` all match) — an exact `=== 'ES_TAPE'` compare silently failed.
+  - **`parseTapePacket`** decodes the reverse-engineered ASCII frame (service `0783B03E-…-CB7`, char `…CB8`),
+    e.g. `*03140;00000;0000PI`: `x[1..5]` low-nibble digits are **hundredths of a cm** (`÷100`, e.g. `03140`
+    → 31.40 cm); `x[17]&1` = tape's confirm button. **The tape always transmits cm**, even when its own
+    display is in inches — `x[18]` (`'M'`/`'I'`) is the *display* mode only and must **not** trigger a unit
+    conversion (an earlier `×2.54` on `'I'` double-converted every reading by 2.54×). Display conversion to
+    the user's units happens at the view edge as usual.
+  - Needs a **dev build + a physical device** (no Bluetooth on emulators/simulators).
 - `lib/activities.ts` — MET table plus `caloriesBurnedFromDuration(min, kg, met=STRENGTH_MET)`, the
   no-watch fallback estimate for workout calories.
 
@@ -154,13 +166,25 @@ to the shell.
   a `FoodDetails` blob and scaled by the chosen servings.
 - `components/TapeMeasureView.tsx` — the **Renpho tape** measuring UI (swapped in from `measurements.tsx`
   via a mode toggle). Back button, a live **connection indicator** (dot/label from `useRenphoTape().status`),
-  a big bold **live reading** in the user's unit, body-part selector chips (selected = indigo; measured =
-  green ✓), the `BodyDiagram` guide, a **Save** button (persists via `HealthRepo.upsertMeasurementSite`
-  into one daily snapshot, then auto-advances to the next unmeasured site), and a "This session" list with
-  green dots for measured parts.
-- `components/BodyDiagram.tsx` — a stylised front-facing SVG figure (`react-native-svg`) that draws a
-  **dashed indicator around the body part being measured** (so waist vs. hips is unambiguous), driven by
-  a `site` prop.
+  a big bold **live reading** (2 decimals) in the user's unit, body-part selector chips (selected = indigo;
+  measured = green ✓), the `BodyDiagram` guide, a **Save** button (persists via
+  `HealthRepo.upsertMeasurementSite` into one daily snapshot, then auto-advances to the next unmeasured
+  site), and a "This session" list with green dots for measured parts. Connection UX matches the
+  **continuous-scan** hook: while not connected it shows a *"turn your tape on and pull it out — it'll
+  connect automatically"* prompt (no manual connect button); the only error path is **Bluetooth off**,
+  which shows the message + a **Try again** button and auto-recovers when BT returns.
+- `components/BodyDiagram.tsx` — front-facing **body guide** for the tape flow: a smooth, **flat-shaded
+  silhouette** (no muscle detail) with a crisp indigo **front arc** marking exactly where the tape wraps for
+  the selected `site`, so waist (navel) vs. hips (widest point) — and which limb — are unambiguous. The
+  silhouette is the male front **outline path borrowed from `react-native-body-highlighter`** (the same
+  figure the Stats `MuscleMap` uses) filled flat in `surfaceHigh`. It does **not** mount the `<Body>`
+  component (that renders per-muscle striations — too "muscular" for a measurement guide); just the outline,
+  flat head and all. Only the **front (downward) half** of each measuring ring is drawn (`frontArc`), so the
+  part that would wrap *behind* the body isn't shown — it reads like a real tape going around; limb rings
+  carry an optional `rot` because the figure's arms hang slightly **out**, so the arc tilts to sit square on
+  the arm. Ring coords are tuned to the outline's native 724×1448 space; the viewBox is cropped to the
+  figure's bounds (`19 138 687 1243`) so it isn't floating in empty headroom. Ring `left`/`right` are
+  **mirror-view** (subject's left limb on the viewer's left).
 
 ## Navigation shell (`src/navigation`)
 The main app area is **not** an expo-router tab bar — it's a single custom shell

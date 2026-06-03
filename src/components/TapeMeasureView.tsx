@@ -95,24 +95,28 @@ export function TapeMeasureView({ onBack, onChanged }: { onBack: () => void; onC
         {/* Big live reading */}
         <View style={styles.readingWrap}>
           <FsText variant="overline" style={{ color: colors.primary }}>{SITE(site).label}</FsText>
-          <FsText style={[styles.bigReading, reading?.confirmed && { color: colors.success }]}>
-            {liveDisp != null ? liveDisp.toFixed(1) : '– –'}
+          <FsText style={[styles.bigReading, reading?.confirmed ? { color: colors.success } : {}]}>
+            {liveDisp != null ? liveDisp.toFixed(2) : '– –'}
             <FsText style={styles.unit}> {lbl}</FsText>
           </FsText>
-          {status !== 'connected' && (
-            <Button
-              title={status === 'scanning' || status === 'connecting' ? 'Searching…' : 'Connect tape'}
-              variant="ghost"
-              onPress={start}
-              style={{ marginTop: space[1] }}
-            />
+          {/* While Bluetooth is on we just keep scanning — prompt the user to ready the tape. */}
+          {status !== 'connected' && status !== 'error' && (
+            <FsText variant="caption" style={{ color: colors.muted, marginTop: space[1], textAlign: 'center', maxWidth: 300 }}>
+              Turn your tape on and pull it out a little — it’ll connect automatically.
+            </FsText>
           )}
-          {!!error && <FsText variant="caption" style={{ color: colors.danger, marginTop: 4 }}>{error}</FsText>}
+          {/* The only hard error: phone Bluetooth is off. */}
+          {status === 'error' && (
+            <>
+              {!!error && <FsText variant="caption" style={{ color: colors.danger, marginTop: 4, textAlign: 'center' }}>{error}</FsText>}
+              <Button title="Try again" variant="ghost" onPress={start} style={{ marginTop: space[1] }} />
+            </>
+          )}
         </View>
 
         {/* Where-to-measure guide */}
         <View style={{ alignItems: 'center', marginVertical: space[3] }}>
-          <BodyDiagram site={site} height={170} />
+          <BodyDiagram site={site} height={220} />
           <FsText variant="caption" style={{ textAlign: 'center', maxWidth: 280, marginTop: space[2] }}>
             {SITE(site).hint}
           </FsText>
@@ -150,7 +154,7 @@ export function TapeMeasureView({ onBack, onChanged }: { onBack: () => void; onC
                 <View style={[styles.dotSm, { backgroundColor: v != null ? colors.success : colors.border }]} />
                 <FsText variant="body" style={{ flex: 1, color: v != null ? colors.text : colors.muted }}>{s.label}</FsText>
                 <FsText variant="bodyMedium" style={{ color: v != null ? colors.text : colors.muted }}>
-                  {v != null ? `${toDisp(v).toFixed(1)} ${lbl}` : '—'}
+                  {v != null ? `${toDisp(v).toFixed(2)} ${lbl}` : '—'}
                 </FsText>
               </View>
             );

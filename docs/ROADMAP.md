@@ -204,8 +204,11 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       weight stay per-hand.
 - [x] **Renpho smart tape measure (BLE)** — `react-native-ble-plx` + `lib/renphoTape.ts` (reverse-engineered
       RF-BMF01 protocol). Measurements → **"Measure with Renpho tape"** opens a view with connection status,
-      a big live reading in your unit, body-part chips (green when measured), a **`BodyDiagram` guide**
-      (dashed line around the part to measure), and per-part Save. Needs a dev build + physical device.
+      a big live reading (2 decimals) in your unit, body-part chips (green when measured), a **`BodyDiagram`
+      guide** (smooth silhouette + indigo ring on the part to measure), and per-part Save. **Verified on a
+      physical device** (see below). The hook scans **continuously** and **auto-reconnects** (the tape
+      powers off when idle); the only error is phone Bluetooth being off, which auto-recovers. Needs a dev
+      build + physical device.
 - [x] **Native Health activated** — `@kingstinct/react-native-healthkit` (iOS) + `react-native-health-connect`
       (Android) are installed with config plugins/permissions and wired through `lib/health.ts` (weight,
       active energy, heart rate). HealthKit needs a paid Apple account at runtime.
