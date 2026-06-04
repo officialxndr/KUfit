@@ -9,7 +9,7 @@
 - **Stored metric, displayed either.** Weights are kg, lengths cm in the DB; conversion happens at
   the display edge via `src/lib/units.ts`. Height input uses `components/HeightField.tsx` (ft+in in
   imperial, cm in metric → stored cm); birth dates use `DateField` `mode="cascade"` (year → month → day).
-  U.S. Navy body-fat estimation is gated on `profile.useNavyBodyFat` (HealthBody / HealthTrends /
+  U.S. Navy body-fat estimation is gated on `profile.navyBodyFatEnabled` (HealthBody / HealthTrends /
   DashboardReports), and the calorie ring falls back to `DEFAULT_CALORIE_TARGET` (`lib/targets.ts`) before a
   weight/TDEE exists, so it's never empty.
 

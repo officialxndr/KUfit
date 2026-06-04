@@ -298,7 +298,7 @@ export default function NewTemplate() {
     // its own GestureHandlerRootView. Taps still work without it, which is why the
     // kebab/buttons worked but the drag handle didn't.
     <GestureHandlerRootView style={styles.screen}>
-      <View style={[styles.header, { paddingTop: insets.top + space[3] }]}>
+      <View style={[styles.header, { paddingTop: space[3] }]}>
         <Pressable onPress={() => (wizard && step === 2 ? setStep(1) : router.back())} hitSlop={10}>
           <X color={colors.text} size={24} />
         </Pressable>

@@ -121,7 +121,7 @@ Honest status of the rebuild. **Update this when features land or plans change.*
 - [x] **Birthday cascade picker** — `DateField` gained `mode="cascade"` (year → month → day) for birth dates;
       goal dates keep the `calendar` mode.
 - [x] **Onboarding Preferences step** — confetti **preview + toggle**, **U.S. Navy body-fat** toggle (new
-      `profile.useNavyBodyFat`, gated in HealthBody/HealthTrends/DashboardReports, with a matching Settings
+      `profile.navyBodyFatEnabled`, gated in HealthBody/HealthTrends/DashboardReports, with a matching Settings
       toggle), and the **active-calorie source** selector.
 - [x] **Build variants** — `app.config.js` suffixes name + bundle id for non-production builds
       (`Hale Dev` / `com.zanderhalverson.hale.dev`) via `APP_VARIANT` (set per profile in `eas.json`), so a
@@ -134,16 +134,21 @@ Honest status of the rebuild. **Update this when features land or plans change.*
 - [x] **What's-New / beta sheet** — `components/WhatsNew.tsx` shows once per `WHATS_NEW_VERSION` (tracked in
       `app_meta`): lists what to test, nudges feedback, adds a "test build" note on non-prod variants, and
       points testers at the TestFlight screenshot flow. Bump `WHATS_NEW_VERSION` in `lib/feedback.ts` per beta.
-- [x] **Body-fat (DEXA) logging from the Body screen** — `HealthBody` has a persistent "Log body-fat %
-      (DEXA)" button in every state (empty / estimated / measured→"Update"), with a modal that also takes a
-      weight when none is logged. Previously body fat could only be set via the log-weight flow, so a fresh
-      Body tab was a dead end with no way to enter or see it.
+- [x] **Body-fat / DEXA entry from the Body screen** — `HealthBody` links to the dedicated **Log DEXA scan**
+      flow (`app/log-dexa.tsx`) so a fresh Body tab is no longer a dead end (full DEXA handling documented below).
+      *(Merge note: this session's inline DEXA modal was superseded by beta's dedicated screen.)*
 - [x] **Onboarding privacy + Apple Health** — a "Private by design" step (no account/servers, never sold or
       tracked, free forever, only Open Food Facts lookups leave the device) and a "Connect {Apple Health /
       Health Connect}" action in Preferences (no-ops gracefully without the native module).
 - [x] **Multi-select exercise picker** — `app/exercises.tsx` `pick=template`/`pick=session` modes let you
       check off several exercises (numbered in pick order) and add them all at once via "Add N exercises",
       instead of one-tap-then-close. Browsing (no `pick`) still opens the exercise detail page.
+- [x] **Long-press exercise preview** — `components/ExerciseInfoSheet.tsx`: press-and-hold a row in the picker
+      to peek at an exercise (demo GIF, muscles, equipment, instructions) without losing your selection; a hint
+      above the list announces the gesture.
+- [x] **Modal top-padding fix** — sheet-style modals (`exercises`, `template/new`, …) were adding the device's
+      top safe-area inset *on top of* the iOS page-sheet's own offset → wasted space. Dropped the redundant
+      inset (full-screen `onboarding` keeps its real status-bar inset; its hero margin trimmed).
 - [x] **Optional-donation flow** — `stores/donationStore.ts` + `components/DonationBanner.tsx` (Dashboard) +
       a final wizard step (Donate / Remind me later / No thanks). "Remind later" re-prompts after ~30 days;
       X / "No thanks" dismisses forever. Link centralised in `lib/support.ts` → Ko-fi (`ko-fi.com/haleapp`).

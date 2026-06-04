@@ -5,6 +5,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Search, ChevronRight, X } from 'lucide-react-native';
 
 import { FsText, Chip, Button } from '@/components/ui';
+import { ExerciseInfoSheet } from '@/components/ExerciseInfoSheet';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useTemplateDraftStore } from '@/stores/templateDraftStore';
@@ -22,6 +23,7 @@ export default function ExercisesScreen() {
   const [q, setQ] = useState('');
   const [muscle, setMuscle] = useState<string | undefined>(undefined);
   const [selected, setSelected] = useState<Exercise[]>([]);
+  const [info, setInfo] = useState<Exercise | null>(null);
 
   const muscles = useMemo(() => workoutRepo.getDistinctMuscleGroups(), []);
   const results: Exercise[] = useMemo(() => workoutRepo.searchExercises(q, muscle), [q, muscle]);
@@ -47,7 +49,7 @@ export default function ExercisesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
+    <SafeAreaView style={styles.screen} edges={[]}>
       <View style={styles.header}>
         <FsText variant="h2">{isPicking ? 'Add exercises' : 'Exercise Library'}</FsText>
         <Pressable onPress={() => router.back()} hitSlop={10}>
@@ -79,11 +81,11 @@ export default function ExercisesScreen() {
         ))}
       </ScrollView>
 
-      {isPicking && (
-        <FsText variant="caption" style={styles.hint}>
-          Tap to select multiple — they'll be added in the order you pick. Then edit sets &amp; reps.
-        </FsText>
-      )}
+      <FsText variant="caption" style={styles.hint}>
+        {isPicking
+          ? 'Tap to select multiple — added in the order you pick, then edit sets & reps. Press and hold an exercise for a quick preview.'
+          : 'Tap an exercise to open it, or press and hold for a quick preview.'}
+      </FsText>
 
       <FlatList
         data={results}
@@ -96,7 +98,12 @@ export default function ExercisesScreen() {
         renderItem={({ item }) => {
           const idx = isPicking ? selected.findIndex((e) => e.id === item.id) : -1;
           return (
-            <Pressable style={styles.row} onPress={() => onRow(item)}>
+            <Pressable
+              style={styles.row}
+              onPress={() => onRow(item)}
+              onLongPress={() => { haptic.medium(); setInfo(item); }}
+              delayLongPress={300}
+            >
               <View style={{ flex: 1 }}>
                 <FsText variant="bodyMedium" numberOfLines={1}>{item.name}</FsText>
                 <FsText variant="caption">
@@ -124,6 +131,8 @@ export default function ExercisesScreen() {
           />
         </View>
       )}
+
+      <ExerciseInfoSheet exercise={info} onClose={() => setInfo(null)} />
     </SafeAreaView>
   );
 }

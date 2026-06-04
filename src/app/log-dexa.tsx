@@ -59,7 +59,12 @@ export default function LogDexa() {
         <Pressable onPress={save} hitSlop={10}><FsText variant="bodyMedium" style={{ color: colors.success }}>Save</FsText></Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: insets.bottom + space[8] }}>
+      <ScrollView
+        contentContainerStyle={{ padding: space[4], paddingBottom: insets.bottom + space[8] }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        automaticallyAdjustKeyboardInsets
+      >
         <FsText variant="caption" style={{ marginBottom: space[4] }}>
           Enter the numbers from your scan report. Body fat, bone mass and T-score come straight off the
           report; fat and lean mass are calculated for you so they always add up to your weight.
