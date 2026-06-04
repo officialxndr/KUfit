@@ -42,7 +42,7 @@ const T = {
   body: 'body composition fat navy estimate dexa lean mass percentage tape measurement',
   activity: 'activity level sedentary light moderate active very tdee maintenance',
   goals: 'goals goal weight target calorie calories macro macros protein carbs fat phase tdee maintenance calculator body fat',
-  help: 'help tour guide guided walkthrough onboarding tutorial intro',
+  help: 'help tour guide guided walkthrough onboarding tutorial intro feature guide docs documentation reference manual search how to explain features',
   feedback: 'feedback bug report issue problem crash feature request idea suggestion contact developer',
   support: 'support hale donate donation contribute tip sponsor give back',
   data: 'data backup export import restore merge replace wipe delete erase reset',
@@ -448,10 +448,11 @@ export function SettingsView() {
       <Card hidden={!show(T.help)} style={{ marginBottom: space[3] }}>
         <SectionHeader title="Help" />
         <FsText variant="caption" style={{ marginBottom: space[3] }}>
-          New here, or want a refresher? Take a guided tour — a quick Basic run, the full Advanced
-          walkthrough, or just one section.
+          New here, or want a refresher? Browse the searchable feature guide, or take a guided tour —
+          a quick Basic run, the full Advanced walkthrough, or just one section.
         </FsText>
-        <Button title="Take the app tour" variant="ghost" onPress={() => useTourStore.getState().openMenu()} />
+        <Button title="Feature guide" variant="ghost" onPress={() => router.push('/guide')} />
+        <Button title="Take the app tour" variant="ghost" onPress={() => useTourStore.getState().openMenu()} style={{ marginTop: space[2] }} />
       </Card>
 
       <Card hidden={!show(T.feedback)} style={{ marginBottom: space[3] }}>

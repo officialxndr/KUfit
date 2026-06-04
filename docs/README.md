@@ -28,14 +28,16 @@ self-hosted server can be added later for backup and Home Assistant automations.
   tap-to-edit servings; a bundled **base-ingredient database** (~95 common whole foods with full
   OFF-style detail, offline); **recipes** (builder + log serving); a date-range **Stats** tab
   (calorie/macro/nutrient trends over Week/Month/3 Mo/Year or any custom range); nutrition **goals**.
-- **Exercises**: open-source ExerciseDB catalog (~440 unique) bundled + imported on first launch;
-  grouped/searchable library; **create custom exercises**; detail with animated GIF demos cached for offline.
+- **Exercises**: open-source ExerciseDB catalog (~1,500 with GIFs) bundled + imported on first launch;
+  grouped/searchable library; **create + delete your own exercises** (a "My exercises" group); detail with
+  animated GIF demos cached for offline, and per-exercise **logging defaults** (per-arm, load counting).
 - **Workouts**: routines (create/edit/default + auto-rotation), templates (reorderable builder with
-  **drag-to-superset** via a chain handle), redesigned **active set logger** (ghost values, **per-set**
-  rest timers, set-complete animation + auto-scroll to the active set, per-exercise notes, custom numpad),
-  **supersets** (with a ≥2-member integrity rule), **post-workout summary** (liquid-wave animation),
-  history + calendar, and a **Stats** page (volume — counting two-arm **dumbbell work ×2** — PRs,
-  per-exercise reports + compare, muscle heatmap) — now driven by the shared **date-range** selector.
+  **drag-to-superset** via a chain handle), redesigned **active set logger** (ghost values, a **"Use
+  previous"** key, **per-set** rest timers with a countdown bar, set-complete animation + auto-scroll,
+  per-exercise notes, custom numpad), **supersets** (≥2-member integrity rule), **cable attachments** and
+  **per-arm (L/R) sets** (each tracked separately), **post-workout summary** (liquid-wave animation),
+  history + calendar, and a **Stats** page (volume — two-arm **dumbbell work ×2** — PRs, per-exercise
+  reports + compare, muscle heatmap) — driven by the shared **date-range** selector.
 - **Health**: weight logging + trend chart + pace guidance with **MET activity suggestions**; body
   composition (BF%/lean/fat/BMI/FFMI) with **body-fat estimation** (lean-mass-from-DEXA-baseline **and**
   the **U.S. Navy tape method**); measurements — incl. a **Renpho smart tape measure (Bluetooth)** flow
@@ -94,16 +96,19 @@ npx expo export --platform ios --output-dir /tmp/x # full Metro bundle (catches 
 ```
 
 ## Seeding the exercise catalog
-The bundled catalog (`assets/exercises/catalog.json`, ~440 unique exercises) was generated from the
+The bundled catalog (`assets/exercises/catalog.json`, ~1,500 exercises) was generated from the
 free, no-key open-source ExerciseDB (https://oss.exercisedb.dev). To refresh it or bundle GIFs offline:
 ```bash
 node scripts/seed-exercises.mjs              # refresh catalog.json (GIFs stay as CDN URLs, cached on first view)
 node scripts/seed-exercises.mjs --download   # also download every GIF + generate gifMap.ts (full offline, bigger app)
 ```
-> Note: the public `/exercises` list endpoint is broken for pagination (offset/page/cursor are all
-> ignored — it only returns the first 25, which caused an earlier duplicate-bloated catalog). The
-> generator instead fans out across the `bodyParts` / `equipments` / `muscles` filters and dedups by
-> `exerciseDbId`. The app's seed (`src/lib/exerciseSeed.ts`) self-heals duplicated/stale databases.
+> Note: the `/exercises` list endpoint pages via **`after=<nextCursor>`** — the only working pager
+> (`cursor`/`offset`/`page`/`limit` are silently ignored, which had capped an earlier fan-out version at
+> ~440). The generator walks `after` to pull all ~1500 with GIFs, then a cleanup pass normalizes
+> names/categories/equipment and **de-bakes** cable-attachment names (`scripts/lib-debake.mjs`, only when
+> the cleaned name stays unique). The app's seed (`src/lib/exerciseSeed.ts`) reseeds when empty,
+> duplicate-bloated, stale, or the `SEED_VERSION` changes — upserting **in place** by `exerciseDbId` so
+> localIds (and user perSide/unilateral/leadSide overrides) survive.
 GIF URLs are public CDN links (`static.exercisedb.dev`), so even without `--download` the app caches
 each GIF to the device the first time it's viewed, and Settings → "Download exercise demos" caches
 them all in bulk.

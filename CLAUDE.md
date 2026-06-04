@@ -31,8 +31,16 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   `localId`/`serverId`/`syncStatus` for future sync) + `src/lib/repositories/{Food,Health,Workout}Repo.ts`.
   Repos are the only thing that touches the DB. Mutations mark rows `syncStatus='pending'`.
 - **Calc libs** (pure TS): `tdee.ts`, `epley.ts`, `activities.ts`, `units.ts`, `targets.ts`,
-  `supersets.ts` (superset ordering + `normalizeSupersets`), `bodyComposition.ts` (body-fat estimate +
-  U.S. Navy method), `load.ts` (per-side dumbbell volume factor).
+  `supersets.ts` (superset ordering + `normalizeSupersets`; `restAfterSet` also defers rest between a
+  unilateral round's two arms), `bodyComposition.ts` (body-fat estimate + U.S. Navy method), `load.ts`
+  (per-side dumbbell volume factor; `loadFactor`→1 when `exercise.unilateral`), `attachments.ts` (cable
+  attachment list, cable-only `supportsAttachment`), `unilateral.ts` (pure L/R set-list transforms).
+- **Exercise catalog**: bundled `assets/exercises/catalog.json` (~1500 + GIFs) from ExerciseDB, generated
+  by `scripts/seed-exercises.mjs` (walk the **`after=` cursor** — `cursor`/`offset`/`page`/`limit` are
+  ignored) + a cleanup/de-bake pass (`scripts/lib-debake.mjs`). `lib/exerciseSeed.ts` reseeds when empty/
+  duplicate-bloated/stale/`SEED_VERSION`-changed, **upserting in place by `exerciseDbId`** (preserves
+  localIds + user perSide/unilateral/leadSide overrides). **Attribution required** — ExerciseDB/AscendAPI
+  and Open Food Facts (ODbL) are credited in Settings → About & credits + list footers; keep it.
 - **Bluetooth**: `src/lib/renphoTape.ts` — Renpho RF-BMF01 tape (`react-native-ble-plx`); the
   `useRenphoTape()` hook drives `components/TapeMeasureView.tsx` (opened from `measurements.tsx`).
 - **Nutrition-label OCR**: `src/lib/nutritionOcr.ts` — on-device ML Kit text recognition
@@ -79,6 +87,18 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   `normalizeSupersets` (in both `templateDraftStore` and `sessionStore`).
 - **Workout volume** counts two-arm dumbbell/kettlebell work ×2 via `loadFactor` (`exercise.perSide`,
   default by equipment). 1RM/top-weight stay per-hand. Compute volume from sets × factor, not a stored total.
+- **Per-arm + attachments**: per-arm/lead-side + load counting are **global per-exercise defaults**
+  (`exercises.unilateral`/`leadSide`/`perSide`) — set once, reused on every add. A **cable attachment** is
+  **per-performance** (`session_exercises.attachment`), and history/PRs/ghosts key on **(exercise +
+  attachment)**. Unilateral sets are flat L/R rows (`exercise_sets.side`) → volume factor 1 (both arms
+  summed). The inline selectors are the reusable `components/{Dropdown,PerArmDropdown,AttachmentDropdown,
+  LoadDropdown}` — keep `Dropdown`'s visibility/position as separate state (so the menu doesn't flash to
+  the corner on close; same for `KebabMenu`).
+- **Exiting modal routes** pushed over `(tabs)` (session/workout-summary/template/new): set the section on
+  `navStore` then **`router.back()`** — never `router.replace('/(tabs)')`, which stacks a second tabs
+  screen → a double "wipe" transition. (Onboarding is the exception: it was *reached* via replace.)
+- **Custom exercises only** are deletable (`WorkoutRepo.deleteCustomExercise` refuses seeded rows); never
+  let the bundled catalog be edited/deleted.
 - **Motion**: reuse the shared layer — `theme/motion.ts` tokens + `components/anim/*` primitives
   (`AnimatedNumber`, `PressableScale`, `ScreenTransition`, `GrowBar`, `Confetti`, `Skeleton`). **Always
   gate animation on `useMotion()`** (`{ animate, confetti }`) so the OS Reduce-Motion setting + the

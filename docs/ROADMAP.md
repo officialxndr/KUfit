@@ -3,6 +3,37 @@
 Honest status of the rebuild. **Update this when features land or plans change.**
 
 ## Done
+- [x] **Full exercise catalog (1,500 + GIFs)** — fixed the seed to walk the source's `after`
+      cursor (the working param; `cursor`/`offset`/`page` are ignored), pulling all ~1500 with GIFs
+      (was ~440). Cleanup pass normalizes names, infers categories (Strength/Stretching/Cardio),
+      tidies equipment facets, and **de-bakes** attachment names ("Cable Pushdown (V-Bar)" →
+      "Cable Pushdown", collision-safe). Reseed is `SEED_VERSION`-gated and upserts **in place** by
+      `exerciseDbId`, preserving localIds (so templates/history survive) and user overrides
+      (perSide/unilateral/leadSide). `scripts/lib-debake.mjs` is shared by the seed script.
+- [x] **Cable attachments** — pick Rope/Bar/V-Bar/… per cable exercise; history/PRs/ghosts are keyed
+      on (exercise + attachment), so each attachment is its own progress line. Stored per performance
+      (`session_exercises.attachment`) with a template default (`lib/attachments.ts`).
+- [x] **Per-arm (unilateral) sets** — a per-exercise toggle splits each set into L/R rows with a
+      configurable lead side; volume sums both arms (load factor forced to 1) and rest fires after the
+      second arm. Schema: `exercises.unilateral`/`leadSide`, `exercise_sets.side`; pure list transforms
+      in `lib/unilateral.ts`.
+- [x] **Inline logging selectors** — Per-arm, Cable attachment, and **Load counting** are anchored
+      dropdowns under the exercise name (and in the template builder + exercise detail "Logging
+      defaults"). Reusable `components/Dropdown.tsx` + `PerArmDropdown`/`AttachmentDropdown`/`LoadDropdown`.
+- [x] **Faster set entry** — a "Use previous" key on the numpad fills the focused field from the
+      previous set (or last workout for set 1), and the rest timer is bigger with a horizontal
+      depleting bar (numpad + floating banner).
+- [x] **Custom exercises** — create, a "My exercises" group in the library (+ a filter chip in the
+      add picker, refreshes on focus), and delete (only your own; the seeded catalog is protected,
+      with a usage-aware confirm). `searchExercises(onlyCustom)`, `deleteCustomExercise`, `getExerciseUsage`.
+- [x] **Searchable in-app Feature guide** (Settings → Help → Feature guide) — detailed hand-written
+      docs (`lib/guideContent.ts`, ~12 sections) filtered live; plus **data-source attribution**
+      (ExerciseDB/AscendAPI, Open Food Facts/ODbL) in Settings → About & credits and on the
+      exercise/food list footers.
+- [x] **Navigation fix** — modal routes over `(tabs)` (session, workout-summary, template/new) now exit
+      via `router.back()` instead of `router.replace('/(tabs)')`, removing the "land then wipe again"
+      double transition. Also fixed the exercise picker cap (50 → full catalog) and a dropdown/kebab
+      close-flash.
 - [x] Fresh Expo SDK 56 app (expo-router, TypeScript), dark-first theme from the design system.
 - [x] Local-first SQLite data layer + repositories; `initDb` + exercise seed on launch.
 - [x] Settings: metric/imperial, full profile, offline-demos download.

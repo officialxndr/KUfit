@@ -11,13 +11,16 @@ export const FEEDBACK_EMAIL = 'zander.halverson99@gmail.com';
  * Bump this whenever there's something new for testers to see. The What's-New sheet
  * shows once per version (tracked in `app_meta`). Keep the list short + tester-focused.
  */
-export const WHATS_NEW_VERSION = '1.0.0-b5';
+export const WHATS_NEW_VERSION = '1.0.0-b6';
 export const WHATS_NEW = {
   title: "What's new to test",
   items: [
-    'Build templates faster: in the exercise picker, tap to multi-select (numbered in order) and add them all at once.',
-    'Log body-fat % (e.g. DEXA) from Health → Body in any state; connect Apple Health from onboarding.',
-    'Cleaned-up Settings, an optional Ko-fi donation, and a profile photo + privacy overview in the setup wizard.',
+    'Exercise library expanded to 1,500+ moves with demo GIFs — browse and search the whole catalog (it no longer cuts off partway).',
+    'Cable attachments: pick Rope / Bar / V-Bar etc. on a cable exercise — each attachment tracks its own weights, PRs, and history.',
+    'Per-arm (L/R) sets: log each arm separately with a lead side; volume sums both arms. Set it (and Load counting) from the little selectors under the exercise name.',
+    'Faster logging: a "Use previous" button on the keypad reuses the last set\'s weight/reps, plus a bigger rest timer with a countdown bar.',
+    'Your own exercises: create them, find them in a "My exercises" group, and delete the ones you made (catalog ones are protected).',
+    'New searchable Feature guide in Settings → Help, and credits for our data sources (ExerciseDB, Open Food Facts).',
   ],
 };
 

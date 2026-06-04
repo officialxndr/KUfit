@@ -39,9 +39,12 @@ External network (Open Food Facts, ExerciseDB CDN) is called directly from the d
   registration. Columns added after a DB already exists go through `ensureColumn(table, col, decl)`
   (forward-only, no-op once present) since `CREATE TABLE IF NOT EXISTS` never alters an existing table —
   e.g. `food_items.saturatedFat`, `food_items.detailsJson`, `food_items.isFavorite`, `recipes.isFavorite`,
-  `recipes.servingWeightG` (optional grams-per-serving), and **`exercises.perSide`** (per-side volume
-  override — see *Per-side load* below). An `app_meta` key/value table (`getMeta`/`setMeta`) tracks seed
-  versions (e.g. `baseFoodsVersion`) so bundled data can re-seed in place when bumped.
+  `recipes.servingWeightG` (optional grams-per-serving), **`exercises.perSide`** (per-side volume
+  override — see *Per-side load* below), **`exercises.unilateral`/`leadSide`** + **`exercise_sets.side`**
+  (per-arm logging — see *Attachments & per-arm* below), and **`session_exercises.attachment`** /
+  **`template_exercises.attachment`** (cable attachment per performance). An `app_meta` key/value table
+  (`getMeta`/`setMeta`) tracks seed versions (`baseFoodsVersion`, **`exerciseSeedVersion`**) so bundled
+  data can re-seed in place when bumped.
   **New columns need a fresh app launch** to run `runMigrations()`.
 - **Repositories** (`FoodRepo`, `HealthRepo`, `WorkoutRepo`) — synchronous SQLite access, mapping
   rows ↔ domain types from `src/types`. Mutations set `syncStatus='pending'`; soft-deletes set
@@ -186,10 +189,29 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
   unchanged. No downstream rewiring — by design only the *input method* differs.
 - `lib/load.ts` — **per-side load** for volume. `defaultPerSide(equipment)` (true for Dumbbell/Kettlebell),
   `isPerSide(ex)` (explicit `exercise.perSide` override else the equipment default), `loadFactor(ex)` (×2
-  for per-side, else ×1). A two-arm dumbbell logs per-hand weight, so volume = `weight·reps·loadFactor`.
+  for per-side, else ×1; **forced to ×1 when `exercise.unilateral`** since both arms are logged as
+  separate sets). A two-arm dumbbell logs per-hand weight, so volume = `weight·reps·loadFactor`.
   Applied in `WorkoutRepo` everywhere volume is computed (`finishSession`, `getVolumeBySession`,
   `getExerciseSessionHistory`, `mapSession`) so **past sessions recompute correctly** too; 1RM/top-weight
   stay per-hand. Overridable per exercise on the detail screen (`WorkoutRepo.setExercisePerSide`).
+- **Exercise catalog & seed** — `scripts/seed-exercises.mjs` builds `assets/exercises/catalog.json` from
+  oss.exercisedb.dev by walking the list endpoint's **`after=<nextCursor>`** cursor (the only working
+  pager — `cursor`/`offset`/`page`/`limit` are ignored), pulling all ~1500 with GIFs. A cleanup pass
+  normalizes names, infers category, tidies equipment, and **de-bakes** attachment names via shared
+  `scripts/lib-debake.mjs` (only when the cleaned name stays unique). `lib/exerciseSeed.ts` imports the
+  catalog on launch; it reseeds when empty, duplicate-bloated, stale, or the **`SEED_VERSION`** changed,
+  **upserting in place by `exerciseDbId`** so localIds (and the templates/sessions that reference them)
+  survive — `WorkoutRepo.upsertExercise` updates only catalog columns, preserving user overrides
+  (perSide/unilateral/leadSide), then `pruneSeededExercisesNotIn` drops removed entries.
+- **Attachments & per-arm** — `lib/attachments.ts` (cable attachment list + `supportsAttachment`,
+  cable-only) and `lib/unilateral.ts` (pure L/R set-list transforms: expand/collapse/append/remove/
+  reorder/renumber). A cable **attachment** is chosen per performance and stored on
+  `session_exercises`/`template_exercises`; **history/PRs/ghosts are keyed on (exercise + attachment)**
+  (`getLastSetsForExercise`/`getBestEpleyForExercise`/`getExerciseSessionHistory` take an optional
+  attachment). **Per-arm** is a per-exercise default (`exercises.unilateral`/`leadSide`); each logical set
+  becomes flat L/R rows tagged `exercise_sets.side`, and `supersets.restAfterSet` defers rest until the
+  second arm. Custom exercises: `searchExercises(onlyCustom)`, `deleteCustomExercise` (refuses seeded
+  rows), `getExerciseUsage` (delete confirm).
 - `lib/renphoTape.ts` — **Renpho RF-BMF01 smart tape measure** (BLE) integration via `react-native-ble-plx`.
   `useRenphoTape()` hook exposes `{ status, reading, error, start, stop }` and is **continuous**: it scans
   the whole time the screen is open and **auto-reconnects** — the tape powers itself off when idle, so on
@@ -233,6 +255,14 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
   registered earlier, and the last-registered mod runs first), so the key it deletes stays deleted.
 
 ## Components added
+- `components/Dropdown.tsx` — reusable anchored dropdown pill (icon + label + chevron → a positioned
+  menu with a check on the current value). Visibility and position are **separate state** so the menu
+  doesn't flash back to the top-left corner during the fade-out close (same fix applied to `KebabMenu`).
+  Wrapped by **`AttachmentDropdown`** (cable-only; auto-hides otherwise), **`PerArmDropdown`** (Both /
+  L-first / R-first), and **`LoadDropdown`** (Total / Per side ×2) — used inline under the exercise name
+  in `session.tsx`, in `template/new.tsx`, and in the exercise detail "Logging defaults" card.
+- `app/guide.tsx` + `lib/guideContent.ts` — searchable in-app **Feature guide** (Settings → Help):
+  ~12 hand-written sections filtered live across title/body/keywords/tips.
 - `components/MuscleMap.tsx` — anatomical front/back body (`react-native-body-highlighter`) shaded by
   weekly sets vs target (Stats tab).
 - `components/MonthCalendar.tsx` — month grid with marked/selected days (Workout history).
@@ -302,6 +332,11 @@ The main app area is **not** an expo-router tab bar — it's a single custom she
   around a center "+" FAB. **Hidden on Settings** (reached/left via the header).
 - **`QuickActionsSheet`** — section-specific quick actions opened by the FAB.
 - **`config.ts`** — `SECTIONS`, per-section `SECTION_TABS`, `LAUNCHER`, `FAB_ACTIONS`.
+- **Exiting modal routes back to the shell** — routes pushed over `(tabs)` (`session`,
+  `workout-summary`, `template/new`) set the target section on `navStore` then **`router.back()`** (pop
+  the modal to reveal the already-mounted tabs underneath). Using `router.replace('/(tabs)')` instead
+  stacks a *second* tabs screen → a "land on the page, then wipe back to it again" double transition.
+  Only `onboarding` uses `replace('/(tabs)')`, because it was itself *reached* via replace.
 Section bodies live in **`src/screens/*`** as plain content fragments (no `Screen` wrapper); the
 shell provides the scroll area, header, and bottom bar. Each still reads on focus via
 `useFocusEffect`. Sub-tabs: Dashboard (Overview/**Reports**), Food (Today/Recipes/Search/**Stats**),

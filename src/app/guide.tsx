@@ -5,27 +5,27 @@ import { useRouter } from 'expo-router';
 import { Search, X } from 'lucide-react-native';
 
 import { FsText, Card } from '@/components/ui';
-import { TOUR_PAGES } from '@/lib/tourSteps';
+import { GUIDE, type GuideEntry } from '@/lib/guideContent';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 
+const haystack = (e: GuideEntry, label: string) =>
+  `${e.title} ${e.body} ${e.keywords ?? ''} ${(e.tips ?? []).join(' ')} ${label}`.toLowerCase();
+
 /**
- * Searchable feature reference. Reuses the guided-tour copy (TOUR_PAGES) — every feature
- * already has a short title + explanation there — grouped by app area, filterable as you type.
- * Opened from Settings → Help.
+ * Searchable feature reference (Settings → Help → Feature guide). Detailed, hand-written
+ * docs from `guideContent.ts`, grouped by app area and filtered live as you type.
  */
 export default function GuideScreen() {
   const router = useRouter();
   const [q, setQ] = useState('');
   const query = q.trim().toLowerCase();
 
-  const pages = useMemo(
+  const sections = useMemo(
     () =>
-      TOUR_PAGES.map((p) => ({
-        ...p,
-        steps: query
-          ? p.steps.filter((s) => `${s.title} ${s.body} ${p.label}`.toLowerCase().includes(query))
-          : p.steps,
-      })).filter((p) => p.steps.length > 0),
+      GUIDE.map((s) => ({
+        ...s,
+        entries: query ? s.entries.filter((e) => haystack(e, s.label).includes(query)) : s.entries,
+      })).filter((s) => s.entries.length > 0),
     [query]
   );
 
@@ -46,29 +46,31 @@ export default function GuideScreen() {
           style={styles.input}
           autoCorrect={false}
         />
-        {q ? (
-          <Pressable onPress={() => setQ('')} hitSlop={8}><X color={colors.muted} size={16} /></Pressable>
-        ) : null}
+        {q ? <Pressable onPress={() => setQ('')} hitSlop={8}><X color={colors.muted} size={16} /></Pressable> : null}
       </View>
 
       <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
-        {pages.length === 0 ? (
+        {sections.length === 0 ? (
           <FsText variant="caption">No features match “{q}”.</FsText>
         ) : (
-          pages.map((p) => (
-            <View key={p.key} style={{ marginBottom: space[4] }}>
-              <View style={styles.pageHead}>
-                <p.icon color={colors.primary} size={16} />
-                <FsText variant="overline" style={{ color: colors.primary }}>{p.label}</FsText>
+          sections.map((s) => (
+            <View key={s.key} style={{ marginBottom: space[4] }}>
+              <View style={styles.sectionHead}>
+                <s.icon color={colors.primary} size={16} />
+                <FsText variant="overline" style={{ color: colors.primary }}>{s.label}</FsText>
               </View>
+              {!query && <FsText variant="caption" style={styles.intro}>{s.intro}</FsText>}
               <Card style={{ padding: 0 }}>
-                {p.steps.map((s, i) => (
-                  <View key={`${p.key}-${i}`} style={[styles.row, i > 0 && styles.divider]}>
-                    <View style={styles.iconWrap}><s.icon color={colors.text} size={18} /></View>
-                    <View style={{ flex: 1 }}>
-                      <FsText variant="bodyMedium">{s.title}</FsText>
-                      <FsText variant="caption" style={{ marginTop: 2 }}>{s.body}</FsText>
-                    </View>
+                {s.entries.map((e, i) => (
+                  <View key={`${s.key}-${i}`} style={[styles.entry, i > 0 && styles.divider]}>
+                    <FsText variant="bodyMedium" style={{ marginBottom: 3 }}>{e.title}</FsText>
+                    <FsText variant="body" style={{ color: colors.muted }}>{e.body}</FsText>
+                    {e.tips?.map((t, j) => (
+                      <View key={j} style={styles.tipRow}>
+                        <FsText variant="caption" style={{ color: colors.primary }}>•</FsText>
+                        <FsText variant="caption" style={{ flex: 1, color: colors.muted }}>{t}</FsText>
+                      </View>
+                    ))}
                   </View>
                 ))}
               </Card>
@@ -92,8 +94,9 @@ const styles = themedStyles(() => StyleSheet.create({
     paddingHorizontal: 14, marginHorizontal: space[4], marginBottom: space[2],
   },
   input: { flex: 1, color: colors.text, paddingVertical: 12, fontSize: 14 },
-  pageHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: space[2], paddingHorizontal: space[1] },
-  row: { flexDirection: 'row', gap: space[3], padding: space[3], alignItems: 'flex-start' },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: space[1], paddingHorizontal: space[1] },
+  intro: { color: colors.muted, marginBottom: space[2], paddingHorizontal: space[1] },
+  entry: { padding: space[3] },
   divider: { borderTopWidth: 1, borderTopColor: colors.border },
-  iconWrap: { width: 28, alignItems: 'center', paddingTop: 1 },
+  tipRow: { flexDirection: 'row', gap: 6, marginTop: 4, alignItems: 'flex-start' },
 }));
