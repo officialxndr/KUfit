@@ -21,6 +21,7 @@ import { BottomNav } from './BottomNav';
 import { QuickActionsSheet } from './QuickActionsSheet';
 import { ScreenTransition } from '@/components/anim/ScreenTransition';
 import { FeatureTour } from '@/components/FeatureTour';
+import { TourMenu } from '@/components/TourMenu';
 
 import { Target } from 'lucide-react-native';
 import { DashboardOverview } from '@/screens/DashboardOverview';
@@ -204,6 +205,7 @@ export function AppShell() {
       <GoalsEditorModal visible={goalsOpen} onClose={() => setGoalsOpen(false)} focusSection={section} />
 
       <FeatureTour />
+      <TourMenu />
     </View>
   );
 }

@@ -51,8 +51,8 @@ self-hosted server can be added later for backup and Home Assistant automations.
   goal editor opens from the header gear on every section.
 - **Motion & onboarding**: app-wide animation (screen transitions, count-up numbers, animated rings/charts,
   press feedback, confetti on PRs/goal-weight) — all behind the OS Reduce-Motion setting + a Settings
-  toggle. First-run **onboarding wizard** plus a skippable **guided feature tour** that walks the real
-  screens.
+  toggle. First-run **onboarding wizard** plus a **guided feature tour** — pick a **Basic** or **Advanced**
+  walkthrough (or replay just one section) that walks the real screens.
 - **Consistent UX**: swipe-left-to-delete with confirmation on user logs; pull-to-refresh; haptics throughout.
 - **Feedback**: Settings → Feedback (and a once-per-version What's-New sheet) with **bug + feature-request**
   forms that email the developer (no server) and keep a local history; beta bug reports also use TestFlight's

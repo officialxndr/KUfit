@@ -445,9 +445,10 @@ export function SettingsView() {
       <Card hidden={!show(T.help)} style={{ marginBottom: space[3] }}>
         <SectionHeader title="Help" />
         <FsText variant="caption" style={{ marginBottom: space[3] }}>
-          New here, or want a refresher? Take a quick guided tour of the app's features.
+          New here, or want a refresher? Take a guided tour — a quick Basic run, the full Advanced
+          walkthrough, or just one section.
         </FsText>
-        <Button title="Take the app tour" variant="ghost" onPress={() => useTourStore.getState().start()} />
+        <Button title="Take the app tour" variant="ghost" onPress={() => useTourStore.getState().openMenu()} />
       </Card>
 
       <Card hidden={!show(T.feedback)} style={{ marginBottom: space[3] }}>

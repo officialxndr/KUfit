@@ -94,8 +94,8 @@ export default function Onboarding() {
     });
     completeOnboarding();
     haptic.success();
-    // Brand-new users land into the guided feature tour (skippable on step 1).
-    useTourStore.getState().start();
+    // Brand-new users land on the dashboard with the tour chooser open (Basic / Advanced / skip).
+    useTourStore.getState().openMenu();
     router.replace('/(tabs)');
   };
 

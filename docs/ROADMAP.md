@@ -383,6 +383,12 @@ Honest status of the rebuild. **Update this when features land or plans change.*
 - [x] **Removed "Primary focus" training goal** — `profile.trainingFocus` (Cut/Maintain/Bulk/Recomp) was
       write-only (nothing consumed it) and overlapped the Lose/Maintain/Gain goal type; dropped the field,
       type, and the Goals-editor control.
+- [x] **Basic / Advanced / per-page tour** — the guided tour now opens a **chooser** (`TourMenu`): a **Basic**
+      run (essentials), an **Advanced** run (every feature across all sections), or **jump to one section's
+      tour** on replay. `tourSteps.ts` groups steps into pages (Getting started / Dashboard / Food / Workout /
+      Health / Settings) with an `advanced` flag; `tourStepsFor(tier, pageKey?)` resolves the run, which
+      `tourStore` holds. The overlay swaps its fixed dot row for a **page label + progress bar** so long tours
+      scale. Onboarding finish + Settings → Help open the chooser instead of auto-starting.
 
 ## Not built yet (planned)
 - [ ] **Renpho tape on-device test** — built and the protocol is implemented, but the BLE connection is

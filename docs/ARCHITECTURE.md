@@ -83,17 +83,22 @@ the profile has hydrated and `onboarded` is false; the wizard (`src/app/onboardi
 name/units/sex/height/activity/goal, writes the profile, calls `completeOnboarding()`, and returns
 to the shell.
 
-**Guided feature tour** (`components/FeatureTour.tsx` + `stores/tourStore.ts` + `lib/tourSteps.ts`). A
-**driven section walkthrough**: an overlay rendered at the top of `AppShell` that, per step, calls
-`navStore.setSection(...)` so the *real* screens slide in behind a docked explainer card
-(icon/title/body + progress dots + Skip/Back/Next). A transparent touch-blocker keeps the live UI
-non-interactive during the tour. `tourStore` is **runtime-only** (no persistence): onboarding `finish()`
-calls `start()` so only **brand-new** users get it once (Skip on step 1); existing users only reach it via
-**Settings → Help → "Take the app tour"**. Skip/Done land back on Dashboard → Overview. Steps can carry a
-`scroll` y-offset; `FeatureTour` `setSection`s then scrolls the shell via `lib/appScroll.ts` (`AppShell`
-registers its main `ScrollView`'s `scrollTo`), so the tour walks **down** each section, not just to its top.
+**Guided feature tour** (`components/FeatureTour.tsx` + `components/TourMenu.tsx` + `stores/tourStore.ts` +
+`lib/tourSteps.ts`). A **driven section walkthrough**: an overlay rendered at the top of `AppShell` that,
+per step, calls `navStore.setSection(...)` so the *real* screens slide in behind a docked explainer card
+(icon/title/body + a **page label & progress bar** + Skip/Back/Next). A transparent touch-blocker keeps the
+live UI non-interactive during the tour. **Tiers & pages:** `tourSteps.ts` groups steps into **pages**
+(Getting started / Dashboard / Food / Workout / Health / Settings); each step may be flagged `advanced`.
+`tourStepsFor(tier, pageKey?)` flattens them — **Basic** = non-advanced steps (the essentials), **Advanced**
+= all steps, and a `pageKey` narrows to one page's full set (the per-page replay). `TourMenu` is the chooser
+(Basic / Advanced / jump-to-a-section), opened via `tourStore.openMenu()`. `tourStore` is **runtime-only**
+(no persistence) and holds the **resolved step list** for the active run: onboarding `finish()` calls
+`openMenu()` so **brand-new** users pick a tour (or dismiss); existing users reach it via **Settings → Help
+→ "Take the app tour"**. Skip/Done land back on Dashboard → Overview. Steps can carry a `scroll` y-offset;
+`FeatureTour` `setSection`s then scrolls the shell via `lib/appScroll.ts` (`AppShell` registers its main
+`ScrollView`'s `scrollTo`), so the tour walks **down** each section, not just to its top.
 
-**Tour preview data** (`lib/tourPreview.ts`). So the tour isn't a blank app, `tourStore.start()` calls
+**Tour preview data** (`lib/tourPreview.ts`). So the tour isn't a blank app, `tourStore.startTour()` calls
 `beginTourPreview()`, which — **only when the account has no logged data** — loads the demo dataset as a
 temporary preview; every tour-end path (`stop`, `next` past the last step) calls `endTourPreview()` to
 remove it and restore the prior profile. It's guarded so a real account is never touched (an existing user

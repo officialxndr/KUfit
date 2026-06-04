@@ -46,8 +46,10 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   recompute every metric for the selected window. `FoodRepo.getRangeNutrition` is the shared nutrition aggregate.
 - **Onboarding & tour**: first run → `src/app/onboarding.tsx` (6 steps: welcome/units, a **privacy promise**,
   profile (ft/in height + cascade birthday), activity, goal, and a **Preferences** step — confetti preview,
-  Navy toggle, active-calorie source, optional **Health connect**); then a skippable **guided feature tour**
-  (`components/FeatureTour.tsx` + `tourStore` + `src/lib/tourSteps.ts`) drives the real screens. Replay from
+  Navy toggle, active-calorie source, optional **Health connect**); then a **tour chooser** (`TourMenu`)
+  offering a **Basic** or **Advanced** **guided feature tour** (or a single section's tour on replay) that
+  drives the real screens (`components/FeatureTour.tsx` + `tourStore` + `src/lib/tourSteps.ts` — steps grouped
+  into pages + `advanced` flag, resolved by `tourStepsFor(tier, pageKey?)`). Replay from
   Settings → Help. Hidden **dev tools** (tap the Settings version footer 7× → `devStore`) reveal a
   demo-data seeder (`src/lib/demoSeed.ts`: Load / Clear) that fills realistic activity for screenshots.
 - **Feedback**: `src/app/feedback.tsx` (bug + feature forms) → `src/lib/feedback.ts` emails the report

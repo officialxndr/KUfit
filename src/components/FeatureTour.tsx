@@ -7,7 +7,6 @@ import { FsText, Button } from '@/components/ui';
 import { useTourStore } from '@/stores/tourStore';
 import { useNavStore } from '@/stores/navStore';
 import { scrollMainTo } from '@/lib/appScroll';
-import { TOUR_STEPS } from '@/lib/tourSteps';
 import { useMotion } from '@/lib/useMotion';
 import { DURATION, EASE } from '@/theme/motion';
 import { haptic } from '@/lib/haptics';
@@ -23,6 +22,7 @@ import { colors, radius, space, shadow, themedStyles } from '@/theme/tokens';
 export function FeatureTour() {
   const active = useTourStore((s) => s.active);
   const step = useTourStore((s) => s.step);
+  const steps = useTourStore((s) => s.steps);
   const next = useTourStore((s) => s.next);
   const back = useTourStore((s) => s.back);
   const insets = useSafeAreaInsets();
@@ -31,20 +31,21 @@ export function FeatureTour() {
   // Drive the shell to the step's screen, then scroll it into view.
   useEffect(() => {
     if (!active) return;
-    const s = TOUR_STEPS[step];
+    const s = steps[step];
+    if (!s) return;
     useNavStore.getState().setSection(s.section, s.subTab ?? null);
     // Reset to top immediately, then scroll to the step's target once the new
     // screen has mounted/laid out.
     scrollMainTo(0, false);
     const t = setTimeout(() => scrollMainTo(s.scroll ?? 0, true), 280);
     return () => clearTimeout(t);
-  }, [active, step]);
+  }, [active, step, steps]);
 
-  if (!active) return null;
+  if (!active || steps.length === 0) return null;
 
-  const s = TOUR_STEPS[step];
+  const s = steps[step];
   const Icon = s.icon;
-  const isLast = step === TOUR_STEPS.length - 1;
+  const isLast = step === steps.length - 1;
   const finish = () => {
     useTourStore.getState().stop();
     useNavStore.getState().setSection('dashboard', 'overview');
@@ -63,8 +64,15 @@ export function FeatureTour() {
             <FsText variant="body" style={{ marginTop: space[2], color: colors.muted, lineHeight: 20 }}>{s.body}</FsText>
           </Animated.View>
 
-          <View style={styles.dots}>
-            {TOUR_STEPS.map((_, i) => <View key={i} style={[styles.dot, i === step && styles.dotOn]} />)}
+          {/* Page label + progress bar — scales to long (Advanced) tours where a dot row wouldn't. */}
+          <View style={styles.progress}>
+            <View style={styles.progressHead}>
+              <FsText variant="overline" style={{ color: colors.primary }}>{s.page}</FsText>
+              <FsText variant="caption">{step + 1} / {steps.length}</FsText>
+            </View>
+            <View style={styles.track}>
+              <View style={[styles.fill, { width: `${((step + 1) / steps.length) * 100}%` }]} />
+            </View>
           </View>
 
           <View style={styles.actions}>
@@ -96,8 +104,9 @@ const styles = themedStyles(() => StyleSheet.create({
     width: 44, height: 44, borderRadius: radius.full,
     backgroundColor: 'rgba(99,102,241,0.12)', alignItems: 'center', justifyContent: 'center',
   },
-  dots: { flexDirection: 'row', gap: 6, marginTop: space[4], marginBottom: space[4] },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.border },
-  dotOn: { width: 18, backgroundColor: colors.primary },
+  progress: { marginTop: space[4], marginBottom: space[4] },
+  progressHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  track: { height: 4, borderRadius: radius.full, backgroundColor: colors.border, overflow: 'hidden' },
+  fill: { height: '100%', borderRadius: radius.full, backgroundColor: colors.primary },
   actions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 }));
