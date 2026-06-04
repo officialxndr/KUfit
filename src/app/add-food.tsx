@@ -194,7 +194,7 @@ export default function AddFoodModal() {
   }
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
+    <SafeAreaView style={styles.screen} edges={[]}>
       <View style={styles.header}>
         <FsText variant="h2">Add to {meal[0] + meal.slice(1).toLowerCase()}</FsText>
         <Pressable onPress={() => router.back()} hitSlop={10}>

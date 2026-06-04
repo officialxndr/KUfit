@@ -20,7 +20,7 @@ export default function ExerciseReports() {
   const filtered = useMemo(() => (q ? items.filter((i) => i.name.toLowerCase().includes(q)) : items), [items, q]);
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
+    <SafeAreaView style={styles.screen} edges={[]}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
         <FsText variant="cardTitle">Exercise Reports</FsText>

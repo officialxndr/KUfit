@@ -9,7 +9,7 @@ import { colors, themedStyles } from '@/theme/tokens';
 export default function GoalPhasesScreen() {
   const router = useRouter();
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
+    <SafeAreaView style={styles.screen} edges={[]}>
       <GoalPhasesPanel onBack={() => router.back()} />
     </SafeAreaView>
   );

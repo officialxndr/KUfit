@@ -55,7 +55,7 @@ export default function ExerciseProgress() {
   if (compareHistory.length) oneRMSeries.push({ points: compareHistory.map((h) => h.est1RM), color: colors.macroFat });
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
+    <SafeAreaView style={styles.screen} edges={[]}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
         <FsText variant="cardTitle" numberOfLines={1} style={{ flex: 1, textAlign: 'center' }}>{primaryName}</FsText>

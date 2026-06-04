@@ -64,7 +64,7 @@ export default function RemindersScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
+    <SafeAreaView style={styles.screen} edges={[]}>
       <View style={styles.header}>
         <FsText variant="h2">Reminders</FsText>
         <Pressable onPress={() => router.back()} hitSlop={10}><X color={colors.text} size={24} /></Pressable>

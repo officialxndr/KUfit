@@ -68,7 +68,7 @@ export default function MeasurementsScreen() {
   if (mode === 'tape') {
     return (
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <SafeAreaView style={styles.screen} edges={['top']}>
+        <SafeAreaView style={styles.screen} edges={[]}>
           <TapeMeasureView onBack={() => { setMode('manual'); refresh(); }} onChanged={refresh} />
         </SafeAreaView>
       </GestureHandlerRootView>
@@ -77,7 +77,7 @@ export default function MeasurementsScreen() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-    <SafeAreaView style={styles.screen} edges={['top']}>
+    <SafeAreaView style={styles.screen} edges={[]}>
       <View style={styles.header}>
         <FsText variant="h2">Measurements</FsText>
         <Pressable onPress={() => router.back()} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
