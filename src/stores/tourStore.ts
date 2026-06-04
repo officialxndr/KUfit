@@ -17,7 +17,10 @@ interface TourState {
   step: number;
   steps: ResolvedTourStep[];
   menuOpen: boolean;
-  openMenu: () => void;
+  /** Whether the chooser shows the per-section "jump to a section" list (replay) or
+   *  just the Basic/Advanced choice (first run, from onboarding). */
+  menuShowPages: boolean;
+  openMenu: (showPages?: boolean) => void;
   closeMenu: () => void;
   /** Resolve + start a run from a tier (and optional single page). */
   startTour: (tier: TourTier, pageKey?: string) => void;
@@ -31,7 +34,8 @@ export const useTourStore = create<TourState>((set, get) => ({
   step: 0,
   steps: [],
   menuOpen: false,
-  openMenu: () => set({ menuOpen: true }),
+  menuShowPages: true,
+  openMenu: (showPages = true) => set({ menuOpen: true, menuShowPages: showPages }),
   closeMenu: () => set({ menuOpen: false }),
   startTour: (tier, pageKey) => {
     const steps = tourStepsFor(tier, pageKey);

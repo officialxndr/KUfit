@@ -14,6 +14,7 @@ import { colors, radius, space, themedStyles } from '@/theme/tokens';
  */
 export function TourMenu() {
   const open = useTourStore((s) => s.menuOpen);
+  const showPages = useTourStore((s) => s.menuShowPages);
   const close = useTourStore((s) => s.closeMenu);
   const startTour = useTourStore((s) => s.startTour);
 
@@ -50,21 +51,25 @@ export function TourMenu() {
               <ChevronRight color={colors.muted} size={20} />
             </Pressable>
 
-            <FsText variant="overline" style={{ color: colors.muted, marginTop: space[3], marginBottom: space[2] }}>
-              Or jump to a section
-            </FsText>
-            {TOUR_PAGES.map((p) => {
-              const Icon = p.icon;
-              const count = tourStepsFor('advanced', p.key).length;
-              return (
-                <Pressable key={p.key} style={styles.pageRow} onPress={() => run('advanced', p.key)}>
-                  <Icon color={colors.text} size={18} />
-                  <FsText variant="bodyMedium" style={{ flex: 1 }}>{p.label}</FsText>
-                  <FsText variant="caption" style={{ marginRight: space[2] }}>{count}</FsText>
-                  <ChevronRight color={colors.muted} size={18} />
-                </Pressable>
-              );
-            })}
+            {showPages && (
+              <>
+                <FsText variant="overline" style={{ color: colors.muted, marginTop: space[3], marginBottom: space[2] }}>
+                  Or jump to a section
+                </FsText>
+                {TOUR_PAGES.map((p) => {
+                  const Icon = p.icon;
+                  const count = tourStepsFor('advanced', p.key).length;
+                  return (
+                    <Pressable key={p.key} style={styles.pageRow} onPress={() => run('advanced', p.key)}>
+                      <Icon color={colors.text} size={18} />
+                      <FsText variant="bodyMedium" style={{ flex: 1 }}>{p.label}</FsText>
+                      <FsText variant="caption" style={{ marginRight: space[2] }}>{count}</FsText>
+                      <ChevronRight color={colors.muted} size={18} />
+                    </Pressable>
+                  );
+                })}
+              </>
+            )}
           </ScrollView>
         </Pressable>
       </Pressable>

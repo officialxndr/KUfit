@@ -388,7 +388,8 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       tour** on replay. `tourSteps.ts` groups steps into pages (Getting started / Dashboard / Food / Workout /
       Health / Settings) with an `advanced` flag; `tourStepsFor(tier, pageKey?)` resolves the run, which
       `tourStore` holds. The overlay swaps its fixed dot row for a **page label + progress bar** so long tours
-      scale. Onboarding finish + Settings → Help open the chooser instead of auto-starting.
+      scale. First-run (onboarding) shows a clean **Basic / Advanced** choice; the per-section jump list only
+      appears on **replay** (Settings → Help) via `openMenu(showPages)`. Both open the chooser instead of auto-starting.
 
 ## Not built yet (planned)
 - [ ] **Renpho tape on-device test** — built and the protocol is implemented, but the BLE connection is

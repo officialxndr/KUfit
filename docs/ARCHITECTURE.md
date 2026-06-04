@@ -90,11 +90,12 @@ per step, calls `navStore.setSection(...)` so the *real* screens slide in behind
 live UI non-interactive during the tour. **Tiers & pages:** `tourSteps.ts` groups steps into **pages**
 (Getting started / Dashboard / Food / Workout / Health / Settings); each step may be flagged `advanced`.
 `tourStepsFor(tier, pageKey?)` flattens them — **Basic** = non-advanced steps (the essentials), **Advanced**
-= all steps, and a `pageKey` narrows to one page's full set (the per-page replay). `TourMenu` is the chooser
-(Basic / Advanced / jump-to-a-section), opened via `tourStore.openMenu()`. `tourStore` is **runtime-only**
-(no persistence) and holds the **resolved step list** for the active run: onboarding `finish()` calls
-`openMenu()` so **brand-new** users pick a tour (or dismiss); existing users reach it via **Settings → Help
-→ "Take the app tour"**. Skip/Done land back on Dashboard → Overview. Steps can carry a `scroll` y-offset;
+= all steps, and a `pageKey` narrows to one page's full set (the per-page replay). `TourMenu` is the chooser,
+opened via `tourStore.openMenu(showPages?)`: **first run** (onboarding) passes `false` for a clean **Basic /
+Advanced** choice; **replay** (Settings → Help) defaults to `true`, adding the **jump-to-a-section** list.
+`tourStore` is **runtime-only** (no persistence) and holds the **resolved step list** for the active run:
+onboarding `finish()` calls `openMenu(false)` so **brand-new** users pick a tour (or dismiss); existing users
+reach it via **Settings → Help → "Take the app tour"**. Skip/Done land back on Dashboard → Overview. Steps can carry a `scroll` y-offset;
 `FeatureTour` `setSection`s then scrolls the shell via `lib/appScroll.ts` (`AppShell` registers its main
 `ScrollView`'s `scrollTo`), so the tour walks **down** each section, not just to its top.
 

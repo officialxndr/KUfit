@@ -94,8 +94,9 @@ export default function Onboarding() {
     });
     completeOnboarding();
     haptic.success();
-    // Brand-new users land on the dashboard with the tour chooser open (Basic / Advanced / skip).
-    useTourStore.getState().openMenu();
+    // Brand-new users land on the dashboard with the tour chooser open — just Basic / Advanced
+    // (the per-section "jump to" list is for replay from Settings → Help).
+    useTourStore.getState().openMenu(false);
     router.replace('/(tabs)');
   };
 
