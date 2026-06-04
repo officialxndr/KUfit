@@ -248,6 +248,11 @@ function runMigrations() {
   ensureColumn('exercises', 'perSide', 'INTEGER');
   // Calories burned during a workout (measured from HealthKit/Health Connect, else MET estimate).
   ensureColumn('workout_sessions', 'caloriesBurned', 'REAL');
+  // DEXA-scan compartments on a weigh-in (sparse; entered via the "Log DEXA scan" flow).
+  // Bone mass + T-score are ~constant between scans; visceral fat is the scan's estimate.
+  ensureColumn('weight_entries', 'boneMassKg', 'REAL');
+  ensureColumn('weight_entries', 'visceralFatKg', 'REAL');
+  ensureColumn('weight_entries', 'boneTScore', 'REAL');
   // Heart-rate summary + downsampled series (from Health) for the workout window.
   ensureColumn('workout_sessions', 'avgHeartRate', 'REAL');
   ensureColumn('workout_sessions', 'minHeartRate', 'REAL');

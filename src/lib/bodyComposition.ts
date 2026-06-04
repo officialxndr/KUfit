@@ -15,6 +15,25 @@ export function leanMassKg(weightKg: number, bodyFatPct: number): number {
 }
 
 /**
+ * Split a weigh-in into compartments. Fat-free mass (`ffmKg`) is always weight − fat and
+ * is what FFMI uses. With a known **DEXA bone mass** we can show the true 3-compartment
+ * model — fat + lean soft tissue + bone — that a DEXA report gives (lean soft tissue =
+ * fat-free mass − bone); without it, `leanSoftKg`/`boneKg` are null and `ffmKg` (which
+ * silently includes bone) is the best available "lean" figure.
+ */
+export function composition(
+  weightKg: number,
+  bodyFatPct: number,
+  boneMassKg?: number | null
+): { fatKg: number; ffmKg: number; boneKg: number | null; leanSoftKg: number | null } {
+  const fatKg = weightKg * (bodyFatPct / 100);
+  const ffmKg = weightKg - fatKg;
+  const boneKg = boneMassKg != null && boneMassKg > 0 ? boneMassKg : null;
+  const leanSoftKg = boneKg != null ? Math.max(0, ffmKg - boneKg) : null;
+  return { fatKg, ffmKg, boneKg, leanSoftKg };
+}
+
+/**
  * U.S. Navy body-fat estimate (Hodgdon–Beckett) from tape measurements, metric (cm):
  *   men:   495 / (1.0324 − 0.19077·log10(waist−neck) + 0.15456·log10(height)) − 450
  *   women: 495 / (1.29579 − 0.35004·log10(waist+hip−neck) + 0.22100·log10(height)) − 450

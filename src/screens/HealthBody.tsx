@@ -1,17 +1,28 @@
 import { useCallback, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import { Scale } from 'lucide-react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { Scale, TrendingDown, TrendingUp, Minus } from 'lucide-react-native';
 
 import { Card, FsText, Badge, Button } from '@/components/ui';
 import { AnimatedNumber } from '@/components/anim/AnimatedNumber';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { formatWeight } from '@/lib/units';
-import { estimateBodyFat, navyBodyFat } from '@/lib/bodyComposition';
+import { formatWeight, toDisplay, UNIT_LABELS } from '@/lib/units';
+import { estimateBodyFat, navyBodyFat, composition } from '@/lib/bodyComposition';
 import { haptic } from '@/lib/haptics';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
-import type { WeightEntry, BodyMeasurement } from '@/types';
+import type { WeightEntry, BodyMeasurement, UnitSystem } from '@/types';
+
+/** Waist change since a scan — direction only; visceral fat tracks waist directionally. */
+function computeWaistTrend(measurements: BodyMeasurement[], scanDate: string | null): { deltaCm: number } | null {
+  if (!scanDate) return null;
+  const withWaist = measurements.filter((m) => m.waist != null); // newest-first
+  if (withWaist.length < 1) return null;
+  const now = withWaist[0];
+  const atScan = withWaist.find((m) => m.date <= scanDate) ?? withWaist[withWaist.length - 1];
+  if (!now || !atScan || now.date === atScan.date) return null;
+  return { deltaCm: (now.waist as number) - (atScan.waist as number) };
+}
 
 const shortDate = (d: string) =>
   new Date(`${d}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -31,11 +42,14 @@ function bfBand(bf: number): { label: string; tone: 'success' | 'warning' | 'dan
 }
 
 export function HealthBody() {
+  const router = useRouter();
   const profile = useSettingsStore((s) => s.profile);
   const unit = profile.unitSystem;
   const [latest, setLatest] = useState<WeightEntry | null>(null);
   const [baseline, setBaseline] = useState<WeightEntry | null>(null);
   const [measurement, setMeasurement] = useState<BodyMeasurement | null>(null);
+  const [dexa, setDexa] = useState<WeightEntry | null>(null);
+  const [measurements, setMeasurements] = useState<BodyMeasurement[]>([]);
 
   const refresh = useCallback(() => {
     setLatest(healthRepo.getLatestWeightEntry());
@@ -43,12 +57,16 @@ export function HealthBody() {
     // Coalesce the latest non-null value per site — waist & neck may live on
     // different dated rows, and the Navy estimate needs them together.
     setMeasurement(healthRepo.getLatestMeasurementBySite());
+    setDexa(healthRepo.getLatestDexa());
+    setMeasurements(healthRepo.getMeasurements()); // newest-first; powers the waist-trend cue
   }, []);
   useFocusEffect(refresh);
 
+  const openDexa = () => router.push('/log-dexa');
+
   // U.S. Navy estimate from the latest tape measurement + height/sex, when available.
   const navyBf =
-    measurement && profile.heightCm && (profile.sex === 'MALE' || profile.sex === 'FEMALE')
+    profile.navyBodyFatEnabled && measurement && profile.heightCm && (profile.sex === 'MALE' || profile.sex === 'FEMALE')
       ? navyBodyFat({
           sex: profile.sex,
           heightCm: profile.heightCm,
@@ -68,7 +86,7 @@ export function HealthBody() {
   };
 
   if (!latest) {
-    return <Empty message="Log your weight to see body composition." />;
+    return <Empty message="Log your weight — or a full DEXA scan — to see body composition." action={{ label: 'Log DEXA scan', onPress: openDexa }} />;
   }
 
   // Source priority: a measured % on the latest weigh-in, then the lean-mass estimate
@@ -87,6 +105,11 @@ export function HealthBody() {
   }
 
   if (bf == null) {
+    // With the Navy estimate turned off, the only sources are a value you enter or a
+    // DEXA baseline — guide toward that rather than the tape-measurement formula.
+    if (!profile.navyBodyFatEnabled) {
+      return <Empty message="Enter a body-fat % when you log your weight (e.g. from a DEXA scan or calipers) to see body composition. You can also turn the U.S. Navy tape estimate back on in Settings." action={{ label: 'Log DEXA scan', onPress: openDexa }} />;
+    }
     // Name exactly what the U.S. Navy estimate still needs, so the empty state is
     // actionable instead of vaguely asking for a body-fat %.
     const needSettings: string[] = [];
@@ -107,19 +130,26 @@ export function HealthBody() {
       if (needMeasure.length) parts.push(`log your ${joinList(needMeasure)} in Measurements`);
       message = `To estimate body fat with the U.S. Navy method, ${parts.join(' and ')}. Or enter a body-fat % when you log your weight (e.g. from a DEXA scan).`;
     }
-    return <Empty message={message} />;
+    return <Empty message={message} action={{ label: 'Log DEXA scan', onPress: openDexa }} />;
   }
 
   const weightKg = latest.weightKg;
-  const fatKg = (weightKg * bf) / 100;
+  const boneKg = dexa?.boneMassKg ?? null; // carried forward from the last DEXA (~constant)
+  const comp = composition(weightKg, bf, boneKg);
+  const fatKg = comp.fatKg;
+  const leanKg = comp.ffmKg;          // fat-free mass (incl. bone) — drives FFMI
+  const leanSoftKg = comp.leanSoftKg; // muscle/organs/water, bone removed (null without a DEXA)
   const estimated = source !== 'measured';
-  const leanKg = weightKg - fatKg;
   const hM = profile.heightCm ? profile.heightCm / 100 : null;
   const bmi = hM ? weightKg / (hM * hM) : null;
   const ffmi = hM ? leanKg / (hM * hM) : null;
   const band = bfBand(bf);
-  const leanFlex = Math.round(leanKg * 10);
+  // Composition-bar flex weights (×10 → integer ratios). 3-way when bone is known.
+  const leanFlex = Math.round((leanSoftKg ?? leanKg) * 10);
   const fatFlex = Math.round(fatKg * 10);
+  const boneFlex = boneKg != null ? Math.round(boneKg * 10) : 0;
+  // Direction-only cue for visceral fat (magnitude isn't reliable from waist alone).
+  const waistTrend = computeWaistTrend(measurements, dexa?.date ?? null);
 
   return (
     <>
@@ -175,8 +205,18 @@ export function HealthBody() {
       )}
 
       <View style={styles.grid}>
-        <Metric label="Lean Mass" value={formatWeight(leanKg, unit)} tone={colors.success} />
-        <Metric label="Fat Mass" value={formatWeight(fatKg, unit)} tone={colors.muted} />
+        {leanSoftKg != null ? (
+          <>
+            <Metric label="Lean (soft tissue)" value={formatWeight(leanSoftKg, unit)} tone={colors.success} />
+            <Metric label="Fat Mass" value={formatWeight(fatKg, unit)} tone={colors.muted} />
+            <Metric label="Bone" value={formatWeight(boneKg as number, unit)} />
+          </>
+        ) : (
+          <>
+            <Metric label="Lean Mass" value={formatWeight(leanKg, unit)} tone={colors.success} />
+            <Metric label="Fat Mass" value={formatWeight(fatKg, unit)} tone={colors.muted} />
+          </>
+        )}
         <Metric label="BMI" value={bmi != null ? bmi.toFixed(1) : '—'} />
         <Metric label="FFMI" value={ffmi != null ? ffmi.toFixed(1) : '—'} tone={colors.primary} />
       </View>
@@ -186,10 +226,12 @@ export function HealthBody() {
         <View style={styles.compBar}>
           <View style={{ flex: leanFlex, backgroundColor: colors.primary }} />
           <View style={{ flex: fatFlex, backgroundColor: colors.warning }} />
+          {boneFlex > 0 && <View style={{ flex: boneFlex, backgroundColor: colors.muted }} />}
         </View>
-        <View style={{ flexDirection: 'row', gap: space[4], marginTop: space[3] }}>
-          <Legend color={colors.primary} label="Lean" value={formatWeight(leanKg, unit)} />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[4], marginTop: space[3] }}>
+          <Legend color={colors.primary} label="Lean" value={formatWeight(leanSoftKg ?? leanKg, unit)} />
           <Legend color={colors.warning} label="Fat" value={formatWeight(fatKg, unit)} />
+          {boneKg != null && <Legend color={colors.muted} label="Bone" value={formatWeight(boneKg, unit)} />}
         </View>
         {bmi == null && (
           <FsText variant="caption" style={{ marginTop: space[3] }}>
@@ -197,6 +239,12 @@ export function HealthBody() {
           </FsText>
         )}
       </Card>
+
+      {dexa ? (
+        <DexaCard dexa={dexa} unit={unit} waistTrend={waistTrend} onUpdate={openDexa} />
+      ) : (
+        <Button title="Log DEXA scan" variant="ghost" onPress={openDexa} style={{ marginTop: space[3] }} />
+      )}
     </>
   );
 }
@@ -232,6 +280,66 @@ function Legend({ color, label, value }: { color: string; label: string; value: 
   );
 }
 
+/** DEXA-anchored card: held-constant scan values + a direction-only visceral cue. */
+function DexaCard({ dexa, unit, waistTrend, onUpdate }: {
+  dexa: WeightEntry;
+  unit: UnitSystem;
+  waistTrend: { deltaCm: number } | null;
+  onUpdate: () => void;
+}) {
+  const ageDays = Math.max(0, Math.round((Date.now() - new Date(`${dexa.date}T00:00:00`).getTime()) / 86_400_000));
+  const ageLabel = ageDays === 0 ? 'today' : `${ageDays} day${ageDays === 1 ? '' : 's'} ago`;
+  const wLabel = UNIT_LABELS[unit].weight;
+  const lenLabel = UNIT_LABELS[unit].smallLength;
+  const toLen = (cm: number) => (unit === 'IMPERIAL' ? cm / 2.54 : cm);
+  const visceral = dexa.visceralFatKg != null ? `${toDisplay(dexa.visceralFatKg, unit).toFixed(2)} ${wLabel}` : null;
+
+  // Direction-only visceral cue from the waist trend since the scan (magnitude isn't reliable).
+  let dir: { color: string; text: string } | null = null;
+  let DirIcon: typeof TrendingDown | null = null;
+  if (visceral && waistTrend) {
+    const mag = `${Math.abs(toLen(waistTrend.deltaCm)).toFixed(1)} ${lenLabel}`;
+    if (waistTrend.deltaCm < -0.5) { dir = { color: colors.success, text: `waist −${mag} since — likely lower` }; DirIcon = TrendingDown; }
+    else if (waistTrend.deltaCm > 0.5) { dir = { color: colors.danger, text: `waist +${mag} since — likely higher` }; DirIcon = TrendingUp; }
+    else { dir = { color: colors.muted, text: 'waist ~steady since' }; DirIcon = Minus; }
+  }
+
+  return (
+    <Card style={{ marginTop: space[3] }}>
+      <View style={styles.rowBetween}>
+        <FsText variant="cardTitle">DEXA scan</FsText>
+        <FsText variant="caption">{shortDate(dexa.date)} · {ageLabel}</FsText>
+      </View>
+      <FsText variant="caption" style={{ marginTop: 2, marginBottom: space[3], color: colors.muted }}>
+        Carried from your scan until the next one — bone mass &amp; density barely change.
+      </FsText>
+      <View style={styles.dexaGrid}>
+        {dexa.boneMassKg != null && <Mini label="Bone mass" value={formatWeight(dexa.boneMassKg, unit)} />}
+        {dexa.boneTScore != null && <Mini label="Bone density (T-score)" value={dexa.boneTScore.toFixed(1)} />}
+        {visceral && <Mini label="Visceral fat" value={visceral} />}
+      </View>
+      {dir && DirIcon && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: space[3] }}>
+          <DirIcon color={dir.color} size={14} />
+          <FsText variant="caption" style={{ color: dir.color, flex: 1 }}>
+            Visceral fat: {dir.text}. Re-scan to confirm.
+          </FsText>
+        </View>
+      )}
+      <Button title="Log new DEXA scan" variant="ghost" onPress={onUpdate} style={{ marginTop: space[4] }} />
+    </Card>
+  );
+}
+
+function Mini({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.mini}>
+      <FsText variant="caption" style={{ fontSize: 11 }}>{label}</FsText>
+      <FsText variant="bodyMedium" style={{ marginTop: 2 }}>{value}</FsText>
+    </View>
+  );
+}
+
 const styles = themedStyles(() => StyleSheet.create({
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   srcPill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, backgroundColor: 'rgba(99,102,241,0.15)' },
@@ -239,6 +347,8 @@ const styles = themedStyles(() => StyleSheet.create({
   rangeLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: space[2] },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginBottom: space[3] },
   metric: { width: '48%', flexGrow: 1 },
+  dexaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space[3], rowGap: space[3] },
+  mini: { width: '47%', flexGrow: 1 },
   compBar: { flexDirection: 'row', height: 20, borderRadius: radius.full, overflow: 'hidden', gap: 2 },
   empty: { alignItems: 'center', paddingVertical: space[8], gap: space[2] },
   emptyIcon: {

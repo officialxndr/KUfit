@@ -8,7 +8,7 @@ export type MacroTargetMode = 'GRAMS' | 'PERCENT'
 /** Source for eating active calories back into the daily budget. */
 export type ActiveCalorieSource = 'off' | 'auto' | 'watch' | 'inapp'
 export type FoodSource = 'MANUAL' | 'OPEN_FOOD_FACTS' | 'USDA' | 'BASE'
-export type DataSource = 'MANUAL' | 'APPLE_HEALTH' | 'SHORTCUT'
+export type DataSource = 'MANUAL' | 'APPLE_HEALTH' | 'SHORTCUT' | 'DEXA'
 
 export interface UserProfile {
   id: string
@@ -136,6 +136,12 @@ export interface WeightEntry {
   date: string
   weightKg: number
   bodyFat?: number | null
+  /** DEXA bone mineral content (kg). Sparse — only on scan days; ~constant between scans. */
+  boneMassKg?: number | null
+  /** DEXA-estimated visceral adipose tissue (kg). Sparse. */
+  visceralFatKg?: number | null
+  /** DEXA bone-density T-score (SDs vs a young-adult reference). Sparse. */
+  boneTScore?: number | null
   source: DataSource
   createdAt: string
 }

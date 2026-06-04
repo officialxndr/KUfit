@@ -6,15 +6,14 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import type { Profile } from '@/stores/settingsStore';
 
 /**
- * Sample-data seeder for the hidden Developer tools — fills ~10 weeks of realistic
- * food logs, weigh-ins, measurements and progressive-overload workouts so every
+ * Sample-data seeder for the hidden Developer tools — fills ~1 year of realistic
+ * food logs, weigh-ins (incl. example DEXA scans), measurements and progressive-overload workouts so every
  * screen looks alive (for the feature tour and App Store screenshots). Idempotent:
  * `loadDemoData` clears logged data first, and demo foods dedupe by a synthetic
  * `demo:` barcode. Not shown to normal users.
  */
 
 const DAY_MS = 86_400_000;
-const SPAN = 70; // days of history
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const dateAgo = (d: number) => iso(new Date(Date.now() - d * DAY_MS));
 const rand = (min: number, max: number) => min + Math.random() * (max - min);
@@ -99,7 +98,12 @@ export function clearLoggedData(): void {
   });
 }
 
-export function loadDemoData(): void {
+/**
+ * Seeds `spanDays` of history (default ~1 year for the dev "Load sample data" tool).
+ * The tour preview passes a shorter span so its synchronous seed-on-tour-start stays snappy.
+ */
+export function loadDemoData(spanDays = 365): void {
+  const SPAN = spanDays; // days of history
   clearLoggedData();
 
   // Fill in demographics + a goal/training target only where the user hasn't set them
@@ -138,9 +142,9 @@ export function loadDemoData(): void {
       }
     };
     for (let d = SPAN; d >= 0; d--) {
-      // Skip a few days (more in the distant past) for realistic adherence.
-      if (Math.random() < (d > 40 ? 0.22 : 0.08)) continue;
       const date = dateAgo(d);
+      // Every day logs all three main meals — no empty / 0-calorie days. Snacks vary
+      // for some day-to-day texture without ever zeroing out the day's total.
       logMeal(date, 'BREAKFAST', pick(BREAKFASTS));
       logMeal(date, 'LUNCH', pick(LUNCHES));
       logMeal(date, 'DINNER', pick(DINNERS));
@@ -154,6 +158,23 @@ export function loadDemoData(): void {
       const base = 84 - 4.5 * t;
       const bf = d % 7 === 0 ? r1(18 - 3 * t) : undefined;
       healthRepo.upsertWeightEntry(dateAgo(d), r1(base + rand(-0.35, 0.35)), bf);
+    }
+
+    // A DEXA scan or two within the span so the Body subview's 3-compartment view
+    // (lean soft tissue / fat / bone) and the DEXA card light up in the tour + demo.
+    // Bone mass & T-score are ~constant; visceral fat trends down with the cut. Runs after
+    // the weigh-in loop so it upgrades those dates to source 'DEXA' with the extra fields.
+    const dexaDays = SPAN >= 180 ? [Math.round(SPAN * 0.7), Math.round(SPAN * 0.25)] : [Math.round(SPAN * 0.6)];
+    for (const d of dexaDays) {
+      const t = (SPAN - d) / SPAN;
+      healthRepo.logDexaScan({
+        date: dateAgo(d),
+        weightKg: r1(84 - 4.5 * t),
+        bodyFat: r1(18 - 3 * t),
+        boneMassKg: 3.2,                  // ~constant skeletal mass for a 178 cm male
+        visceralFatKg: r1(0.5 - 0.2 * t), // trends down across the cut
+        boneTScore: 1.0,
+      });
     }
 
     // Body measurements every ~2 weeks (waist trends down).
@@ -181,7 +202,11 @@ export function loadDemoData(): void {
       for (const [key, baseW, sets, reps] of split.lifts) {
         const ex = findEx(key);
         if (!ex) continue;
-        const w = baseW > 0 ? baseW + Math.floor(progressed / 2) * 2.5 : 0;
+        // Diminishing-returns overload: fast early gains tapering toward a plateau
+        // (cap +50% of base), rounded to 2.5 kg plates — so a full year of training
+        // lands on believable PRs instead of a linear blow-up.
+        const gainKg = baseW > 0 ? Math.round((baseW * 0.5 * (1 - Math.exp(-progressed / 14))) / 2.5) * 2.5 : 0;
+        const w = baseW + gainKg;
         const setArr = [];
         for (let s = 1; s <= sets; s++) {
           const isTop = s === sets;

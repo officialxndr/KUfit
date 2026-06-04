@@ -74,6 +74,7 @@ export default function RootLayout() {
           <Stack.Screen name="tdee" options={{ presentation: 'modal' }} />
           <Stack.Screen name="measurements" options={{ presentation: 'modal' }} />
           <Stack.Screen name="log-weight" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="log-dexa" options={{ presentation: 'modal' }} />
           <Stack.Screen name="custom-food" options={{ presentation: 'modal' }} />
           <Stack.Screen name="reminders" options={{ presentation: 'modal' }} />
         </Stack>

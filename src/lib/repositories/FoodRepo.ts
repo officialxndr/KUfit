@@ -395,16 +395,39 @@ export class FoodRepo {
   // ── Daily stats ─────────────────────────────────────────────────────────────
 
   getDailyCalories(from: string, to: string): { date: string; calories: number }[] {
-    return db.getAllSync(
+    // Food-item logs, summed per day. Recipe logs carry no food item, so they're folded
+    // in below — otherwise recipe-only days read as 0 calories, which made the Dashboard
+    // calorie trend (and food streaks / calendar marks) under-report. Mirrors
+    // getDayTotals / getRangeNutrition so every calorie surface agrees.
+    const rows = db.getAllSync(
       `SELECT fl.date,
               COALESCE(SUM(fi.calories * fl.servingQty), 0) AS calories
        FROM food_logs fl
        LEFT JOIN food_items fi ON fl.foodItemLocalId = fi.localId
-       WHERE fl.date >= ? AND fl.date <= ? AND fl.deleted = 0
-       GROUP BY fl.date
-       ORDER BY fl.date`,
+       WHERE fl.date >= ? AND fl.date <= ? AND fl.deleted = 0 AND fl.foodItemLocalId IS NOT NULL
+       GROUP BY fl.date`,
       [from, to]
-    ) as any[];
+    ) as { date: string; calories: number }[];
+    const byDate = new Map<string, number>();
+    for (const r of rows) byDate.set(r.date, r.calories);
+
+    const recipeLogs = db.getAllSync(
+      `SELECT date, recipeLocalId, servingQty FROM food_logs
+       WHERE date >= ? AND date <= ? AND deleted = 0 AND recipeLocalId IS NOT NULL`,
+      [from, to]
+    ) as { date: string; recipeLocalId: string; servingQty: number }[];
+    if (recipeLogs.length) {
+      const nutri = this.getRecipeNutritionMap();
+      for (const rl of recipeLogs) {
+        const n = nutri.get(rl.recipeLocalId);
+        if (!n) continue;
+        byDate.set(rl.date, (byDate.get(rl.date) ?? 0) + n.calories * rl.servingQty);
+      }
+    }
+
+    return [...byDate.entries()]
+      .map(([date, calories]) => ({ date, calories }))
+      .sort((a, b) => a.date.localeCompare(b.date));
   }
 
   /**

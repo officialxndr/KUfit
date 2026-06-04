@@ -39,6 +39,7 @@ const T = {
   units: 'units metric imperial kg lbs pounds cm centimeters measurement system',
   appearance: 'appearance theme dark light mode colour color accent scheme display',
   profile: 'profile name height birth date birthday age sex gender avatar photo picture',
+  body: 'body composition fat navy estimate dexa lean mass percentage tape measurement',
   activity: 'activity level sedentary light moderate active very tdee maintenance',
   goals: 'goals goal weight target calorie calories macro macros protein carbs fat phase',
   tools: 'tools tdee calculator',
@@ -349,6 +350,21 @@ export function SettingsView() {
           {SEXES.map((s) => (
             <Chip key={s} label={s[0] + s.slice(1).toLowerCase()} selected={profile.sex === s} onPress={() => setProfile({ sex: s })} />
           ))}
+        </View>
+      </Card>
+
+      <Card hidden={!show(T.body)} style={{ marginBottom: space[3] }}>
+        <SectionHeader title="Body composition" />
+        <View style={styles.toggleRow}>
+          <View style={{ flex: 1, marginRight: space[3] }}>
+            <FsText variant="bodyMedium">U.S. Navy body-fat estimate</FsText>
+            <FsText variant="caption">When you haven't entered a measured body-fat %, estimate it from your neck/waist/hip tape measurements (U.S. Navy formula). Turn off to show only body-fat values you log yourself (or from a DEXA baseline).</FsText>
+          </View>
+          <Switch
+            value={profile.navyBodyFatEnabled}
+            onValueChange={(v) => setProfile({ navyBodyFatEnabled: v })}
+            trackColor={{ true: colors.primary, false: colors.border }}
+          />
         </View>
       </Card>
 

@@ -100,11 +100,13 @@ can't wipe a real account.
 
 **Developer tools + demo data** (`stores/devStore.ts` + `lib/demoSeed.ts`). Hidden from normal users:
 tapping the **version footer in Settings 7×** unlocks `devMode` (persisted), revealing a **Developer** card
-with **Load sample data** / **Clear logged data** / **Turn off developer tools**. `loadDemoData()`
-clears-then-seeds ~10 weeks of realistic activity for screenshots + the tour — meals composed from the
+with **Load sample data** / **Clear logged data** / **Turn off developer tools**. `loadDemoData(spanDays = 365)`
+clears-then-seeds ~1 year of realistic activity for screenshots (the tour preview passes a shorter ~10-week
+span to keep its synchronous seed-on-start snappy) — meals composed from the
 **enriched base foods** (logged by their `base:<slug>` barcode, so each carries the full OFF-style detail:
 micronutrients, Nutri-Score, NOVA, allergens) plus one branded `demo:` shake with additives/labels, a
-weight trend + body measurements, and progressive-overload workouts (via `WorkoutRepo.seedFinishedSession`, which backdates `startedAt`)
+weight trend (incl. a couple of example **DEXA scans** via `HealthRepo.logDexaScan` so the 3-compartment Body
+view lights up) + body measurements, and progressive-overload workouts (via `WorkoutRepo.seedFinishedSession`, which backdates `startedAt`)
 that flag PRs as weights climb; fills demographics + goal/weekly-target (`DEMO_PROFILE_KEYS`: height, sex,
 birth date, goal weight, weekly target) **only where unset** — without height/sex/birth date `resolveTargets`
 can't produce a calorie/macro target, so the calorie ring + macro bars would render empty. All inside `db.withTransactionSync`.
@@ -154,6 +156,14 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
   neckCm, waistCm, hipCm})`** is the U.S. Navy (Hodgdon–Beckett) tape estimate, metric form. Consumed by
   `screens/HealthBody.tsx` (source priority: measured % on the latest weigh-in → lean-mass estimate from
   a DEXA baseline → Navy tape estimate), with `HealthRepo.getLatestBodyFatBaseline()` supplying the baseline.
+  The Navy fallback is gated by `profile.navyBodyFatEnabled` (Settings → Body composition; default on) — off
+  means only a measured % or DEXA-baseline estimate is shown, in `HealthBody`, `HealthTrends` and `DashboardReports`.
+  **DEXA scans**: a dedicated "Log DEXA scan" flow (`app/log-dexa.tsx` → `HealthRepo.logDexaScan`, stored as a
+  weigh-in with `source='DEXA'` + `boneMassKg`/`visceralFatKg`/`boneTScore` columns) unlocks a true
+  **3-compartment** Body view via `composition(weight, bf%, boneKg)` → fat + lean soft tissue + bone (FFMI still
+  uses fat-free mass). `HealthRepo.getLatestDexa()` carries the ~constant bone mass / T-score forward between
+  scans; visceral fat shows the scan value plus a **direction-only** cue from the waist-measurement trend
+  (magnitude isn't reliable from waist alone). Nothing appears for users who've never logged a scan.
 - `lib/load.ts` — **per-side load** for volume. `defaultPerSide(equipment)` (true for Dumbbell/Kettlebell),
   `isPerSide(ex)` (explicit `exercise.perSide` override else the equipment default), `loadFactor(ex)` (×2
   for per-side, else ×1). A two-arm dumbbell logs per-hand weight, so volume = `weight·reps·loadFactor`.

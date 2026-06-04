@@ -22,12 +22,16 @@ const SITES: { key: SiteKey; label: string }[] = [
 ];
 const SITE_LABEL = (k: SiteKey) => SITES.find((s) => s.key === k)?.label ?? String(k);
 
-// Approximate "ideal" aesthetic proportions (Grecian / Steve-Reeves style), as
-// relative units. ratio(anchor→site) = IDEAL[site] / IDEAL[anchor]. These are
-// rough guidelines, not medical/objective targets.
+// Approximate "ideal" aesthetic proportions (Grecian / classic-physique, golden-ratio
+// inspired). Encoded as the reference body's tape measurements in **inches** for a
+// ~5'9", 185–195 lb frame — only the *ratios* between sites are used:
+//   ratio(anchor→site) = IDEAL[site] / IDEAL[anchor]
+// so the absolute units don't matter; pick any anchor you're happy with. Neck = arms =
+// calves (classic symmetry); shoulders use the golden ratio (≈1.618 × waist). Rough
+// aesthetic guidelines, not medical/objective targets.
 const IDEAL: Record<string, number> = {
-  neck: 1.0, shoulders: 2.24, chest: 1.99, leftArm: 1.0, rightArm: 1.0,
-  waist: 1.39, hips: 1.5, leftThigh: 1.2, rightThigh: 1.2, leftCalf: 1.0, rightCalf: 1.0,
+  neck: 18, shoulders: 48.5, chest: 48, leftArm: 18, rightArm: 18,
+  waist: 30, hips: 42, leftThigh: 27, rightThigh: 27, leftCalf: 18, rightCalf: 18,
 };
 
 export function HealthMeasure() {
