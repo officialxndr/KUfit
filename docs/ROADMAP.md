@@ -5,7 +5,7 @@ Honest status of the rebuild. **Update this when features land or plans change.*
 ## Done
 - [x] Fresh Expo SDK 56 app (expo-router, TypeScript), dark-first theme from the design system.
 - [x] Local-first SQLite data layer + repositories; `initDb` + exercise seed on launch.
-- [x] Settings: metric/imperial, full profile, TDEE tool link, offline-demos download.
+- [x] Settings: metric/imperial, full profile, offline-demos download.
 - [x] Food: daily log (calorie ring + macro bars), OFF search, barcode scan, custom foods.
 - [x] Exercises: bundled catalog (~440 unique, deduped by `exerciseDbId`), grouped/searchable
       library, detail with GIF demos, on-device GIF caching (per-view + bulk). Seed self-heals
@@ -362,6 +362,27 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       profile fills) when the tour ends. Never touches a real account; a persisted marker + launch-time
       `recoverTourPreview()` undo a preview a force-quit interrupted. Also toned down the tour card's
       entrance (was an overshooting spring → a 220 ms standard-ease slide).
+- [x] **Body-fat goal (mode toggle)** — the Goals editor (Health group) gains a **"Set goal by: Weight | Body
+      fat %"** switch (`profile.goalMode`). The two never conflict because only one is active. In **body-fat
+      mode** the user enters a target % (`profile.goalBodyFat`) and the **goal weight becomes derived &
+      read-only** — `targetWeightForBodyFat` (in `bodyComposition.ts`) holds current lean mass constant to get
+      the target total mass. `lib/goalWeight.ts` (`syncBodyFatGoalWeight` / `currentLeanMassKg`) recomputes and
+      **persists that into `goalWeightKg`** after any weigh-in / DEXA / goal edit, so the *entire* existing
+      weight + calorie + pacing + chart engine (all of which read `goalWeightKg`) drives off it with no rewiring.
+      Current lean uses the Body subview's source priority (measured → DEXA/measured baseline → U.S. Navy tape).
+      The Health → **Body** subview shows a goal card (target weight + fat-to-lose / room-to-gain) in body-fat
+      mode. Needs a logged body-fat % to compute; messaged when absent.
+- [x] **Actionable BMI/FFMI empty state** — when height is unset the Body subview's BMI/FFMI cards now read
+      **"Add height"** and tap straight to Settings (via `navStore.setSection`) instead of a dead "—".
+- [x] **TDEE moved into the Goals editor** — the standalone TDEE calculator screen (`app/tdee.tsx`) + its
+      Settings → Tools link are gone; a profile-driven **"Maintenance & TDEE"** card now lives at the top of
+      the Goals editor's Nutrition group (`TdeeCard` in `GoalsEditor.tsx`). Shows BMR + maintenance from the
+      latest weigh-in & profile, an **inline activity-level selector** (the main TDEE lever), and tappable
+      rate targets (moderate/mild loss · maintain · mild/moderate gain, unit-aware) that set `calorieGoal` —
+      so calorie derivation sits next to the calorie/macro goals instead of behind a separate screen.
+- [x] **Removed "Primary focus" training goal** — `profile.trainingFocus` (Cut/Maintain/Bulk/Recomp) was
+      write-only (nothing consumed it) and overlapped the Lose/Maintain/Gain goal type; dropped the field,
+      type, and the Goals-editor control.
 
 ## Not built yet (planned)
 - [ ] **Renpho tape on-device test** — built and the protocol is implemented, but the BLE connection is

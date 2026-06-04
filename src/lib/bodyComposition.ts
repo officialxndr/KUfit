@@ -66,6 +66,16 @@ export function navyBodyFat(input: {
 }
 
 /**
+ * Goal total mass to reach a target body-fat %, holding the current lean (fat-free)
+ * mass constant — i.e. you lose/gain only fat. `targetWeight = lean / (1 − bf/100)`.
+ * Returns null for an out-of-range target or missing lean mass.
+ */
+export function targetWeightForBodyFat(leanKg: number, goalBodyFatPct: number): number | null {
+  if (leanKg <= 0 || goalBodyFatPct <= 0 || goalBodyFatPct >= 100) return null;
+  return leanKg / (1 - goalBodyFatPct / 100);
+}
+
+/**
  * Estimate current body-fat % from a measured baseline (weight + bf%) and current
  * weight, holding the baseline's lean mass constant. Clamped to a sane range.
  */

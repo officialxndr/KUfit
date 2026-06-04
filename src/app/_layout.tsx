@@ -71,7 +71,6 @@ export default function RootLayout() {
           <Stack.Screen name="goal-phases" options={{ presentation: 'modal' }} />
           <Stack.Screen name="exercise-reports" options={{ presentation: 'modal' }} />
           <Stack.Screen name="exercise-progress" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="tdee" options={{ presentation: 'modal' }} />
           <Stack.Screen name="measurements" options={{ presentation: 'modal' }} />
           <Stack.Screen name="log-weight" options={{ presentation: 'modal' }} />
           <Stack.Screen name="log-dexa" options={{ presentation: 'modal' }} />

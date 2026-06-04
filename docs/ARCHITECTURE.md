@@ -49,9 +49,9 @@ External network (Open Food Facts, ExerciseDB CDN) is called directly from the d
 - **Why repos**: keeps SQL in one place and gives the future sync engine a clean seam.
 
 ## Stores (`src/stores`)
-- `settingsStore` — the local user **Profile** (units, sex, height, activity, goal, targets, plus
-  training goals `weeklySessionTarget`/`trainingFocus`, the maintain-buffer `goalRangeKg`, and custom
-  `nutrientGoals[]`). Persisted via AsyncStorage with a `merge` that backfills new profile fields onto
+- `settingsStore` — the local user **Profile** (units, sex, height, activity, goal, targets, plus the
+  weekly training target `weeklySessionTarget`, the goal expression `goalMode` + `goalBodyFat`, the
+  maintain-buffer `goalRangeKg`, and custom `nutrientGoals[]`). Persisted via AsyncStorage with a `merge` that backfills new profile fields onto
   older stored data. Source of truth in no-server mode; mirrors the server `UserProfile`.
 - `sessionStore` — in-memory active workout; persisted to SQLite only on `finish()` (which also takes
   the workout's `caloriesBurned`). Holds `pendingSuperset` so the next exercise added from the picker
@@ -168,6 +168,16 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
   uses fat-free mass). `HealthRepo.getLatestDexa()` carries the ~constant bone mass / T-score forward between
   scans; visceral fat shows the scan value plus a **direction-only** cue from the waist-measurement trend
   (magnitude isn't reliable from waist alone). Nothing appears for users who've never logged a scan.
+  **`targetWeightForBodyFat(leanKg, goalBf%)`** = `lean / (1 − bf/100)` — the target total mass to reach a
+  goal body-fat % while holding lean mass constant; powers the body-fat goal (below).
+- `lib/goalWeight.ts` — **body-fat-goal ⇆ goal-weight bridge.** The goal can be expressed two ways
+  (`profile.goalMode`: `'weight' | 'bodyfat'`). The whole weight/calorie/pacing/chart engine reads one field,
+  `profile.goalWeightKg`, so in **body-fat mode** that field is kept *derived & fresh*: `currentLeanMassKg`
+  (mirrors `HealthBody`'s measured → baseline → Navy priority) feeds `targetWeightForBodyFat`, and
+  `syncBodyFatGoalWeight()` recomputes + persists `goalWeightKg` (only when changed, so it converges).
+  Called after every weigh-in / DEXA (`log-weight`, `log-dexa`, `HealthBody.logReading`) and on Goals-editor
+  focus / goal-mode or goal-BF edit. The Goals editor shows the derived weight read-only; weight mode is
+  unchanged. No downstream rewiring — by design only the *input method* differs.
 - `lib/load.ts` — **per-side load** for volume. `defaultPerSide(equipment)` (true for Dumbbell/Kettlebell),
   `isPerSide(ex)` (explicit `exercise.perSide` override else the equipment default), `loadFactor(ex)` (×2
   for per-side, else ×1). A two-arm dumbbell logs per-hand weight, so volume = `weight·reps·loadFactor`.
@@ -334,7 +344,7 @@ above it and swallows all touches (which previously locked the header).
 - `(tabs)/` — a single `index` route rendering `AppShell`; `_layout.tsx` is a plain Stack (the
   old per-section tab screens were removed). Cross-section navigation goes through `navStore`.
 - Modals: `add-food`, `custom-food`, `exercises` (also a picker via `?pick=session|template`),
-  `tdee`, `measurements`, `template/new`, `recipe/new`, `exercise/new` (custom exercise),
+  `measurements`, `template/new`, `recipe/new`, `exercise/new` (custom exercise),
   `goal-phases`, `exercise-reports`, `exercise-progress`, `reminders`.
 - `custom-food` — manual food create; its **"Scan nutrition label"** action opens an in-screen
   `CameraView` capture overlay → `lib/nutritionOcr.ts` → prefills the form fields (Feature: on-device OCR).

@@ -41,8 +41,7 @@ const T = {
   profile: 'profile name height birth date birthday age sex gender avatar photo picture',
   body: 'body composition fat navy estimate dexa lean mass percentage tape measurement',
   activity: 'activity level sedentary light moderate active very tdee maintenance',
-  goals: 'goals goal weight target calorie calories macro macros protein carbs fat phase',
-  tools: 'tools tdee calculator',
+  goals: 'goals goal weight target calorie calories macro macros protein carbs fat phase tdee maintenance calculator body fat',
   help: 'help tour guide guided walkthrough onboarding tutorial intro',
   feedback: 'feedback bug report issue problem crash feature request idea suggestion contact developer',
   support: 'support hale donate donation contribute tip sponsor give back',
@@ -121,7 +120,7 @@ export function SettingsView() {
 
   // Whether any visible section matches the query (developer card only counts if unlocked).
   const noResults = q !== '' && ![
-    T.units, T.appearance, T.profile, T.body, T.activity, T.goals, T.tools, T.help, T.support,
+    T.units, T.appearance, T.profile, T.body, T.activity, T.goals, T.help, T.support,
     T.data, T.offline, T.health, T.coaching, T.motion, T.notifications, T.server,
     ...(devUnlocked ? [T.developer] : []),
   ].some(show);
@@ -441,11 +440,6 @@ export function SettingsView() {
           </View>
         </View>
 
-      </Card>
-
-      <Card hidden={!show(T.tools)} style={{ marginBottom: space[3] }}>
-        <SectionHeader title="Tools" />
-        <Button title="Open TDEE Calculator" variant="ghost" onPress={() => router.push('/tdee')} />
       </Card>
 
       <Card hidden={!show(T.help)} style={{ marginBottom: space[3] }}>

@@ -5,6 +5,7 @@ import { X } from 'lucide-react-native';
 
 import { FsText, Button } from '@/components/ui';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
+import { syncBodyFatGoalWeight } from '@/lib/goalWeight';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { toKg, formatWeight, UNIT_LABELS } from '@/lib/units';
 import { haptic } from '@/lib/haptics';
@@ -24,6 +25,7 @@ export default function LogWeight() {
     const val = Number(weight);
     if (!val || val <= 0) return Alert.alert('Enter a weight', 'Please enter a valid weight.');
     healthRepo.upsertWeightEntry(today(), toKg(val, unit), bodyFat.trim() ? Number(bodyFat) : undefined);
+    syncBodyFatGoalWeight(); // weight/body-fat changed → refresh a body-fat-mode goal weight
     haptic.success();
     router.back();
   };

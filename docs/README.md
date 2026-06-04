@@ -39,7 +39,8 @@ self-hosted server can be added later for backup and Home Assistant automations.
 - **Health**: weight logging + trend chart + pace guidance with **MET activity suggestions**; body
   composition (BF%/lean/fat/BMI/FFMI) with **body-fat estimation** (lean-mass-from-DEXA-baseline **and**
   the **U.S. Navy tape method**); measurements — incl. a **Renpho smart tape measure (Bluetooth)** flow
-  with a body-diagram guide; weight **goals** + **goal phases/cycles**; TDEE.
+  with a body-diagram guide; weight **goals** (by scale weight **or target body-fat %**) + **goal
+  phases/cycles**; **TDEE / maintenance** is built into the Goals editor (Nutrition group).
 - **Settings**: units, full profile, **profile picture**; **appearance themes** (charcoal/slate/mocha/
   light + custom accent); **reminders** (per-reminder schedules → local notifications + dashboard banners);
   **motion** toggles; **Help → replay the guided tour**; offline-demo download; **server backup**

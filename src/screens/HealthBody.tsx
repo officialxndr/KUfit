@@ -1,14 +1,16 @@
 import { useCallback, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Scale, TrendingDown, TrendingUp, Minus } from 'lucide-react-native';
+import { Scale, TrendingDown, TrendingUp, Minus, Target } from 'lucide-react-native';
 
 import { Card, FsText, Badge, Button } from '@/components/ui';
 import { AnimatedNumber } from '@/components/anim/AnimatedNumber';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useNavStore } from '@/stores/navStore';
 import { formatWeight, toDisplay, UNIT_LABELS } from '@/lib/units';
-import { estimateBodyFat, navyBodyFat, composition } from '@/lib/bodyComposition';
+import { estimateBodyFat, navyBodyFat, composition, targetWeightForBodyFat } from '@/lib/bodyComposition';
+import { syncBodyFatGoalWeight } from '@/lib/goalWeight';
 import { haptic } from '@/lib/haptics';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { WeightEntry, BodyMeasurement, UnitSystem } from '@/types';
@@ -81,6 +83,7 @@ export function HealthBody() {
   const logReading = (value: number) => {
     if (!latest) return;
     healthRepo.upsertWeightEntry(today(), latest.weightKg, Math.round(value * 10) / 10);
+    syncBodyFatGoalWeight(); // a new body-fat reading changes lean mass → refresh the derived goal weight
     haptic.success();
     refresh();
   };
@@ -144,6 +147,12 @@ export function HealthBody() {
   const bmi = hM ? weightKg / (hM * hM) : null;
   const ffmi = hM ? leanKg / (hM * hM) : null;
   const band = bfBand(bf);
+  // Optional body-fat goal: target total mass at that %, holding current lean mass.
+  // Only surfaced when the goal is actually expressed by body fat (not scale weight).
+  const goalBf = profile.goalMode === 'bodyfat' ? profile.goalBodyFat : null;
+  const goalTargetKg = goalBf != null ? targetWeightForBodyFat(leanKg, goalBf) : null;
+  const goalDeltaKg = goalTargetKg != null ? weightKg - goalTargetKg : null;
+  const goToSettings = () => useNavStore.getState().setSection('settings');
   // Composition-bar flex weights (×10 → integer ratios). 3-way when bone is known.
   const leanFlex = Math.round((leanSoftKg ?? leanKg) * 10);
   const fatFlex = Math.round(fatKg * 10);
@@ -217,9 +226,36 @@ export function HealthBody() {
             <Metric label="Fat Mass" value={formatWeight(fatKg, unit)} tone={colors.muted} />
           </>
         )}
-        <Metric label="BMI" value={bmi != null ? bmi.toFixed(1) : '—'} />
-        <Metric label="FFMI" value={ffmi != null ? ffmi.toFixed(1) : '—'} tone={colors.primary} />
+        <Metric label="BMI" value={bmi != null ? bmi.toFixed(1) : 'Add height'} onPress={bmi == null ? goToSettings : undefined} />
+        <Metric label="FFMI" value={ffmi != null ? ffmi.toFixed(1) : 'Add height'} tone={ffmi != null ? colors.primary : undefined} onPress={ffmi == null ? goToSettings : undefined} />
       </View>
+
+      {goalBf != null && goalTargetKg != null && goalDeltaKg != null && (
+        <Card style={{ marginBottom: space[3] }}>
+          <View style={styles.rowBetween}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Target color={colors.primary} size={16} />
+              <FsText variant="cardTitle">Body-fat goal</FsText>
+            </View>
+            <Badge label={`${goalBf}%`} tone="primary" />
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: space[3] }}>
+            <View>
+              <FsText variant="caption">Target weight</FsText>
+              <FsText variant="stat" style={{ marginTop: 2 }}>{formatWeight(goalTargetKg, unit)}</FsText>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <FsText variant="caption">{goalDeltaKg >= 0 ? 'Fat to lose' : 'Room to gain'}</FsText>
+              <FsText variant="stat" style={{ marginTop: 2, color: goalDeltaKg >= 0 ? colors.warning : colors.success }}>
+                {formatWeight(Math.abs(goalDeltaKg), unit)}
+              </FsText>
+            </View>
+          </View>
+          <FsText variant="caption" style={{ marginTop: space[3], color: colors.muted, lineHeight: 17 }}>
+            Total mass to reach {goalBf}% body fat, holding your current lean mass ({formatWeight(leanKg, unit)}) constant. Set this in Goals.
+          </FsText>
+        </Card>
+      )}
 
       <Card>
         <FsText variant="cardTitle" style={{ marginBottom: space[3] }}>Composition</FsText>
@@ -262,7 +298,19 @@ function Empty({ message, action }: { message: string; action?: { label: string;
   );
 }
 
-function Metric({ label, value, tone }: { label: string; value: string; tone?: string }) {
+function Metric({ label, value, tone, onPress }: { label: string; value: string; tone?: string; onPress?: () => void }) {
+  if (onPress) {
+    // Tappable CTA state (e.g. "Add height") — smaller, accent-colored text so it
+    // reads as an action rather than a stat, and routes to where the data is set.
+    return (
+      <Pressable style={styles.metric} onPress={onPress}>
+        <Card style={{ width: '100%' }}>
+          <FsText variant="overline">{label}</FsText>
+          <FsText variant="bodyMedium" style={{ marginTop: 4, color: colors.primary }}>{value}</FsText>
+        </Card>
+      </Pressable>
+    );
+  }
   return (
     <Card style={styles.metric}>
       <FsText variant="overline">{label}</FsText>

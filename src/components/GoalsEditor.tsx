@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { View, TextInput, Pressable, StyleSheet, Modal, ScrollView } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
-  UtensilsCrossed, HeartPulse, Dumbbell, CalendarRange, Plus, X, ChevronRight, Lock, LockOpen,
+  UtensilsCrossed, HeartPulse, Dumbbell, CalendarRange, Plus, X, ChevronRight, Lock, LockOpen, Check,
   type LucideIcon,
 } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,26 +13,28 @@ import { DateField } from '@/components/DateField';
 import { GoalWarning } from '@/components/GoalWarning';
 import { GoalPhasesPanel } from '@/components/GoalPhasesPanel';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
-import { resolveTargets, goalSafetyWarning } from '@/lib/targets';
-import { safeRateWarning } from '@/lib/tdee';
+import { resolveTargets, goalSafetyWarning, ageFromBirthDate } from '@/lib/targets';
+import { safeRateWarning, calcTDEE, ACTIVITY_DESCRIPTIONS } from '@/lib/tdee';
 import { MACRO_PRESETS, presetMacros, rescaleToCalories, rebalanceMacro, activePresetKey, type MacroKey } from '@/lib/macros';
-import { useSettingsStore, type NutrientGoal } from '@/stores/settingsStore';
+import { bodyFatForEntry, leanMassKg, targetWeightForBodyFat } from '@/lib/bodyComposition';
+import { syncBodyFatGoalWeight } from '@/lib/goalWeight';
+import { useSettingsStore, type NutrientGoal, type Profile } from '@/stores/settingsStore';
 import { NUTRIENT_DEFS } from '@/lib/offNutrients';
 import { toDisplay, toKg, formatWeight, UNIT_LABELS } from '@/lib/units';
 import { colors, space, radius, themedStyles } from '@/theme/tokens';
-import type { GoalPhase, GoalType, TrainingFocus } from '@/types';
+import type { ActivityLevel, GoalMode, GoalPhase, GoalType } from '@/types';
 
 const GOAL_TYPES: { key: GoalType; label: string }[] = [
   { key: 'LOSE', label: 'Lose' },
   { key: 'MAINTAIN', label: 'Maintain' },
   { key: 'GAIN', label: 'Gain' },
 ];
-const FOCUSES: { key: TrainingFocus; label: string }[] = [
-  { key: 'CUT', label: 'Cut' },
-  { key: 'MAINTAIN', label: 'Maintain' },
-  { key: 'BULK', label: 'Bulk' },
-  { key: 'RECOMP', label: 'Recomp' },
+const GOAL_MODES: { key: GoalMode; label: string }[] = [
+  { key: 'weight', label: 'By weight' },
+  { key: 'bodyfat', label: 'By body fat %' },
 ];
+const ACTIVITIES: ActivityLevel[] = ['SEDENTARY', 'LIGHT', 'MODERATE', 'ACTIVE', 'VERY_ACTIVE'];
+const activityLabel = (a: ActivityLevel) => a[0] + a.slice(1).toLowerCase().replace('_', ' ');
 
 // Nutrients the user can add as a custom goal: the four core extras + the OFF catalog.
 const CORE_NUTRIENTS = [
@@ -76,12 +78,30 @@ export function GoalsEditor({ focusSection, onOpenPhases }: { focusSection?: str
   const targets = resolveTargets(profile);
 
   const [currentKg, setCurrentKg] = useState<number | null>(null);
+  const [leanKg, setLeanKg] = useState<number | null>(null);
   const [phase, setPhase] = useState<GoalPhase | null>(null);
   const refresh = useCallback(() => {
-    setCurrentKg(healthRepo.getLatestWeightEntry()?.weightKg ?? null);
+    const latest = healthRepo.getLatestWeightEntry();
+    setCurrentKg(latest?.weightKg ?? null);
+    // Best-effort current lean mass (measured/baseline body-fat) to translate a
+    // body-fat goal into a target weight. Falls back to null without a body-fat reading.
+    const bf = latest ? bodyFatForEntry(latest, healthRepo.getLatestBodyFatBaseline()) : null;
+    setLeanKg(latest && bf ? leanMassKg(latest.weightKg, bf.bf) : null);
     setPhase(healthRepo.getActiveGoalPhase());
+    // Keep the derived goal weight fresh when opening Goals (body-fat mode only).
+    syncBodyFatGoalWeight();
   }, []);
   useFocusEffect(refresh);
+
+  const byBodyFat = profile.goalMode === 'bodyfat';
+  const setGoalMode = (mode: GoalMode) => {
+    setProfile({ goalMode: mode });
+    if (mode === 'bodyfat') syncBodyFatGoalWeight();
+  };
+  const setGoalBodyFat = (n: number) => {
+    setProfile({ goalBodyFat: n > 0 ? n : null });
+    syncBodyFatGoalWeight();
+  };
 
   const cal = profile.calorieGoal ?? targets.calorieTarget ?? 2000;
   const protein = profile.proteinTarget ?? targets.proteinTarget ?? 150;
@@ -112,6 +132,16 @@ export function GoalsEditor({ focusSection, onOpenPhases }: { focusSection?: str
   const isMaintain = profile.goalType === 'MAINTAIN';
   const rangeDisplay = profile.goalRangeKg != null ? toDisplay(profile.goalRangeKg, unit) : 0;
 
+  // Optional body-fat goal → target weight at that % (holding current lean mass).
+  const goalBf = profile.goalBodyFat;
+  const bfTargetKg = goalBf != null && leanKg != null ? targetWeightForBodyFat(leanKg, goalBf) : null;
+  const bfGoalNote =
+    goalBf == null
+      ? 'Enter your target body-fat %'
+      : bfTargetKg != null
+        ? `≈ ${formatWeight(bfTargetKg, unit)} at ${goalBf}% (current lean mass)`
+        : `Targeting ${goalBf}% — log a body-fat % to see the target weight`;
+
   // ── Custom nutrient goals ──
   const [pickerOpen, setPickerOpen] = useState(false);
   const goals = profile.nutrientGoals ?? [];
@@ -130,6 +160,7 @@ export function GoalsEditor({ focusSection, onOpenPhases }: { focusSection?: str
     <View key="food">
       {/* ── Nutrition (Food) ── */}
       <GroupHeader icon={UtensilsCrossed} label="Nutrition" section="Food" />
+      <TdeeCard currentKg={currentKg} profile={profile} setProfile={setProfile} />
       <Card style={{ marginBottom: space[2], padding: 0 }}>
         <View style={styles.macroBlock}>
           <View style={styles.macroBar}>
@@ -223,20 +254,48 @@ export function GoalsEditor({ focusSection, onOpenPhases }: { focusSection?: str
       ) : (
         <Card style={{ marginBottom: space[2], padding: 0 }}>
           <View style={styles.rowPad}>
+            <FsText variant="caption" style={{ marginBottom: space[2] }}>Set goal by</FsText>
+            <Segmented options={GOAL_MODES} value={profile.goalMode} onSelect={setGoalMode} />
+          </View>
+          <View style={[styles.rowPad, styles.rowDivider]}>
             <Segmented options={GOAL_TYPES} value={profile.goalType} onSelect={(g) => setProfile({ goalType: g })} />
           </View>
-          <Stepper
-            label="Goal Weight"
-            value={goalDisplay}
-            unit={UNIT_LABELS[unit].weight}
-            note={isMaintain && profile.goalRangeKg
-              ? `Range ${formatWeight((profile.goalWeightKg ?? toKg(goalDisplay, unit)) - profile.goalRangeKg, unit)} – ${formatWeight((profile.goalWeightKg ?? toKg(goalDisplay, unit)) + profile.goalRangeKg, unit)}`
-              : toLoseKg != null && Math.abs(toLoseKg) >= 0.05
-                ? `${toLoseKg > 0 ? '−' : '+'}${formatWeight(Math.abs(toLoseKg), unit)} to ${toLoseKg > 0 ? 'lose' : 'gain'}`
-                : undefined}
-            onCommit={(n) => setProfile({ goalWeightKg: toKg(n, unit) })}
-            step={1} min={50} max={600}
-          />
+          {byBodyFat ? (
+            <>
+              <Stepper
+                label="Goal Body Fat %"
+                value={goalBf ?? 0}
+                unit="%"
+                note={bfGoalNote}
+                onCommit={setGoalBodyFat}
+                step={1} min={0} max={50}
+              />
+              <View style={[styles.row, styles.rowDivider]}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <FsText variant="bodyMedium">Target weight</FsText>
+                  <FsText variant="caption" style={{ marginTop: 2 }}>
+                    {bfTargetKg != null ? 'Derived from your body-fat goal & current lean mass' : 'Log a body-fat % (DEXA, calipers, or tape) to compute this'}
+                  </FsText>
+                </View>
+                <FsText variant="cardTitle" style={{ color: bfTargetKg != null ? colors.text : colors.muted }}>
+                  {bfTargetKg != null ? formatWeight(bfTargetKg, unit) : '—'}
+                </FsText>
+              </View>
+            </>
+          ) : (
+            <Stepper
+              label="Goal Weight"
+              value={goalDisplay}
+              unit={UNIT_LABELS[unit].weight}
+              note={isMaintain && profile.goalRangeKg
+                ? `Range ${formatWeight((profile.goalWeightKg ?? toKg(goalDisplay, unit)) - profile.goalRangeKg, unit)} – ${formatWeight((profile.goalWeightKg ?? toKg(goalDisplay, unit)) + profile.goalRangeKg, unit)}`
+                : toLoseKg != null && Math.abs(toLoseKg) >= 0.05
+                  ? `${toLoseKg > 0 ? '−' : '+'}${formatWeight(Math.abs(toLoseKg), unit)} to ${toLoseKg > 0 ? 'lose' : 'gain'}`
+                  : undefined}
+              onCommit={(n) => setProfile({ goalWeightKg: toKg(n, unit) })}
+              step={1} min={50} max={600}
+            />
+          )}
           {isMaintain ? (
             <Stepper
               label="Maintain Range"
@@ -286,10 +345,6 @@ export function GoalsEditor({ focusSection, onOpenPhases }: { focusSection?: str
         <Stepper first label="Weekly Sessions" value={weeklySessions} unit="/wk"
           note={`${weeklySessions} workout${weeklySessions === 1 ? '' : 's'} per week`}
           onCommit={(n) => setProfile({ weeklySessionTarget: n })} step={1} min={1} max={7} />
-        <View style={[styles.rowPad, styles.rowDivider]}>
-          <FsText variant="caption" style={{ marginBottom: space[2] }}>Primary focus</FsText>
-          <Segmented options={FOCUSES} value={profile.trainingFocus} onSelect={(f) => setProfile({ trainingFocus: f })} />
-        </View>
       </Card>
     </View>
   );
@@ -358,6 +413,91 @@ export function GoalsEditorModal({ visible, onClose, focusSection }: {
   );
 }
 
+/**
+ * TDEE / maintenance, embedded in the Nutrition group so calorie derivation lives next
+ * to the calorie & macro goals (no jumping to a separate calculator). Profile-driven —
+ * uses the latest weigh-in + height/sex/age — with an inline activity selector (the main
+ * TDEE lever, a real profile field). Tapping a rate target sets it as the calorie goal.
+ */
+function TdeeCard({ currentKg, profile, setProfile }: {
+  currentKg: number | null;
+  profile: Profile;
+  setProfile: (patch: Partial<Profile>) => void;
+}) {
+  const unit = profile.unitSystem;
+  const age = ageFromBirthDate(profile.birthDate);
+  const canCompute = currentKg != null && profile.heightCm != null && profile.sex != null && age != null;
+
+  if (!canCompute) {
+    const missing: string[] = [];
+    if (currentKg == null) missing.push('a logged weight');
+    if (profile.heightCm == null) missing.push('height');
+    if (profile.sex == null) missing.push('sex');
+    if (age == null) missing.push('birth date');
+    return (
+      <Card style={{ marginBottom: space[2] }}>
+        <FsText variant="cardTitle">Maintenance &amp; TDEE</FsText>
+        <FsText variant="caption" style={{ marginTop: space[2] }}>
+          Add your {missing.join(', ')} (Settings → Profile) to estimate the calories your body burns and turn it into a calorie goal.
+        </FsText>
+      </Card>
+    );
+  }
+
+  const result = calcTDEE({
+    weightKg: currentKg!, heightCm: profile.heightCm!, ageYears: age!, sex: profile.sex!, activityLevel: profile.activityLevel,
+  });
+  const rateStr = (lbPerWk: number) => (unit === 'IMPERIAL' ? `${lbPerWk} lb/wk` : `${(lbPerWk * 0.4536).toFixed(2)} kg/wk`);
+  const rows = [
+    { label: `Moderate loss · ~${rateStr(1)}`, value: result.targets.moderateLoss },
+    { label: `Mild loss · ~${rateStr(0.5)}`, value: result.targets.mildLoss },
+    { label: 'Maintain', value: result.targets.maintain },
+    { label: `Mild gain · ~${rateStr(0.5)}`, value: result.targets.mildGain },
+    { label: `Moderate gain · ~${rateStr(1)}`, value: result.targets.moderateGain },
+  ];
+  const activeCal = profile.calorieGoal;
+
+  return (
+    <Card style={{ marginBottom: space[2] }}>
+      <FsText variant="cardTitle">Maintenance &amp; TDEE</FsText>
+      <FsText variant="caption" style={{ marginTop: 2, marginBottom: space[3] }}>
+        Estimated from your profile + latest weigh-in. Tap a target to set it as your calorie goal.
+      </FsText>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: space[3] }}>
+        <View><FsText variant="caption">BMR</FsText><FsText variant="stat" style={{ marginTop: 2 }}>{result.bmr}</FsText></View>
+        <View style={{ alignItems: 'flex-end' }}><FsText variant="caption">Maintenance (TDEE)</FsText><FsText variant="stat" style={{ marginTop: 2 }}>{result.tdee}</FsText></View>
+      </View>
+
+      <FsText variant="caption" style={{ marginBottom: space[2] }}>Activity level</FsText>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[2] }}>
+        {ACTIVITIES.map((a) => (
+          <Chip key={a} label={activityLabel(a)} selected={profile.activityLevel === a} onPress={() => setProfile({ activityLevel: a })} />
+        ))}
+      </View>
+      <FsText variant="caption" style={{ marginTop: space[2], marginBottom: space[3], color: colors.muted }}>
+        {ACTIVITY_DESCRIPTIONS[profile.activityLevel]}
+      </FsText>
+
+      {rows.map((r, i) => {
+        const active = activeCal === r.value;
+        return (
+          <Pressable
+            key={r.label}
+            onPress={() => setProfile({ calorieGoal: r.value })}
+            style={[styles.tdeeRow, i > 0 && styles.rowDivider, active && { backgroundColor: 'rgba(99,102,241,0.12)' }]}
+          >
+            <FsText variant="body">{r.label}</FsText>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
+              <FsText variant="bodyMedium" style={active ? { color: colors.primary } : undefined}>{r.value} kcal</FsText>
+              {active && <Check color={colors.primary} size={16} />}
+            </View>
+          </Pressable>
+        );
+      })}
+    </Card>
+  );
+}
+
 function GroupHeader({ icon: Icon, label, section }: { icon: LucideIcon; label: string; section: string }) {
   return (
     <View style={styles.groupHeader}>
@@ -419,6 +559,7 @@ const styles = themedStyles(() => StyleSheet.create({
   presetChips: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginTop: space[3] },
   presetChip: { flexGrow: 1, flexBasis: '46%', alignItems: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingHorizontal: space[4], paddingVertical: space[3] },
+  tdeeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: space[3], paddingHorizontal: space[2], borderRadius: radius.sm },
   rowPad: { paddingHorizontal: space[4], paddingVertical: space[3] },
   rowDivider: { borderTopWidth: 1, borderTopColor: colors.border },
   dateInput: {

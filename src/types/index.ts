@@ -2,7 +2,8 @@ export type UnitSystem = 'METRIC' | 'IMPERIAL'
 export type ActivityLevel = 'SEDENTARY' | 'LIGHT' | 'MODERATE' | 'ACTIVE' | 'VERY_ACTIVE'
 export type Sex = 'MALE' | 'FEMALE' | 'OTHER'
 export type GoalType = 'LOSE' | 'GAIN' | 'MAINTAIN'
-export type TrainingFocus = 'CUT' | 'MAINTAIN' | 'BULK' | 'RECOMP'
+/** Whether the user's goal is expressed as a scale weight or a body-fat %. */
+export type GoalMode = 'weight' | 'bodyfat'
 export type MealType = 'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACK'
 export type MacroTargetMode = 'GRAMS' | 'PERCENT'
 /** Source for eating active calories back into the daily budget. */
@@ -17,6 +18,7 @@ export interface UserProfile {
   heightCm?: number | null
   goalWeightKg?: number | null
   goalBodyFat?: number | null
+  goalMode?: GoalMode
   goalDate?: string | null
   activityLevel: ActivityLevel
   sex?: Sex | null

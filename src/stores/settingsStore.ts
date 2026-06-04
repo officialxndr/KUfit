@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
-  ActiveCalorieSource, ActivityLevel, GoalType, MacroTargetMode, Sex, TrainingFocus, UnitSystem,
+  ActiveCalorieSource, ActivityLevel, GoalMode, GoalType, MacroTargetMode, Sex, UnitSystem,
 } from '@/types';
 
 /** A user-tracked secondary nutrient goal (beyond calories/macros). */
@@ -35,6 +35,9 @@ export interface Profile {
   /** Goal weight we last offered to auto-switch to maintain for (avoids re-prompting). */
   maintainPromptedFor: number | null;
   goalBodyFat: number | null;
+  /** Whether the goal is driven by a scale weight or a target body-fat %. In 'bodyfat'
+   *  mode `goalWeightKg` is derived (kept fresh from current lean mass) and read-only. */
+  goalMode: GoalMode;
   goalDate: string | null;
   calorieGoal: number | null; // manual override; null = auto from TDEE
   proteinTarget: number | null;
@@ -58,7 +61,6 @@ export interface Profile {
   navyBodyFatEnabled: boolean;
   // Training goals (Workout section)
   weeklySessionTarget: number | null;
-  trainingFocus: TrainingFocus | null;
   // Custom secondary nutrient goals (Nutrition section)
   nutrientGoals: NutrientGoal[];
   /** Per-site body-measurement goals, keyed by site, value in cm. */
@@ -78,6 +80,7 @@ const DEFAULT_PROFILE: Profile = {
   goalRangeKg: null,
   maintainPromptedFor: null,
   goalBodyFat: null,
+  goalMode: 'weight',
   goalDate: null,
   calorieGoal: null,
   proteinTarget: null,
@@ -92,7 +95,6 @@ const DEFAULT_PROFILE: Profile = {
   confettiEnabled: true,
   navyBodyFatEnabled: true,
   weeklySessionTarget: null,
-  trainingFocus: null,
   nutrientGoals: [],
   measurementGoals: {},
 };

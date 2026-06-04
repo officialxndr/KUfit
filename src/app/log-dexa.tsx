@@ -7,6 +7,7 @@ import { X } from 'lucide-react-native';
 import { FsText, Button } from '@/components/ui';
 import { DateField } from '@/components/DateField';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
+import { syncBodyFatGoalWeight } from '@/lib/goalWeight';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { toKg, UNIT_LABELS } from '@/lib/units';
 import { haptic } from '@/lib/haptics';
@@ -47,6 +48,7 @@ export default function LogDexa() {
       visceralFatKg: visceral.trim() ? toKg(Number(visceral), unit) : null,
       boneTScore: numOrNull(tScore),
     });
+    syncBodyFatGoalWeight(); // a DEXA re-baselines body fat → refresh a body-fat-mode goal weight
     haptic.success();
     router.back();
   };
