@@ -8,6 +8,7 @@ import { Card, FsText } from '@/components/ui';
 import { CalorieMacroCard } from '@/components/CalorieMacroCard';
 import { GoalWarning } from '@/components/GoalWarning';
 import { ReminderBanner } from '@/components/ReminderBanner';
+import { DonationBanner } from '@/components/DonationBanner';
 import { AnimatedNumber } from '@/components/anim/AnimatedNumber';
 import { GrowBar } from '@/components/anim/GrowBar';
 import { PressableScale } from '@/components/anim/PressableScale';
@@ -193,6 +194,8 @@ export function DashboardOverview() {
       {dueReminder && (
         <ReminderBanner reminderKey={dueReminder} onPress={onReminderPress} onDismiss={onReminderDismiss} />
       )}
+
+      <DonationBanner />
 
       {/* Calorie + macros */}
       <PressableScale onPress={() => setSection('food', 'today')}>

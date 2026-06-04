@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { View, TextInput, StyleSheet, Pressable, ScrollView, Switch } from 'react-native';
+import { View, TextInput, StyleSheet, Pressable, ScrollView, Switch, Alert, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Dumbbell, ChevronLeft, Sparkles } from 'lucide-react-native';
+import { Dumbbell, ChevronLeft, Sparkles, ShieldCheck, Check, UserCircle, Camera, Heart } from 'lucide-react-native';
 
 import { FsText, Button, Chip } from '@/components/ui';
 import { DateField } from '@/components/DateField';
@@ -11,8 +11,12 @@ import { Confetti } from '@/components/anim/Confetti';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useTourStore } from '@/stores/tourStore';
 import { ACTIVITY_DESCRIPTIONS } from '@/lib/tdee';
+import { health, healthPlatformLabel } from '@/lib/health';
 import { toKg, UNIT_LABELS } from '@/lib/units';
 import { haptic } from '@/lib/haptics';
+import { pickAvatar } from '@/lib/avatar';
+import { openSupport } from '@/lib/support';
+import { useDonationStore } from '@/stores/donationStore';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { ActiveCalorieSource, ActivityLevel, GoalType, Sex, UnitSystem } from '@/types';
 
@@ -25,7 +29,13 @@ const ACTIVE_CAL: { key: ActiveCalorieSource; label: string }[] = [
   { key: 'watch', label: 'Watch only' },
   { key: 'inapp', label: 'In-app only' },
 ];
-const STEPS = 5;
+const PRIVACY_POINTS: [string, string][] = [
+  ['No account, no servers', "Everything you log stays on your device — we literally can't see your data."],
+  ['Never sold or tracked', 'No ads, no analytics, no tracking SDKs. Your health data is yours alone.'],
+  ['Free forever', 'No subscriptions, no paywalls, nothing locked away. Optional donations only.'],
+  ['Only food lookups go out', 'Searching a food sends just the name/barcode to Open Food Facts — never your personal info.'],
+];
+const STEPS = 7;
 
 export default function Onboarding() {
   const router = useRouter();
@@ -35,6 +45,7 @@ export default function Onboarding() {
 
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [unit, setUnit] = useState<UnitSystem>('IMPERIAL');
   const [sex, setSex] = useState<Sex | null>(null);
   const [heightCm, setHeightCm] = useState<number | null>(null);
@@ -50,9 +61,26 @@ export default function Onboarding() {
   const next = () => { haptic.tap(); setStep((s) => Math.min(s + 1, STEPS - 1)); };
   const back = () => { haptic.tap(); setStep((s) => Math.max(s - 1, 0)); };
 
+  const connectHealth = async () => {
+    if (!health.isAvailable()) {
+      Alert.alert(healthPlatformLabel, `${healthPlatformLabel} activates in a full build of the app — you can connect it later from Settings → Health.`);
+      return;
+    }
+    const granted = await health.requestPermissions();
+    Alert.alert(healthPlatformLabel, granted
+      ? 'Connected — your weight, activity and heart rate can sync.'
+      : 'Permission wasn’t granted. You can connect later in Settings → Health.');
+  };
+
+  const changeAvatar = async () => {
+    const uri = await pickAvatar();
+    if (uri) setAvatarUri(uri);
+  };
+
   const finish = () => {
     setProfile({
       name: name.trim() || null,
+      avatarUri,
       unitSystem: unit,
       sex,
       heightCm,
@@ -70,6 +98,10 @@ export default function Onboarding() {
     useTourStore.getState().start();
     router.replace('/(tabs)');
   };
+
+  const finishDonate = () => { useDonationStore.getState().markDonated(); openSupport(); finish(); };
+  const finishRemind = () => { useDonationStore.getState().remindLater(); finish(); };
+  const finishDismiss = () => { useDonationStore.getState().dismissForever(); finish(); };
 
   return (
     <View style={styles.screen}>
@@ -107,8 +139,39 @@ export default function Onboarding() {
 
         {step === 1 && (
           <>
+            <View style={styles.brand}><ShieldCheck color={colors.primary} size={38} /></View>
+            <FsText variant="display" style={{ textAlign: 'center' }}>Private by design</FsText>
+            <FsText variant="bodyMedium" style={{ textAlign: 'center', color: colors.muted, marginBottom: space[6] }}>
+              The promise behind Hale — and it never changes:
+            </FsText>
+            {PRIVACY_POINTS.map(([t, d]) => (
+              <View key={t} style={styles.valueRow}>
+                <Check color={colors.success} size={18} style={{ marginTop: 2 }} />
+                <View style={{ flex: 1 }}>
+                  <FsText variant="bodyMedium">{t}</FsText>
+                  <FsText variant="caption">{d}</FsText>
+                </View>
+              </View>
+            ))}
+          </>
+        )}
+
+        {step === 2 && (
+          <>
             <FsText variant="display">About you</FsText>
             <FsText variant="caption" style={{ marginBottom: space[6] }}>Used to estimate your calorie needs (TDEE).</FsText>
+            <Pressable onPress={changeAvatar} style={styles.avatarRow}>
+              {avatarUri ? (
+                <Image source={{ uri: avatarUri }} style={styles.avatarImg} />
+              ) : (
+                <View style={[styles.avatarImg, styles.avatarPlaceholder]}><UserCircle color={colors.muted} size={36} /></View>
+              )}
+              <View style={{ flex: 1 }}>
+                <FsText variant="bodyMedium">Profile photo</FsText>
+                <FsText variant="caption">Optional — tap to add a picture</FsText>
+              </View>
+              <Camera color={colors.primary} size={20} />
+            </Pressable>
             <Field label="Sex">
               <View style={styles.chipRow}>
                 {SEXES.map((s) => <Chip key={s} label={s[0] + s.slice(1).toLowerCase()} selected={sex === s} onPress={() => setSex(s)} />)}
@@ -130,7 +193,7 @@ export default function Onboarding() {
           </>
         )}
 
-        {step === 2 && (
+        {step === 3 && (
           <>
             <FsText variant="display">Activity level</FsText>
             <FsText variant="caption" style={{ marginBottom: space[4] }}>How active are you day to day?</FsText>
@@ -145,7 +208,7 @@ export default function Onboarding() {
           </>
         )}
 
-        {step === 3 && (
+        {step === 4 && (
           <>
             <FsText variant="display">Your goal</FsText>
             <FsText variant="caption" style={{ marginBottom: space[6] }}>This drives your calorie & macro targets.</FsText>
@@ -162,10 +225,18 @@ export default function Onboarding() {
           </>
         )}
 
-        {step === 4 && (
+        {step === 5 && (
           <>
             <FsText variant="display">Preferences</FsText>
             <FsText variant="caption" style={{ marginBottom: space[6] }}>Optional — change any of these later in Settings.</FsText>
+
+            <View style={styles.healthBlock}>
+              <FsText variant="bodyMedium">Connect {healthPlatformLabel}</FsText>
+              <FsText variant="caption" style={{ color: colors.muted, marginBottom: space[2] }}>
+                Optional. Sync your weight, steps and heart rate — read-only, and it never leaves your device.
+              </FsText>
+              <Button title={`Connect ${healthPlatformLabel}`} variant="ghost" onPress={connectHealth} />
+            </View>
 
             <ToggleRow
               label="Celebration confetti"
@@ -198,20 +269,37 @@ export default function Onboarding() {
             </View>
           </>
         )}
+
+        {step === 6 && (
+          <>
+            <View style={styles.brand}><Heart color={colors.primary} size={36} /></View>
+            <FsText variant="display" style={{ textAlign: 'center' }}>One last thing</FsText>
+            <FsText variant="bodyMedium" style={{ textAlign: 'center', color: colors.muted, marginBottom: space[6] }}>
+              Hale is free forever — no ads, no subscriptions, nothing paywalled. If you'd like to help keep it
+              that way, an optional donation means a lot. Totally your call.
+            </FsText>
+            <View style={{ gap: space[2] }}>
+              <Button title="Donate" onPress={finishDonate} />
+              <Button title="Remind me later" variant="ghost" onPress={finishRemind} />
+              <Button title="No thanks" variant="ghost" onPress={finishDismiss} />
+            </View>
+            <FsText variant="caption" style={{ textAlign: 'center', color: colors.muted, marginTop: space[4] }}>
+              You can always donate later from Settings → Support Hale.
+            </FsText>
+          </>
+        )}
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom || space[4] }]}>
-        {step < STEPS - 1 ? (
+      {step < STEPS - 1 && (
+        <View style={[styles.footer, { paddingBottom: insets.bottom || space[4] }]}>
           <Button title="Continue" onPress={next} />
-        ) : (
-          <Button title="Get started" onPress={finish} />
-        )}
-        {step === 0 && (
-          <Pressable onPress={finish} style={{ alignItems: 'center', paddingTop: space[3] }}>
-            <FsText variant="caption">Skip for now</FsText>
-          </Pressable>
-        )}
-      </View>
+          {step === 0 && (
+            <Pressable onPress={finish} style={{ alignItems: 'center', paddingTop: space[3] }}>
+              <FsText variant="caption">Skip for now</FsText>
+            </Pressable>
+          )}
+        </View>
+      )}
       {showConfetti && <Confetti onDone={() => setShowConfetti(false)} />}
     </View>
   );
@@ -257,4 +345,9 @@ const styles = themedStyles(() => StyleSheet.create({
   footer: { paddingHorizontal: space[4], paddingTop: space[3], borderTopWidth: 1, borderTopColor: colors.border },
   toggleRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: space[3], borderBottomWidth: 1, borderBottomColor: colors.border },
   previewBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: space[3], marginBottom: space[2] },
+  valueRow: { flexDirection: 'row', gap: space[2], alignItems: 'flex-start', marginBottom: space[3] },
+  healthBlock: { marginBottom: space[4] },
+  avatarRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], marginBottom: space[4] },
+  avatarImg: { width: 56, height: 56, borderRadius: radius.full },
+  avatarPlaceholder: { backgroundColor: colors.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
 }));

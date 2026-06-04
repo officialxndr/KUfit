@@ -11,13 +11,13 @@ export const FEEDBACK_EMAIL = 'zander.halverson99@gmail.com';
  * Bump this whenever there's something new for testers to see. The What's-New sheet
  * shows once per version (tracked in `app_meta`). Keep the list short + tester-focused.
  */
-export const WHATS_NEW_VERSION = '1.0.0-b3';
+export const WHATS_NEW_VERSION = '1.0.0-b5';
 export const WHATS_NEW = {
   title: "What's new to test",
   items: [
-    'Profile setup now uses height in ft/in for imperial, and a year → month → day birthday picker.',
-    'New onboarding Preferences: preview & toggle confetti, the U.S. Navy body-fat estimate, and Apple Watch / in-app active calories.',
-    'Your calorie ring shows a starting goal before you log a weight.',
+    'Build templates faster: in the exercise picker, tap to multi-select (numbered in order) and add them all at once.',
+    'Log body-fat % (e.g. DEXA) from Health → Body in any state; connect Apple Health from onboarding.',
+    'Cleaned-up Settings, an optional Ko-fi donation, and a profile photo + privacy overview in the setup wizard.',
   ],
 };
 

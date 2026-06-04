@@ -25,7 +25,7 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   section/sub-tab; `sessionStore`/`templateDraftStore` = active workout / template builder;
   `routineStore` = workout routines; `serverStore` = optional server; `remindersStore` = per-reminder
   schedules; `themeStore` = appearance; `refreshStore` = pull-to-refresh signal; `tourStore` = guided
-  feature tour; `devStore` = hidden developer mode).
+  feature tour; `devStore` = hidden developer mode; `donationStore` = optional-donation prompt state).
 - **Data**: `src/lib/db.ts` (SQLite schema, mirrors the server Prisma models with
   `localId`/`serverId`/`syncStatus` for future sync) + `src/lib/repositories/{Food,Health,Workout}Repo.ts`.
   Repos are the only thing that touches the DB. Mutations mark rows `syncStatus='pending'`.
@@ -44,7 +44,9 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   (`FoodTrends` / `WorkoutStats` / `HealthTrends`) share `src/lib/useDateRange.ts` +
   `components/DateRangeBar.tsx` (segmented Week/Month/3 Mo/Year + ‹ › paging + custom range + Today) and
   recompute every metric for the selected window. `FoodRepo.getRangeNutrition` is the shared nutrition aggregate.
-- **Onboarding & tour**: first run → `src/app/onboarding.tsx`; then a skippable **guided feature tour**
+- **Onboarding & tour**: first run → `src/app/onboarding.tsx` (6 steps: welcome/units, a **privacy promise**,
+  profile (ft/in height + cascade birthday), activity, goal, and a **Preferences** step — confetti preview,
+  Navy toggle, active-calorie source, optional **Health connect**); then a skippable **guided feature tour**
   (`components/FeatureTour.tsx` + `tourStore` + `src/lib/tourSteps.ts`) drives the real screens. Replay from
   Settings → Help. Hidden **dev tools** (tap the Settings version footer 7× → `devStore`) reveal a
   demo-data seeder (`src/lib/demoSeed.ts`: Load / Clear) that fills realistic activity for screenshots.
@@ -53,6 +55,11 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   sync-ready columns for a future community-voting board). `components/WhatsNew.tsx` shows a
   once-per-`WHATS_NEW_VERSION` "what to test" sheet (tracked in `app_meta`); **bump `WHATS_NEW_VERSION` in
   `feedback.ts` each beta**. Beta bug reports also lean on **TestFlight's native screenshot/crash feedback**.
+- **Donations** (optional, never required): `lib/support.ts` (Ko-fi link, opened in the browser — no IAP) +
+  `donationStore` (snooze ~30d / dismiss forever) drive a final onboarding step, the Dashboard
+  `DonationBanner`, and Settings → Support Hale (donate card sits at the bottom of Settings).
+- **Multi-add exercises**: the picker (`app/exercises.tsx`) multi-selects when opened with `?pick=template`
+  / `?pick=session` — numbered in pick order, then "Add N"; plain `/exercises` browses (tap → detail).
 - **Design**: `src/theme/tokens.ts` + `src/theme/text.ts` (ported from `../FitSelf Design System/colors_and_type.css`).
   Dark-first, one indigo accent (`#6366f1`), flat, lucide icons, no emoji in UI chrome.
 - **UI kit**: `src/components/ui/index.tsx` (Screen, Card, Button, Badge, Chip, FsText, SectionHeader).

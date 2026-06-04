@@ -31,8 +31,7 @@ import type { ActiveCalorieSource, ActivityLevel, Sex, UnitSystem } from '@/type
 
 // Donation link — opens in the browser (no in-app payment, to stay within Apple's
 // rules; external donations are 0% on Android and exempt from Apple's IAP cut).
-// TODO: replace with your real GitHub Sponsors / Ko-fi / Stripe link before launch.
-const SUPPORT_URL = 'https://github.com/sponsors/your-handle';
+const SUPPORT_URL = 'https://ko-fi.com/haleapp';
 
 // Searchable keywords per Settings section — synonyms a user might type, so the search
 // matches intent ("dark" → Appearance, "backup" → Data, "calorie" → Health) not just titles.
@@ -309,6 +308,32 @@ export function SettingsView() {
 
       <Appearance hidden={!show(T.appearance)} />
 
+      <Card hidden={!show(T.motion)} style={{ marginBottom: space[3] }}>
+        <SectionHeader title="Motion" />
+        <View style={styles.toggleRow}>
+          <View style={{ flex: 1, marginRight: space[3] }}>
+            <FsText variant="bodyMedium">Animations</FsText>
+            <FsText variant="caption">Screen transitions, count-ups and micro-interactions. Also respects your device's Reduce Motion setting.</FsText>
+          </View>
+          <Switch
+            value={profile.animationsEnabled}
+            onValueChange={(v) => setProfile({ animationsEnabled: v })}
+            trackColor={{ true: colors.primary, false: colors.border }}
+          />
+        </View>
+        <View style={styles.toggleRow}>
+          <View style={{ flex: 1, marginRight: space[3] }}>
+            <FsText variant="bodyMedium">Celebration confetti</FsText>
+            <FsText variant="caption">A confetti burst on big wins (goal weight, new PRs).</FsText>
+          </View>
+          <Switch
+            value={profile.confettiEnabled}
+            onValueChange={(v) => setProfile({ confettiEnabled: v })}
+            trackColor={{ true: colors.primary, false: colors.border }}
+          />
+        </View>
+      </Card>
+
       <Card hidden={!show(T.profile)} style={{ marginBottom: space[3] }}>
         <SectionHeader title="Profile" />
         <Pressable onPress={changeAvatar} style={styles.avatarRow}>
@@ -374,64 +399,6 @@ export function SettingsView() {
         <Button title="Edit goals" variant="ghost" onPress={() => setSection('dashboard', 'goals')} />
       </Card>
 
-      <Card hidden={!show(T.tools)} style={{ marginBottom: space[3] }}>
-        <SectionHeader title="Tools" />
-        <Button title="Open TDEE Calculator" variant="ghost" onPress={() => router.push('/tdee')} />
-      </Card>
-
-      <Card hidden={!show(T.help)} style={{ marginBottom: space[3] }}>
-        <SectionHeader title="Help" />
-        <FsText variant="caption" style={{ marginBottom: space[3] }}>
-          New here, or want a refresher? Take a quick guided tour of the app's features.
-        </FsText>
-        <Button title="Take the app tour" variant="ghost" onPress={() => useTourStore.getState().start()} />
-      </Card>
-
-      <Card hidden={!show(T.feedback)} style={{ marginBottom: space[3] }}>
-        <SectionHeader title="Feedback" />
-        <FsText variant="caption" style={{ marginBottom: space[3] }}>
-          Hit a bug or have an idea? Send it my way — it shapes what gets built next. (On a TestFlight build
-          you can also just take a screenshot to report a bug instantly.)
-        </FsText>
-        <Button title="Send feedback" variant="ghost" onPress={() => router.push('/feedback')} />
-      </Card>
-
-      <Card hidden={!show(T.support)} style={{ marginBottom: space[3] }}>
-        <SectionHeader title="Support Hale" />
-        <FsText variant="caption" style={{ marginBottom: space[3] }}>
-          Hale is free with no ads, no account, and nothing locked behind a paywall. If it helps you,
-          an optional donation keeps it free for everyone and covers the developer costs — never required.
-        </FsText>
-        <Pressable onPress={openSupport} style={styles.supportBtn}>
-          <Heart color={colors.white} size={18} />
-          <FsText variant="bodyMedium" style={{ color: colors.white, fontWeight: '600' }}>Donate / support development</FsText>
-        </Pressable>
-      </Card>
-
-      <Card hidden={!show(T.data)} style={{ marginBottom: space[3] }}>
-        <SectionHeader title="Data &amp; backup" />
-        <FsText variant="caption" style={{ marginBottom: space[3] }}>
-          Your data lives only on this device. Export a backup file you can keep anywhere, then import it to
-          restore or merge — on this device or a new one.
-        </FsText>
-        <Button title="Export data" onPress={onExport} disabled={busy} />
-        <Button title={busy ? 'Working…' : 'Import data'} variant="ghost" onPress={onImport} loading={busy} disabled={busy} style={{ marginTop: space[2] }} />
-        <Button title="Wipe all data" variant="ghost" onPress={() => { setWipeAck(false); setWipeOpen(true); }} disabled={busy} style={{ marginTop: space[2] }} />
-      </Card>
-
-      <Card hidden={!show(T.offline)} style={{ marginBottom: space[3] }}>
-        <SectionHeader title="Offline" />
-        <FsText variant="caption" style={{ marginBottom: space[3] }}>
-          Download all exercise demo GIFs to this device so the library works without internet.
-        </FsText>
-        <Button
-          title={downloading ? `Downloading… ${downloadProgress}` : 'Download exercise demos'}
-          onPress={downloadDemos}
-          loading={downloading}
-          disabled={downloading}
-        />
-      </Card>
-
       <Card hidden={!show(T.health)} style={{ marginBottom: space[3] }}>
         <SectionHeader title={`Health · ${healthPlatformLabel}`} />
         <FsText variant="caption" style={{ marginBottom: space[3] }}>
@@ -471,6 +438,52 @@ export function SettingsView() {
         </View>
       </Card>
 
+      <Card hidden={!show(T.tools)} style={{ marginBottom: space[3] }}>
+        <SectionHeader title="Tools" />
+        <Button title="Open TDEE Calculator" variant="ghost" onPress={() => router.push('/tdee')} />
+      </Card>
+
+      <Card hidden={!show(T.help)} style={{ marginBottom: space[3] }}>
+        <SectionHeader title="Help" />
+        <FsText variant="caption" style={{ marginBottom: space[3] }}>
+          New here, or want a refresher? Take a quick guided tour of the app's features.
+        </FsText>
+        <Button title="Take the app tour" variant="ghost" onPress={() => useTourStore.getState().start()} />
+      </Card>
+
+      <Card hidden={!show(T.feedback)} style={{ marginBottom: space[3] }}>
+        <SectionHeader title="Feedback" />
+        <FsText variant="caption" style={{ marginBottom: space[3] }}>
+          Hit a bug or have an idea? Send it my way — it shapes what gets built next. (On a TestFlight build
+          you can also just take a screenshot to report a bug instantly.)
+        </FsText>
+        <Button title="Send feedback" variant="ghost" onPress={() => router.push('/feedback')} />
+      </Card>
+
+      <Card hidden={!show(T.data)} style={{ marginBottom: space[3] }}>
+        <SectionHeader title="Data &amp; backup" />
+        <FsText variant="caption" style={{ marginBottom: space[3] }}>
+          Your data lives only on this device. Export a backup file you can keep anywhere, then import it to
+          restore or merge — on this device or a new one.
+        </FsText>
+        <Button title="Export data" onPress={onExport} disabled={busy} />
+        <Button title={busy ? 'Working…' : 'Import data'} variant="ghost" onPress={onImport} loading={busy} disabled={busy} style={{ marginTop: space[2] }} />
+        <Button title="Wipe all data" variant="ghost" onPress={() => { setWipeAck(false); setWipeOpen(true); }} disabled={busy} style={{ marginTop: space[2] }} />
+      </Card>
+
+      <Card hidden={!show(T.offline)} style={{ marginBottom: space[3] }}>
+        <SectionHeader title="Offline" />
+        <FsText variant="caption" style={{ marginBottom: space[3] }}>
+          Download all exercise demo GIFs to this device so the library works without internet.
+        </FsText>
+        <Button
+          title={downloading ? `Downloading… ${downloadProgress}` : 'Download exercise demos'}
+          onPress={downloadDemos}
+          loading={downloading}
+          disabled={downloading}
+        />
+      </Card>
+
       <Card hidden={!show(T.coaching)} style={{ marginBottom: space[3] }}>
         <SectionHeader title="Coaching &amp; reminders" />
         <View style={styles.toggleRow}>
@@ -497,32 +510,6 @@ export function SettingsView() {
         </View>
       </Card>
 
-      <Card hidden={!show(T.motion)} style={{ marginBottom: space[3] }}>
-        <SectionHeader title="Motion" />
-        <View style={styles.toggleRow}>
-          <View style={{ flex: 1, marginRight: space[3] }}>
-            <FsText variant="bodyMedium">Animations</FsText>
-            <FsText variant="caption">Screen transitions, count-ups and micro-interactions. Also respects your device's Reduce Motion setting.</FsText>
-          </View>
-          <Switch
-            value={profile.animationsEnabled}
-            onValueChange={(v) => setProfile({ animationsEnabled: v })}
-            trackColor={{ true: colors.primary, false: colors.border }}
-          />
-        </View>
-        <View style={styles.toggleRow}>
-          <View style={{ flex: 1, marginRight: space[3] }}>
-            <FsText variant="bodyMedium">Celebration confetti</FsText>
-            <FsText variant="caption">A confetti burst on big wins (goal weight, new PRs).</FsText>
-          </View>
-          <Switch
-            value={profile.confettiEnabled}
-            onValueChange={(v) => setProfile({ confettiEnabled: v })}
-            trackColor={{ true: colors.primary, false: colors.border }}
-          />
-        </View>
-      </Card>
-
       <Card hidden={!show(T.notifications)} style={{ marginBottom: space[3] }}>
         <SectionHeader title="Notifications &amp; reminders" />
         <FsText variant="caption" style={{ marginBottom: space[3] }}>
@@ -544,6 +531,18 @@ export function SettingsView() {
         {!!server.serverUrl && (
           <Button title="Disconnect" variant="ghost" onPress={() => { server.clearServer(); setServerUrl(''); setServerToken(''); }} style={{ marginTop: space[2] }} />
         )}
+      </Card>
+
+      <Card hidden={!show(T.support)} style={{ marginBottom: space[3] }}>
+        <SectionHeader title="Support Hale" />
+        <FsText variant="caption" style={{ marginBottom: space[3] }}>
+          Hale is free with no ads, no account, and nothing locked behind a paywall. If it helps you,
+          an optional donation keeps it free for everyone and covers the developer costs — never required.
+        </FsText>
+        <Pressable onPress={openSupport} style={styles.supportBtn}>
+          <Heart color={colors.white} size={18} />
+          <FsText variant="bodyMedium" style={{ color: colors.white, fontWeight: '600' }}>Donate / support development</FsText>
+        </Pressable>
       </Card>
 
       {devUnlocked && show(T.developer) && (

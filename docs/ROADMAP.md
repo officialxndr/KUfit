@@ -134,6 +134,27 @@ Honest status of the rebuild. **Update this when features land or plans change.*
 - [x] **What's-New / beta sheet** — `components/WhatsNew.tsx` shows once per `WHATS_NEW_VERSION` (tracked in
       `app_meta`): lists what to test, nudges feedback, adds a "test build" note on non-prod variants, and
       points testers at the TestFlight screenshot flow. Bump `WHATS_NEW_VERSION` in `lib/feedback.ts` per beta.
+- [x] **Body-fat (DEXA) logging from the Body screen** — `HealthBody` has a persistent "Log body-fat %
+      (DEXA)" button in every state (empty / estimated / measured→"Update"), with a modal that also takes a
+      weight when none is logged. Previously body fat could only be set via the log-weight flow, so a fresh
+      Body tab was a dead end with no way to enter or see it.
+- [x] **Onboarding privacy + Apple Health** — a "Private by design" step (no account/servers, never sold or
+      tracked, free forever, only Open Food Facts lookups leave the device) and a "Connect {Apple Health /
+      Health Connect}" action in Preferences (no-ops gracefully without the native module).
+- [x] **Multi-select exercise picker** — `app/exercises.tsx` `pick=template`/`pick=session` modes let you
+      check off several exercises (numbered in pick order) and add them all at once via "Add N exercises",
+      instead of one-tap-then-close. Browsing (no `pick`) still opens the exercise detail page.
+- [x] **Optional-donation flow** — `stores/donationStore.ts` + `components/DonationBanner.tsx` (Dashboard) +
+      a final wizard step (Donate / Remind me later / No thanks). "Remind later" re-prompts after ~30 days;
+      X / "No thanks" dismisses forever. Link centralised in `lib/support.ts` → Ko-fi (`ko-fi.com/haleapp`).
+- [x] **Settings reorg + wizard profile photo** — Settings cards regrouped by adjacency (display prefs /
+      you+body / data / reminders) with the **Donate card moved to the bottom**; the wizard's "About you"
+      step gained a **profile photo** picker so the profile basics are together.
+- [x] **Nutrition-OCR parser hardening** — `parseNutritionText` is now **%DV-aware** (skips "% Daily Value"
+      numbers), **unit-aware** (sodium g→mg, mcg→mg), reads the value *after* the label word (handles trailing
+      %DV + labels merged onto one line), drops the "Includes …/Added Sugars" clause so **Total Sugars** reads
+      correctly, and handles **decimal commas** + vertical label/value splits. Pure TS (ships via `eas update`
+      too); ML Kit engine unchanged — an Apple Vision swap (`expo-text-extractor`) is a possible further step.
 - [x] **Standard swipe-to-delete + confirm** (`SwipeToDelete`) across user logs: food items, weight
       entries, measurements, workout history (recipes/routines/phases keep explicit delete + confirm).
 - [x] **Quick-log weight** modal (`log-weight`) wired to the FAB + dashboard (the inline Health form
@@ -349,6 +370,14 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       app, an **Expo config plugin** + dev/EAS build (no Expo Go), and **deep links** into the app for
       each action. Scoped as its own native track — keeps the JS feature work runnable in Expo Go.
 - [ ] Richer trend visuals (gifted-charts), recipe edit, food Recipes "New" entry polish.
+- [ ] **Better nutrition-label OCR engine** — the parser is now %DV/unit/added-sugars aware (see Done), but
+      the engine is still Google ML Kit. If labels stay inconsistent, swap iOS to **Apple Vision** via
+      `expo-text-extractor` (native dep + dev build; modest gain per research), and/or use ML Kit's per-line
+      bounding boxes to pair labels↔values by position for multi-column labels.
+- [ ] **OpenFoodFacts contribution** — let users submit/edit foods to the OFF open database. ToS allows it:
+      register the app (API-usage form) + authenticate writes via the user's OFF login (session or creds;
+      moving to OAuth/Keycloak); submitted data is **ODbL-licensed** (public). Add a submit/edit form + login,
+      and offer it in the setup wizard. Needs a dev build to test.
 
 ## Future considerations
 - [ ] **Expand the exercise catalog.** The bundled catalog is ~440 (the free `oss.exercisedb.dev`
