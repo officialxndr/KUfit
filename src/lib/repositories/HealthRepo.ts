@@ -10,6 +10,9 @@ function mapWeightEntry(row: any): WeightEntry {
     date: row.date,
     weightKg: row.weightKg,
     bodyFat: row.bodyFat ?? null,
+    boneMassKg: row.boneMassKg ?? null,
+    visceralFatKg: row.visceralFatKg ?? null,
+    boneTScore: row.boneTScore ?? null,
     source: row.source ?? 'MANUAL',
     createdAt: row.updatedAt ?? new Date().toISOString(),
   };
@@ -83,6 +86,16 @@ export class HealthRepo {
     return row ? mapWeightEntry(row as any) : null;
   }
 
+  /** Most recent weigh-in carrying DEXA data — anchors the 3-compartment body view. */
+  getLatestDexa(): WeightEntry | null {
+    const row = db.getFirstSync(
+      `SELECT * FROM weight_entries
+       WHERE deleted = 0 AND (source = 'DEXA' OR boneMassKg IS NOT NULL OR visceralFatKg IS NOT NULL OR boneTScore IS NOT NULL)
+       ORDER BY date DESC LIMIT 1`
+    );
+    return row ? mapWeightEntry(row as any) : null;
+  }
+
   upsertWeightEntry(date: string, weightKg: number, bodyFat?: number, source = 'MANUAL'): void {
     const existing = db.getFirstSync(
       `SELECT localId FROM weight_entries WHERE date = ?`, [date]
@@ -97,6 +110,33 @@ export class HealthRepo {
         `INSERT INTO weight_entries (localId, date, weightKg, bodyFat, source, syncStatus, updatedAt)
          VALUES (?, ?, ?, ?, ?, 'pending', ?)`,
         [Crypto.randomUUID(), date, weightKg, bodyFat ?? null, source, new Date().toISOString()]
+      );
+    }
+  }
+
+  /**
+   * Log a DEXA scan as a weigh-in carrying the scan's extra compartments (bone mass,
+   * visceral fat, T-score) alongside body fat %. Upserts on `date`, marks source 'DEXA'.
+   * Unlike `upsertWeightEntry` (which leaves the DEXA columns untouched), this writes them.
+   */
+  logDexaScan(input: {
+    date: string; weightKg: number; bodyFat?: number | null;
+    boneMassKg?: number | null; visceralFatKg?: number | null; boneTScore?: number | null;
+  }): void {
+    const { date, weightKg, bodyFat, boneMassKg, visceralFatKg, boneTScore } = input;
+    const now = new Date().toISOString();
+    const existing = db.getFirstSync(`SELECT localId FROM weight_entries WHERE date = ?`, [date]) as any;
+    if (existing) {
+      db.runSync(
+        `UPDATE weight_entries SET weightKg = ?, bodyFat = ?, boneMassKg = ?, visceralFatKg = ?, boneTScore = ?,
+                source = 'DEXA', syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
+        [weightKg, bodyFat ?? null, boneMassKg ?? null, visceralFatKg ?? null, boneTScore ?? null, now, existing.localId]
+      );
+    } else {
+      db.runSync(
+        `INSERT INTO weight_entries (localId, date, weightKg, bodyFat, boneMassKg, visceralFatKg, boneTScore, source, syncStatus, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'DEXA', 'pending', ?)`,
+        [Crypto.randomUUID(), date, weightKg, bodyFat ?? null, boneMassKg ?? null, visceralFatKg ?? null, boneTScore ?? null, now]
       );
     }
   }

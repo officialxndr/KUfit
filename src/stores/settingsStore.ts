@@ -53,6 +53,9 @@ export interface Profile {
   animationsEnabled: boolean;
   /** When false, celebration confetti is suppressed (other motion still plays). */
   confettiEnabled: boolean;
+  /** When false, don't auto-estimate body fat from tape measurements (U.S. Navy
+   *  formula); only a body-fat % you enter yourself (or a DEXA baseline) is shown. */
+  navyBodyFatEnabled: boolean;
   // Training goals (Workout section)
   weeklySessionTarget: number | null;
   trainingFocus: TrainingFocus | null;
@@ -60,8 +63,6 @@ export interface Profile {
   nutrientGoals: NutrientGoal[];
   /** Per-site body-measurement goals, keyed by site, value in cm. */
   measurementGoals: Record<string, number>;
-  /** Use the U.S. Navy tape method to estimate body-fat % (neck/waist/hips + height). */
-  useNavyBodyFat: boolean;
 }
 
 const DEFAULT_PROFILE: Profile = {
@@ -89,11 +90,11 @@ const DEFAULT_PROFILE: Profile = {
   showWorkoutSummary: true,
   animationsEnabled: true,
   confettiEnabled: true,
+  navyBodyFatEnabled: true,
   weeklySessionTarget: null,
   trainingFocus: null,
   nutrientGoals: [],
   measurementGoals: {},
-  useNavyBodyFat: true,
 };
 
 interface SettingsState {

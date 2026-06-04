@@ -250,7 +250,15 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       custom time for that set); long exercise names truncate instead of overlapping the kebab.
 - [x] **Body-fat estimation** — `lib/bodyComposition.ts`: estimate current BF% from a measured (DEXA)
       baseline holding lean mass constant, **and** the **U.S. Navy tape method** (waist/neck/+hip + height +
-      sex). Body tab labels the source (Measured / Estimated / U.S. Navy) and can log a Navy reading.
+      sex). Body tab labels the source (Measured / Estimated / U.S. Navy) and can log a Navy reading. A
+      **Settings → Body composition** toggle (`profile.navyBodyFatEnabled`, default on) disables the Navy
+      fallback everywhere (Body / Stats / Reports) for users who'd rather only show a body-fat % they entered.
+- [x] **DEXA scans → 3-compartment body comp** — a dedicated **Log DEXA scan** flow (`app/log-dexa.tsx` →
+      `HealthRepo.logDexaScan`, stored as a weigh-in with `source='DEXA'` + `boneMassKg`/`visceralFatKg`/`boneTScore`)
+      unlocks a true fat + **lean soft tissue** + **bone** split in the Body view (`bodyComposition.composition()`),
+      carrying ~constant bone mass / T-score forward (`getLatestDexa`) so you scan less often. Visceral fat shows
+      the scan value with a **direction-only** waist-trend cue (magnitude isn't reliable from waist). Gated — nothing
+      shows until a scan is logged; example scans are seeded into the demo/tour data.
 - [x] **Per-side (dumbbell) volume fix** — two-arm dumbbell/kettlebell work counts **×2** (weight is
       per-hand). `lib/load.ts` + `exercises.perSide` override (toggle on the exercise detail page);
       volume recomputed from sets × factor everywhere, so **past sessions correct themselves**. 1RM/top
@@ -308,8 +316,8 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       **Settings → Help → "Take the app tour"**.
 
 - [x] **Demo/sample data + richer tour** — a **hidden Developer tool** (unlock by tapping the Settings
-      version footer **7×** → `devMode` in `stores/devStore.ts`) that seeds ~10 weeks of realistic food
-      logs, weigh-ins, body measurements and progressive-overload workouts (`lib/demoSeed.ts` +
+      version footer **7×** → `devMode` in `stores/devStore.ts`) that seeds ~1 year of realistic food
+      logs, weigh-ins (incl. example DEXA scans), body measurements and progressive-overload workouts (`lib/demoSeed.ts` +
       `WorkoutRepo.seedFinishedSession` + repo `clearAll…` helpers) so every screen looks alive for the
       feature tour and App Store screenshots; **Load / Clear / turn-off** buttons, never shown to normal
       users. The guided tour gained **auto-scroll + more steps** (`lib/appScroll.ts` registers the shell's

@@ -50,7 +50,7 @@ export function HealthTrends() {
   // Per-entry bf via measured→baseline-estimate (same priority as the Body subview),
   // giving a continuous series anchored to the measured baseline. If no entry yields a
   // value, fall back to a Navy tape series from the window's measurements.
-  const canNavy = profile.useNavyBodyFat && !!profile.heightCm && (profile.sex === 'MALE' || profile.sex === 'FEMALE');
+  const canNavy = profile.navyBodyFatEnabled && !!profile.heightCm && (profile.sex === 'MALE' || profile.sex === 'FEMALE');
   const leanSeries = weights
     .map((w) => {
       const r = bodyFatForEntry(w, baseline);

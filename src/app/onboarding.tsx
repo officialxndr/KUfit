@@ -89,7 +89,7 @@ export default function Onboarding() {
       goalType,
       goalWeightKg: goalWeight.trim() ? toKg(Number(goalWeight), unit) : null,
       confettiEnabled: confetti,
-      useNavyBodyFat: useNavy,
+      navyBodyFatEnabled: useNavy,
       activeCalorieSource: activeCal,
     });
     completeOnboarding();

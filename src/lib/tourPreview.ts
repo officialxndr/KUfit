@@ -60,7 +60,9 @@ export function beginTourPreview(): void {
   if (seeded || hasLoggedData()) return;
   snapshot = snapProfile();
   AsyncStorage.setItem(MARKER, JSON.stringify(snapshot)).catch(() => {});
-  loadDemoData();
+  // Keep the preview light (~10 weeks) — it seeds synchronously as the tour starts, so a
+  // full year of inserts would hitch the UI. The dev seeder uses the default (~1 year).
+  loadDemoData(70);
   seeded = true;
   useRefreshStore.getState().bump();
 }

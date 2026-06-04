@@ -39,6 +39,7 @@ const T = {
   units: 'units metric imperial kg lbs pounds cm centimeters measurement system',
   appearance: 'appearance theme dark light mode colour color accent scheme display',
   profile: 'profile name height birth date birthday age sex gender avatar photo picture',
+  body: 'body composition fat navy estimate dexa lean mass percentage tape measurement',
   activity: 'activity level sedentary light moderate active very tdee maintenance',
   goals: 'goals goal weight target calorie calories macro macros protein carbs fat phase',
   tools: 'tools tdee calculator',
@@ -120,7 +121,7 @@ export function SettingsView() {
 
   // Whether any visible section matches the query (developer card only counts if unlocked).
   const noResults = q !== '' && ![
-    T.units, T.appearance, T.profile, T.activity, T.goals, T.tools, T.help, T.support,
+    T.units, T.appearance, T.profile, T.body, T.activity, T.goals, T.tools, T.help, T.support,
     T.data, T.offline, T.health, T.coaching, T.motion, T.notifications, T.server,
     ...(devUnlocked ? [T.developer] : []),
   ].some(show);
@@ -372,6 +373,21 @@ export function SettingsView() {
         </View>
       </Card>
 
+      <Card hidden={!show(T.body)} style={{ marginBottom: space[3] }}>
+        <SectionHeader title="Body composition" />
+        <View style={styles.toggleRow}>
+          <View style={{ flex: 1, marginRight: space[3] }}>
+            <FsText variant="bodyMedium">U.S. Navy body-fat estimate</FsText>
+            <FsText variant="caption">When you haven't entered a measured body-fat %, estimate it from your neck/waist/hip tape measurements (U.S. Navy formula). Turn off to show only body-fat values you log yourself (or from a DEXA baseline).</FsText>
+          </View>
+          <Switch
+            value={profile.navyBodyFatEnabled}
+            onValueChange={(v) => setProfile({ navyBodyFatEnabled: v })}
+            trackColor={{ true: colors.primary, false: colors.border }}
+          />
+        </View>
+      </Card>
+
       <Card hidden={!show(T.activity)} style={{ marginBottom: space[3] }}>
         <SectionHeader title="Activity Level" />
         <View style={{ gap: space[2] }}>
@@ -425,17 +441,6 @@ export function SettingsView() {
           </View>
         </View>
 
-        <View style={[styles.toggleRow, { marginTop: space[3] }]}>
-          <View style={{ flex: 1, marginRight: space[3] }}>
-            <FsText variant="bodyMedium">U.S. Navy body-fat estimate</FsText>
-            <FsText variant="caption">Estimate body-fat % from tape measurements (neck/waist/hips) + height. Turning it off hides the Navy estimate everywhere.</FsText>
-          </View>
-          <Switch
-            value={profile.useNavyBodyFat}
-            onValueChange={(v) => setProfile({ useNavyBodyFat: v })}
-            trackColor={{ true: colors.primary, false: colors.border }}
-          />
-        </View>
       </Card>
 
       <Card hidden={!show(T.tools)} style={{ marginBottom: space[3] }}>

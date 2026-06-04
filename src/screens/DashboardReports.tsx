@@ -74,15 +74,20 @@ export function DashboardReports() {
     const daily = foodRepo.getDailyCalories(fromIso, endIso);
     const byDate = new Map(daily.map((r) => [r.date, r.calories]));
     // Bucket the calorie trend so the chart stays bounded for long custom ranges.
+    // Only logged days count — an unlogged day isn't a 0-calorie day, so skipping it
+    // keeps the line off a phantom zero and consistent with the logged-days-only average.
     const buckets = Math.min(days, MAX_TREND_POINTS);
     const tSum = new Array(buckets).fill(0);
     const tCnt = new Array(buckets).fill(0);
     for (let i = 0; i < days; i++) {
-      const cal = byDate.get(isoDate(new Date(fromMs + i * DAY_MS))) ?? 0;
+      const cal = byDate.get(isoDate(new Date(fromMs + i * DAY_MS)));
+      if (cal == null) continue;
       const b = Math.min(buckets - 1, Math.floor((i / days) * buckets));
       tSum[b] += cal; tCnt[b] += 1;
     }
-    const calorieTrend = tSum.map((s, i) => (tCnt[i] ? s / tCnt[i] : 0));
+    const calorieTrend = tSum
+      .map((s, i) => (tCnt[i] ? s / tCnt[i] : null))
+      .filter((v): v is number => v != null);
 
     // ── Training (within the window) ──
     const sessions = workoutRepo.getSessions(500);
@@ -160,7 +165,7 @@ export function DashboardReports() {
 
     const baseline = healthRepo.getLatestBodyFatBaseline();
     const measurement = healthRepo.getLatestMeasurementBySite();
-    const navyBf = profile.useNavyBodyFat && measurement && profile.heightCm && (profile.sex === 'MALE' || profile.sex === 'FEMALE')
+    const navyBf = profile.navyBodyFatEnabled && measurement && profile.heightCm && (profile.sex === 'MALE' || profile.sex === 'FEMALE')
       ? navyBodyFat({ sex: profile.sex, heightCm: profile.heightCm, neckCm: measurement.neck ?? 0, waistCm: measurement.waist ?? 0, hipCm: measurement.hips })
       : null;
     let bf: number | null = null;
@@ -190,7 +195,7 @@ export function DashboardReports() {
       currentKg, windowAvg, windowChange, goalEta, pace, bf, leanKg, fatKg, bmi, ffmi,
       phase, goalProgress, startKg, goalKg,
     });
-  }, [fromIso, endIso, days, todayIso, profile.goalWeightKg, profile.goalDate, profile.heightCm, profile.sex, profile.useNavyBodyFat, profile.showCoachingNudges, unit]);
+  }, [fromIso, endIso, days, todayIso, profile.goalWeightKg, profile.goalDate, profile.heightCm, profile.sex, profile.navyBodyFatEnabled, profile.showCoachingNudges, unit]);
 
   useFocusEffect(refresh);
   usePullRefresh(refresh);
