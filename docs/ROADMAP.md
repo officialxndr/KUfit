@@ -390,6 +390,9 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       `tourStore` holds. The overlay swaps its fixed dot row for a **page label + progress bar** so long tours
       scale. First-run (onboarding) shows a clean **Basic / Advanced** choice; the per-section jump list only
       appears on **replay** (Settings → Help) via `openMenu(showPages)`. Both open the chooser instead of auto-starting.
+- [x] **Swipe to switch sections** — the `AppHeader` title now takes a **vertical swipe** (up = next,
+      down = previous, clamped) on top of tap → dropdown. A `PanResponder` claims only clearly-vertical drags
+      so taps still open the menu; the chevron became `ChevronsUpDown` to hint the gesture.
 
 ## Not built yet (planned)
 - [ ] **Renpho tape on-device test** — built and the protocol is implemented, but the BLE connection is

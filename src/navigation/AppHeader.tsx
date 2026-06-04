@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import { View, Pressable, StyleSheet, Modal, Image } from 'react-native';
+import { useRef, useState } from 'react';
+import { View, Pressable, StyleSheet, Modal, Image, PanResponder } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronDown, UserCircle, type LucideIcon } from 'lucide-react-native';
+import { ChevronsUpDown, UserCircle, type LucideIcon } from 'lucide-react-native';
 
 import { FsText } from '@/components/ui';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { haptic } from '@/lib/haptics';
 import { colors, space, radius, shadow, themedStyles } from '@/theme/tokens';
 import { SECTIONS, type SectionKey } from './config';
 
@@ -30,14 +31,40 @@ export function AppHeader({
   const current = SECTIONS.find((s) => s.key === section) ?? SECTIONS[0];
   const CurrentIcon = current.icon;
 
+  // Vertical swipe on the title flips sections (up → next, down → previous), in
+  // addition to tap → dropdown. PanResponder is created once, so read the live
+  // section/handler from refs to avoid a stale closure.
+  const sectionRef = useRef(section); sectionRef.current = section;
+  const switchRef = useRef(onSwitch); switchRef.current = onSwitch;
+  const changeBy = (dir: 1 | -1) => {
+    const idx = SECTIONS.findIndex((s) => s.key === sectionRef.current);
+    const next = SECTIONS[idx + dir];
+    if (!next) return; // clamp at the ends
+    haptic.tap();
+    switchRef.current(next.key);
+  };
+  const pan = useRef(
+    PanResponder.create({
+      // Only claim a clearly-vertical drag, so taps still open the dropdown.
+      onMoveShouldSetPanResponderCapture: (_e, g) => Math.abs(g.dy) > 12 && Math.abs(g.dy) > Math.abs(g.dx) * 1.4,
+      onPanResponderRelease: (_e, g) => {
+        const far = Math.abs(g.dy) >= 24;
+        const flick = Math.abs(g.vy) >= 0.35 && Math.abs(g.dy) >= 8;
+        if (far || flick) changeBy(g.dy < 0 ? 1 : -1);
+      },
+    })
+  ).current;
+
   return (
     <View style={[styles.header, { paddingTop: insets.top + space[3] }]}>
       <View style={styles.row}>
-        <Pressable style={styles.titleBtn} onPress={() => setOpen((o) => !o)} hitSlop={8}>
-          <CurrentIcon color={colors.primary} size={20} />
-          <FsText variant="h1">{current.label}</FsText>
-          <ChevronDown color={colors.muted} size={16} />
-        </Pressable>
+        <View {...pan.panHandlers}>
+          <Pressable style={styles.titleBtn} onPress={() => setOpen((o) => !o)} hitSlop={8}>
+            <CurrentIcon color={colors.primary} size={20} />
+            <FsText variant="h1">{current.label}</FsText>
+            <ChevronsUpDown color={colors.muted} size={16} />
+          </Pressable>
+        </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
           {rightAction && (
             <Pressable onPress={rightAction.onPress} hitSlop={8}>

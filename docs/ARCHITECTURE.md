@@ -294,8 +294,10 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
 ## Navigation shell (`src/navigation`)
 The main app area is **not** an expo-router tab bar — it's a single custom shell
 (`AppShell.tsx`) recreated from the design mock (`FitSelf Design System/ui_kits/app`):
-- **`AppHeader`** — top section switcher (dropdown over Dashboard/Food/Workout/Health/Settings) +
-  profile shortcut.
+- **`AppHeader`** — top section switcher (tap the title for a dropdown over
+  Dashboard/Food/Workout/Health/Settings, **or swipe the title vertically** — up = next, down = previous,
+  clamped at the ends — via a `PanResponder` that only claims clearly-vertical drags so taps still open the
+  menu; the chevron is `ChevronsUpDown` to hint it) + profile shortcut.
 - **`BottomNav`** — contextual bottom bar: a section's sub-tabs (or the launcher on Settings) split
   around a center "+" FAB. **Hidden on Settings** (reached/left via the header).
 - **`QuickActionsSheet`** — section-specific quick actions opened by the FAB.

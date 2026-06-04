@@ -15,7 +15,8 @@ Assistant automations via the sync layer (`serverStore` is null by default).
 
 ## Architecture
 - **Navigation shell**: `src/navigation/` — the main app area is one custom screen (`AppShell`),
-  not a tab bar: a top section switcher (`AppHeader`) + contextual bottom bar (`BottomNav`) with a
+  not a tab bar: a top section switcher (`AppHeader` — tap the title for a dropdown, or swipe it
+  vertically to flip sections) + contextual bottom bar (`BottomNav`) with a
   center "+" multi-action FAB (`QuickActionsSheet`), all driven by `config.ts`. `(tabs)/index.tsx`
   just renders `AppShell`.
 - **Screens**: section bodies are content fragments in `src/screens/*` (no `Screen` wrapper — the
