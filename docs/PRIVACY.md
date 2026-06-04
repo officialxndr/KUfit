@@ -1,6 +1,6 @@
 # Hale — Privacy Policy
 
-_Last updated: June 3, 2026_
+_Last updated: June 4, 2026_
 
 **Short version: Hale does not collect, transmit, sell, or share your personal
 data. Everything you log stays on your device.**
@@ -41,8 +41,8 @@ and none of them send your personal information:
 - **Apple Health / Health Connect** (optional) — to read your weight/activity/heart-rate
   so your stats stay in sync. This data is read on-device and is **not transmitted** by
   Hale to anyone. You control access in your system Health settings.
-- **Bluetooth** (optional) — to connect to a Renpho smart tape measure for body
-  measurements. Readings are processed on-device.
+- **Bluetooth** (optional) — to connect to a compatible Bluetooth smart tape measure for
+  body measurements. Readings are processed on-device.
 - **Notifications** (optional) — local reminders you schedule. These are generated and
   delivered on your device; no push server is involved.
 - **Photo library** (optional) — only if you choose a profile picture; the image is
@@ -50,10 +50,10 @@ and none of them send your personal information:
 
 ## Donations
 
-If you choose to support Hale with a donation, the donation is handled by a
-third-party payment provider (e.g. GitHub Sponsors, Ko-fi, or Stripe) on **their**
-website, opened in your browser. Hale does not process or receive your payment
-details. Those providers have their own privacy policies that apply to the payment.
+If you choose to support Hale with a donation, the donation is handled by
+**Ko-fi** (a third-party payment provider) on **their** website, opened in your
+browser. Hale does not process or receive your payment details. Ko-fi has its own
+privacy policy that applies to the payment.
 
 ## Children's privacy
 
@@ -67,4 +67,4 @@ updated" date.
 
 ## Contact
 
-Questions about privacy? Contact the developer at **[zander.halverson99@gmail.com]**.
+Questions about privacy? Contact the developer at **zander.halverson99@gmail.com**.

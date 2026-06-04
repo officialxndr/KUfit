@@ -154,6 +154,9 @@ export default function Onboarding() {
                 </View>
               </View>
             ))}
+            <FsText variant="caption" style={{ color: colors.muted, marginTop: space[4], lineHeight: 17 }}>
+              One note: the numbers Hale shows — body fat, calories, goals — are estimates to guide you, not medical advice.
+            </FsText>
           </>
         )}
 

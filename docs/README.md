@@ -108,6 +108,15 @@ GIF URLs are public CDN links (`static.exercisedb.dev`), so even without `--down
 each GIF to the device the first time it's viewed, and Settings → "Download exercise demos" caches
 them all in bulk.
 
+## App icon
+The icon (a white "H" with a heartbeat/ECG crossbar on an indigo gradient) is generated from SVG, so
+it's vector-crisp and easy to tweak — edit the constants/colors in `scripts/generate-icon.mjs` and re-run:
+```bash
+node scripts/generate-icon.mjs   # rasterizes icon + Android adaptive (fg/bg/mono) + splash + favicon (needs the `sharp` devDependency)
+```
+iOS uses the flat `assets/images/icon.png` (the old Expo Icon Composer `.icon` bundle was removed). Icon
+changes are **native** — they only appear after an `expo prebuild` / new build, not via Fast Refresh or EAS Update.
+
 ## Building & deploying (iOS + Android)
 Native folders (`ios/`, `android/`) are git-ignored and generated on demand. Build profiles live in
 `eas.json` (**development** = dev client, **preview** = internal apk/ipa, **production** = store

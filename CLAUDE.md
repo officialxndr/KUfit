@@ -45,7 +45,8 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   (`FoodTrends` / `WorkoutStats` / `HealthTrends`) share `src/lib/useDateRange.ts` +
   `components/DateRangeBar.tsx` (segmented Week/Month/3 Mo/Year + ‹ › paging + custom range + Today) and
   recompute every metric for the selected window. `FoodRepo.getRangeNutrition` is the shared nutrition aggregate.
-- **Onboarding & tour**: first run → `src/app/onboarding.tsx` (6 steps: welcome/units, a **privacy promise**,
+- **Onboarding & tour**: first run → `src/app/onboarding.tsx` (6 steps: welcome/units, a **privacy promise**
+  (+ a light "estimates, not medical advice" health note),
   profile (ft/in height + cascade birthday), activity, goal, and a **Preferences** step — confetti preview,
   Navy toggle, active-calorie source, optional **Health connect**); then a **tour chooser** (`TourMenu`)
   offering a **Basic** or **Advanced** **guided feature tour** (or a single section's tour on replay) that

@@ -41,3 +41,11 @@ example
 # generated native folders
 /ios
 /android
+
+# build artifacts
+*.ipa
+*.apk
+*.aab
+
+# marketing screenshots (regenerate via scripts/resize-screenshots.mjs)
+screenshots/

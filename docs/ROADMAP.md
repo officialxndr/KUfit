@@ -393,6 +393,10 @@ Honest status of the rebuild. **Update this when features land or plans change.*
 - [x] **Swipe to switch sections** — the `AppHeader` title now takes a **vertical swipe** (up = next,
       down = previous, clamped) on top of tap → dropdown. A `PanResponder` claims only clearly-vertical drags
       so taps still open the menu; the chevron became `ChevronsUpDown` to hint the gesture.
+- [x] **Real app icon** — replaced the Expo placeholder symbol with a branded mark: a white "H" whose
+      crossbar is a heartbeat/ECG pulse, on an indigo gradient. Generated from SVG via
+      `scripts/generate-icon.mjs` (+ `sharp` devDep) → icon, Android adaptive (fg/bg/mono), splash, favicon.
+      iOS now uses the flat `icon.png` (dropped the placeholder `.icon` Composer bundle).
 
 ## Not built yet (planned)
 - [ ] **Renpho tape on-device test** — built and the protocol is implemented, but the BLE connection is
