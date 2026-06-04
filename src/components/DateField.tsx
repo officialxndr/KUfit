@@ -54,6 +54,9 @@ export function DateField({
   const cells: (number | null)[] = [];
   for (let i = 0; i < firstWeekday; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  // Always render a full 6-week grid (42 cells) so the calendar height never changes
+  // between months — otherwise the centered modal (and its ◀ ▶ arrows) shifts up/down.
+  while (cells.length < 42) cells.push(null);
 
   const yearList = (
     <ScrollView style={{ maxHeight: 280 }} contentContainerStyle={{ paddingVertical: space[1] }}>

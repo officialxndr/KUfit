@@ -10,8 +10,10 @@ import { HeightField } from '@/components/HeightField';
 import { Confetti } from '@/components/anim/Confetti';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useTourStore } from '@/stores/tourStore';
+import { useNavStore } from '@/stores/navStore';
 import { ACTIVITY_DESCRIPTIONS } from '@/lib/tdee';
 import { health, healthPlatformLabel } from '@/lib/health';
+import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { toKg, UNIT_LABELS } from '@/lib/units';
 import { haptic } from '@/lib/haptics';
 import { pickAvatar } from '@/lib/avatar';
@@ -67,9 +69,20 @@ export default function Onboarding() {
       return;
     }
     const granted = await health.requestPermissions();
-    Alert.alert(healthPlatformLabel, granted
-      ? 'Connected — your weight, activity and heart rate can sync.'
-      : 'Permission wasn’t granted. You can connect later in Settings → Health.');
+    if (!granted) {
+      Alert.alert(healthPlatformLabel, 'Permission wasn’t granted. You can connect later in Settings → Health.');
+      return;
+    }
+    // Backfill weight history now (matching Settings → Connect), so data actually
+    // imports during setup rather than only when you later open Settings.
+    const all = await health.getAllWeights();
+    if (all.length) {
+      const byDay = new Map(all.map((w) => [w.date, w.weightKg])); // one weigh-in per day, latest wins
+      byDay.forEach((kg, date) => healthRepo.upsertWeightEntry(date, kg));
+      Alert.alert(healthPlatformLabel, `Connected — imported ${byDay.size} weigh-in${byDay.size === 1 ? '' : 's'} from your history.`);
+    } else {
+      Alert.alert(healthPlatformLabel, 'Connected — your weight, activity and heart rate can sync.');
+    }
   };
 
   const changeAvatar = async () => {
@@ -94,7 +107,10 @@ export default function Onboarding() {
     });
     completeOnboarding();
     haptic.success();
-    // Brand-new users land on the dashboard with the tour chooser open — just Basic / Advanced
+    // Land on the Dashboard, not wherever the shell last was (e.g. Settings, if onboarding
+    // was reached by wiping data) — navStore is in-memory and isn't reset by a wipe.
+    useNavStore.getState().setSection('dashboard', 'overview');
+    // Brand-new users get the tour chooser open — just Basic / Advanced
     // (the per-section "jump to" list is for replay from Settings → Help).
     useTourStore.getState().openMenu(false);
     router.replace('/(tabs)');
