@@ -397,6 +397,12 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       crossbar is a heartbeat/ECG pulse, on an indigo gradient. Generated from SVG via
       `scripts/generate-icon.mjs` (+ `sharp` devDep) → icon, Android adaptive (fg/bg/mono), splash, favicon.
       iOS now uses the flat `icon.png` (dropped the placeholder `.icon` Composer bundle).
+- [x] **Bug fixes (post-launch)** — (1) `DateField` calendar now always renders a full **6-week grid**, so the
+      centered modal (and its ◀ ▶ arrows) no longer shifts up/down when a month has 4 vs 5 vs 6 weeks; (2)
+      onboarding `finish()` resets the shell to **Dashboard** (`navStore.setSection`) so finishing setup after a
+      data wipe no longer lands on Settings (navStore is in-memory, untouched by a wipe); (3) the onboarding
+      **Health connect** step now backfills weight history immediately (matching Settings), instead of importing
+      nothing until you later tapped the Settings Health button.
 
 ## Not built yet (planned)
 - [ ] **Renpho tape on-device test** — built and the protocol is implemented, but the BLE connection is
