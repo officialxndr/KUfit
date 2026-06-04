@@ -1,5 +1,13 @@
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
+import { getMeta, setMeta } from '@/lib/db';
 import catalog from '@/assets/exercises/catalog.json';
+
+/**
+ * Bump when catalog.json *content* changes in a way that should reach existing installs
+ * even though the row count is the same (renamed/de-baked exercises, new metadata). The
+ * count-based `stale` check only catches growth, so this forces an in-place re-upsert.
+ */
+const SEED_VERSION = '2025-06-04-debake';
 
 interface CatalogEntry {
   exerciseDbId: string;
@@ -13,6 +21,8 @@ interface CatalogEntry {
   instructions?: string[];
   tips?: string[];
   gifUrl?: string | null;
+  /** Attachment baked into the source name (Rope, V-Bar, …); structured for the picker. */
+  attachment?: string | null;
 }
 
 /**
@@ -24,6 +34,12 @@ interface CatalogEntry {
  * Rebuilds the seeded set when the DB is empty, *duplicate-bloated* (an earlier
  * bug seeded 60 copies of each exercise), or stale (fewer distinct exercises
  * than the current catalog). Custom exercises are preserved.
+ *
+ * The rebuild upserts **in place** (keyed on exerciseDbId), so each seeded exercise
+ * keeps its localId across the rebuild — the templates and logged sessions that
+ * reference those localIds survive a catalog refresh/growth. Entries the catalog
+ * dropped are pruned afterward. The one exception is a duplicate-bloated DB (the
+ * legacy bug), which can't be repaired in place and is wiped + rebuilt fresh.
  */
 export function seedExercisesIfEmpty() {
   const entries = catalog as CatalogEntry[];
@@ -31,13 +47,14 @@ export function seedExercisesIfEmpty() {
   const distinct = workoutRepo.countDistinctSeededExercises();
   const polluted = total !== distinct; // duplicate exerciseDbId rows present
   const stale = distinct < entries.length;
-  if (total > 0 && !polluted && !stale) return;
+  const versionChanged = getMeta('exerciseSeedVersion') !== SEED_VERSION;
+  if (total > 0 && !polluted && !stale && !versionChanged) return;
 
-  if (total > 0) workoutRepo.deleteSeededExercises();
+  if (polluted) workoutRepo.deleteSeededExercises();
 
   for (const e of entries) {
     workoutRepo.upsertExercise({
-      id: '', // upsert dedups on exerciseDbId/serverId; empty → new localId
+      id: '', // upsert dedups on exerciseDbId → existing row keeps its localId
       exerciseDbId: e.exerciseDbId,
       name: e.name,
       nameAlternative: null,
@@ -55,4 +72,8 @@ export function seedExercisesIfEmpty() {
       isCustom: false,
     });
   }
+
+  // Drop any seeded rows the catalog no longer ships (skip after a full wipe — nothing to prune).
+  if (!polluted) workoutRepo.pruneSeededExercisesNotIn(entries.map((e) => e.exerciseDbId));
+  setMeta('exerciseSeedVersion', SEED_VERSION);
 }

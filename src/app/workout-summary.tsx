@@ -85,8 +85,12 @@ export default function WorkoutSummary() {
 
   const done = () => {
     if (fromHistory) { router.back(); return; }
+    // This summary replaced the session modal over /(tabs); pop it to reveal the (already
+    // mounted) tabs rather than router.replace, which would stack a second tabs screen and
+    // double-transition. Set the sub-tab first so the revealed tabs is already on History.
     useNavStore.getState().setSection('workout', 'history');
-    router.replace('/(tabs)');
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)');
   };
 
   // Progress toward the weekly-sessions goal.

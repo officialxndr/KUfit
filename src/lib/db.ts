@@ -273,6 +273,15 @@ function runMigrations() {
   ensureColumn('workout_sessions', 'minHeartRate', 'REAL');
   ensureColumn('workout_sessions', 'maxHeartRate', 'REAL');
   ensureColumn('workout_sessions', 'heartRateSamplesJson', 'TEXT');
+  // Cable attachment (Rope, V-Bar, …) chosen for a performance; history/PRs are keyed on
+  // (exercise + attachment) so each attachment is its own progress line.
+  ensureColumn('session_exercises', 'attachment', 'TEXT');
+  ensureColumn('template_exercises', 'attachment', 'TEXT');
+  // Unilateral (per-arm) logging: each set splits into L/R rows. `leadSide` = side logged first.
+  ensureColumn('exercises', 'unilateral', 'INTEGER');
+  ensureColumn('exercises', 'leadSide', 'TEXT');
+  // Side a logged set belongs to ('L'/'R') for unilateral exercises; null = bilateral.
+  ensureColumn('exercise_sets', 'side', 'TEXT');
 }
 
 function ensureColumn(table: string, column: string, decl: string) {

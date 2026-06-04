@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft, Dumbbell } from 'lucide-react-native';
+import { ChevronLeft, Dumbbell, Trash2 } from 'lucide-react-native';
 
 import { Screen, FsText, Badge, Card, SectionHeader } from '@/components/ui';
+import { PerArmDropdown } from '@/components/PerArmDropdown';
+import { LoadDropdown } from '@/components/LoadDropdown';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { resolveMediaSource, cacheGif, type MediaSource } from '@/lib/exerciseMedia';
 import { isPerSide } from '@/lib/load';
@@ -44,6 +46,26 @@ export default function ExerciseDetail() {
     workoutRepo.setExercisePerSide(exercise.id, val);
     setExercise({ ...exercise, perSide: val });
   };
+  const applyUnilateral = (val: boolean) => {
+    workoutRepo.setExerciseUnilateral(exercise.id, val);
+    setExercise({ ...exercise, unilateral: val });
+  };
+  const applyLeadSide = (val: 'L' | 'R') => {
+    workoutRepo.setExerciseLeadSide(exercise.id, val);
+    setExercise({ ...exercise, leadSide: val });
+  };
+  const onDelete = () => {
+    const u = workoutRepo.getExerciseUsage(exercise.id);
+    const refs = [
+      u.templates ? `${u.templates} template${u.templates === 1 ? '' : 's'}` : null,
+      u.sessions ? `${u.sessions} logged workout${u.sessions === 1 ? '' : 's'}` : null,
+    ].filter(Boolean);
+    const warn = refs.length ? ` It's used in ${refs.join(' and ')}, which will lose it.` : '';
+    Alert.alert('Delete exercise?', `“${exercise.name}” will be permanently removed.${warn}`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => { workoutRepo.deleteCustomExercise(exercise.id); router.back(); } },
+    ]);
+  };
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -76,17 +98,27 @@ export default function ExerciseDetail() {
         ) : null}
 
         <Card style={{ marginTop: space[4] }}>
-          <SectionHeader title="Load counting" />
-          <FsText variant="caption" style={{ marginBottom: space[2], color: colors.muted }}>
-            How the logged weight counts toward volume. Use “Per side” for two-arm dumbbell/kettlebell moves — the weight is per hand, so it counts ×2.
+          <SectionHeader title="Logging defaults" />
+          <FsText variant="caption" style={{ marginBottom: space[3], color: colors.muted }}>
+            Saved on this exercise — used the same way (the same selectors as in a workout) every time you add it.
           </FsText>
-          <View style={{ flexDirection: 'row', gap: space[2] }}>
-            <Pressable style={[styles.loadOpt, perSideOn && styles.loadOptOn]} onPress={() => applyPerSide(true)}>
-              <FsText variant="bodyMedium" style={{ color: perSideOn ? colors.white : colors.muted }}>Per side ×2</FsText>
-            </Pressable>
-            <Pressable style={[styles.loadOpt, !perSideOn && styles.loadOptOn]} onPress={() => applyPerSide(false)}>
-              <FsText variant="bodyMedium" style={{ color: !perSideOn ? colors.white : colors.muted }}>Total</FsText>
-            </Pressable>
+          <View style={styles.cfgRow}>
+            <View style={{ flex: 1 }}>
+              <FsText variant="bodyMedium">Per-arm sets</FsText>
+              <FsText variant="caption" style={{ color: colors.muted }}>Log each arm separately (1 L, 1 R).</FsText>
+            </View>
+            <PerArmDropdown
+              unilateral={exercise.unilateral}
+              leadSide={exercise.leadSide}
+              onChange={(next) => { applyUnilateral(next.unilateral); if (next.unilateral) applyLeadSide(next.leadSide); }}
+            />
+          </View>
+          <View style={[styles.cfgRow, { marginTop: space[3] }]}>
+            <View style={{ flex: 1 }}>
+              <FsText variant="bodyMedium">Load counting</FsText>
+              <FsText variant="caption" style={{ color: colors.muted }}>“Per side ×2” for two-arm dumbbell/kettlebell work.</FsText>
+            </View>
+            <LoadDropdown perSide={perSideOn} onChange={applyPerSide} />
           </View>
         </Card>
 
@@ -130,6 +162,14 @@ export default function ExerciseDetail() {
             )}
           </Card>
         )}
+
+        {/* Only the user's own exercises can be deleted — app-provided ones have no delete. */}
+        {exercise.isCustom && (
+          <Pressable onPress={onDelete} style={styles.deleteBtn}>
+            <Trash2 color={colors.danger} size={18} />
+            <FsText variant="bodyMedium" style={{ color: colors.danger, fontWeight: '600' }}>Delete exercise</FsText>
+          </Pressable>
+        )}
       </Screen>
     </SafeAreaView>
   );
@@ -148,8 +188,12 @@ const styles = themedStyles(() => StyleSheet.create({
     overflow: 'hidden',
   },
   badgeRow: { flexDirection: 'row', gap: space[2], marginTop: space[3], flexWrap: 'wrap' },
-  loadOpt: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: radius.sm, backgroundColor: colors.surfaceHigh },
-  loadOptOn: { backgroundColor: colors.primary },
+  cfgRow: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  deleteBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space[2],
+    marginTop: space[4], paddingVertical: 13, borderRadius: radius.md,
+    borderWidth: 1, borderColor: colors.danger,
+  },
   stepRow: { flexDirection: 'row', gap: space[3], marginBottom: space[3], alignItems: 'flex-start' },
   stepNum: {
     width: 22, height: 22, borderRadius: radius.full, backgroundColor: colors.primary,

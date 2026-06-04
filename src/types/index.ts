@@ -185,7 +185,14 @@ export interface Exercise {
   isCustom: boolean
   /** Override for "weight is per side" (×2 volume). null/undefined → default from equipment. */
   perSide?: boolean | null
+  /** Log this exercise per arm: each set splits into L/R rows (volume sums both, no ×2). */
+  unilateral?: boolean | null
+  /** Which side is logged first for a unilateral exercise ('L' default). */
+  leadSide?: Side | null
 }
+
+/** Side of a unilateral (per-arm) set. null = bilateral / not per-arm. */
+export type Side = 'L' | 'R'
 
 export interface ExerciseSet {
   id: string
@@ -194,6 +201,8 @@ export interface ExerciseSet {
   reps: number
   rpe?: number | null
   isPersonalBest: boolean
+  /** Arm this set was logged for ('L'/'R') on a unilateral exercise; null = bilateral. */
+  side?: Side | null
 }
 
 export interface SessionExercise {
@@ -202,6 +211,8 @@ export interface SessionExercise {
   notes?: string | null
   order: number
   sets: ExerciseSet[]
+  /** Cable attachment used for this performance (Rope, V-Bar, …); null = none/default. */
+  attachment?: string | null
 }
 
 export interface WorkoutSession {
@@ -239,6 +250,8 @@ export interface WorkoutTemplate {
     order: number
     /** Group key shared by adjacent exercises in a superset (null = solo). */
     supersetGroup?: string | null
+    /** Default cable attachment for this exercise in the template (Rope, V-Bar, …). */
+    attachment?: string | null
   }[]
   lastPerformedAt?: string | null
   createdAt: string
@@ -305,6 +318,8 @@ export interface LocalSet {
   isPersonalBest: boolean
   /** Per-set rest override (seconds) for the rest *after* this set; falls back to the exercise default. */
   restSeconds?: number
+  /** Arm this set is for ('L'/'R') on a unilateral exercise; undefined/null = bilateral. */
+  side?: Side | null
 }
 
 export interface LocalExercise {
@@ -318,4 +333,6 @@ export interface LocalExercise {
   restSeconds: number
   /** Group key shared by adjacent exercises in a superset (null/undefined = solo). */
   supersetGroup?: string | null
+  /** Cable attachment chosen for this performance (Rope, V-Bar, …); null = none/default. */
+  attachment?: string | null
 }

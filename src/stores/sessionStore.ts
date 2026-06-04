@@ -2,7 +2,8 @@ import { create } from 'zustand';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { epley1RM } from '@/lib/epley';
 import { normalizeSupersets } from '@/lib/supersets';
-import type { Exercise, LocalExercise, LocalSet } from '@/types';
+import { appendRound, removeSetOrRound, expandToPairs, collapseToSingles, reorderLead } from '@/lib/unilateral';
+import type { Exercise, LocalExercise, LocalSet, Side } from '@/types';
 
 /**
  * In-memory active workout session. Persisted to SQLite only on finish
@@ -27,6 +28,14 @@ interface SessionState {
   removeSet: (exLocalId: string, setLocalId: string) => void;
   setNotes: (exLocalId: string, notes: string) => void;
   setRestSeconds: (exLocalId: string, restSeconds: number) => void;
+  /** Toggle how this exercise's logged weight counts toward volume (per side ×2 vs total). Persists to the exercise row. */
+  setExercisePerSide: (exLocalId: string, perSide: boolean) => void;
+  /** Choose the cable attachment for this performance (re-resolves ghost values to that attachment's history). */
+  setAttachment: (exLocalId: string, attachment: string | null) => void;
+  /** Toggle per-arm (unilateral) logging — expands/collapses sets into L/R rows. Persists to the exercise row. */
+  setUnilateral: (exLocalId: string, unilateral: boolean) => void;
+  /** Set which arm is logged first (reorders each round's L/R rows). Persists to the exercise row. */
+  setLeadSide: (exLocalId: string, leadSide: Side) => void;
   /** Begin a superset on `exLocalId`; the next added exercise joins its group. */
   startSuperset: (exLocalId: string) => void;
   /** Remove an exercise from its superset group. */
@@ -113,27 +122,16 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     })),
 
   addSet: (exLocalId) =>
-    set((s) => ({
-      counter: s.counter + 1,
-      exercises: s.exercises.map((e) => {
-        if (e.localId !== exLocalId) return e;
-        const last = e.sets[e.sets.length - 1];
-        return {
-          ...e,
-          sets: [
-            ...e.sets,
-            {
-              localId: String(s.counter + 1),
-              setNumber: e.sets.length + 1,
-              weightKg: last?.weightKg ?? 0,
-              reps: last?.reps ?? 8,
-              done: false,
-              isPersonalBest: false,
-            },
-          ],
-        };
-      }),
-    })),
+    set((s) => {
+      let counter = s.counter;
+      const nextId = () => String(++counter);
+      const exercises = s.exercises.map((e) =>
+        e.localId === exLocalId
+          ? { ...e, sets: appendRound(e.sets, !!e.exercise.unilateral, e.exercise.leadSide, nextId) }
+          : e
+      );
+      return { counter, exercises };
+    }),
 
   updateSet: (exLocalId, setLocalId, patch) =>
     set((s) => ({
@@ -149,12 +147,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       exercises: s.exercises.map((e) =>
         e.localId !== exLocalId
           ? e
-          : {
-              ...e,
-              sets: e.sets
-                .filter((st) => st.localId !== setLocalId)
-                .map((st, i) => ({ ...st, setNumber: i + 1 })),
-            }
+          : { ...e, sets: removeSetOrRound(e.sets, setLocalId, !!e.exercise.unilateral) }
       ),
     })),
 
@@ -168,15 +161,61 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       exercises: s.exercises.map((e) => (e.localId === exLocalId ? { ...e, restSeconds } : e)),
     })),
 
+  setExercisePerSide: (exLocalId, perSide) => {
+    const ex = get().exercises.find((e) => e.localId === exLocalId);
+    if (!ex) return;
+    workoutRepo.setExercisePerSide(ex.exercise.id, perSide); // persist on the exercise definition
+    set((s) => ({
+      exercises: s.exercises.map((e) =>
+        e.localId === exLocalId ? { ...e, exercise: { ...e.exercise, perSide } } : e
+      ),
+    }));
+  },
+
+  setAttachment: (exLocalId, attachment) =>
+    set((s) => ({
+      exercises: s.exercises.map((e) => {
+        if (e.localId !== exLocalId) return e;
+        // Ghosts follow the attachment — each attachment is its own progress line.
+        const lastSets = workoutRepo.getLastSetsForExercise(e.exercise.id, attachment ?? null);
+        return { ...e, attachment: attachment ?? null, lastSets };
+      }),
+    })),
+
+  setUnilateral: (exLocalId, unilateral) =>
+    set((s) => {
+      let counter = s.counter;
+      const nextId = () => String(++counter);
+      const exercises = s.exercises.map((e) => {
+        if (e.localId !== exLocalId) return e;
+        workoutRepo.setExerciseUnilateral(e.exercise.id, unilateral); // persist on the exercise definition
+        const sets = unilateral
+          ? expandToPairs(e.sets, e.exercise.leadSide, nextId)
+          : collapseToSingles(e.sets, e.exercise.leadSide);
+        return { ...e, exercise: { ...e.exercise, unilateral }, sets };
+      });
+      return { counter, exercises };
+    }),
+
+  setLeadSide: (exLocalId, leadSide) =>
+    set((s) => ({
+      exercises: s.exercises.map((e) => {
+        if (e.localId !== exLocalId) return e;
+        workoutRepo.setExerciseLeadSide(e.exercise.id, leadSide); // persist on the exercise definition
+        const sets = e.exercise.unilateral ? reorderLead(e.sets, leadSide) : e.sets;
+        return { ...e, exercise: { ...e.exercise, leadSide }, sets };
+      }),
+    })),
+
   setName: (name) => set({ name }),
 
   finish: (caloriesBurned) => {
     const { sessionLocalId, exercises } = get();
     if (!sessionLocalId) return null;
 
-    // Build payload — only completed sets count. Detect PRs via Epley vs history.
+    // Build payload — only completed sets count. Detect PRs via Epley vs history (per attachment).
     const payload = exercises.map((e) => {
-      const best = workoutRepo.getBestEpleyForExercise(e.exerciseId);
+      const best = workoutRepo.getBestEpleyForExercise(e.exerciseId, e.attachment ?? null);
       let newBest = best;
       const sets = e.sets
         .filter((st) => st.done && st.reps > 0)
@@ -184,9 +223,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           const e1rm = epley1RM(st.weightKg, st.reps);
           const isPersonalBest = e1rm > newBest + 0.01;
           if (isPersonalBest) newBest = e1rm;
-          return { setNumber: st.setNumber, weightKg: st.weightKg, reps: st.reps, rpe: st.rpe, isPersonalBest };
+          return { setNumber: st.setNumber, weightKg: st.weightKg, reps: st.reps, rpe: st.rpe, isPersonalBest, side: st.side ?? null };
         });
-      return { exerciseLocalId: e.exerciseId, notes: e.notes || undefined, order: e.order, supersetGroup: e.supersetGroup ?? null, sets };
+      return { exerciseLocalId: e.exerciseId, notes: e.notes || undefined, order: e.order, supersetGroup: e.supersetGroup ?? null, attachment: e.attachment ?? null, sets };
     }).filter((e) => e.sets.length > 0);
 
     workoutRepo.finishSession(sessionLocalId, payload, nowIso(), caloriesBurned ?? null);

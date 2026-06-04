@@ -11,6 +11,8 @@ export interface DraftExercise {
   restSeconds: number;
   /** Group key shared by adjacent exercises in a superset (null = solo). */
   supersetGroup: string | null;
+  /** Default cable attachment for this exercise (Rope, V-Bar, …); null = none. */
+  attachment: string | null;
 }
 
 interface TemplateDraftState {
@@ -63,6 +65,7 @@ export const useTemplateDraftStore = create<TemplateDraftState>((set, get) => ({
           defaultWeightKg: te.defaultWeightKg ?? null,
           restSeconds: te.restSeconds ?? 120,
           supersetGroup: te.supersetGroup ?? null,
+          attachment: te.attachment ?? null,
         }))
     ),
   }),
@@ -74,7 +77,7 @@ export const useTemplateDraftStore = create<TemplateDraftState>((set, get) => ({
       const pending = s.pendingSuperset;
       const draft: DraftExercise = {
         exercise, defaultSets: 3, defaultReps: 8, defaultWeightKg: null, restSeconds: 120,
-        supersetGroup: pending?.group ?? null,
+        supersetGroup: pending?.group ?? null, attachment: null,
       };
       if (!pending) return { exercises: [...s.exercises, draft] };
       // Commit the group on the source exercise and insert the new one right after it.
@@ -143,6 +146,7 @@ export const useTemplateDraftStore = create<TemplateDraftState>((set, get) => ({
         restSeconds: e.restSeconds,
         order: i,
         supersetGroup: e.supersetGroup ?? null,
+        attachment: e.attachment ?? null,
       })),
     };
     let id: string;

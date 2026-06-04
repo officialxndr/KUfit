@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { View, TextInput, StyleSheet, Pressable, FlatList, ScrollView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { Search, ChevronRight, X } from 'lucide-react-native';
 
 import { FsText, Chip, Button } from '@/components/ui';
@@ -22,11 +23,15 @@ export default function ExercisesScreen() {
   const isPicking = pick === 'template' || pick === 'session';
   const [q, setQ] = useState('');
   const [muscle, setMuscle] = useState<string | undefined>(undefined);
+  const [mine, setMine] = useState(false);
   const [selected, setSelected] = useState<Exercise[]>([]);
   const [info, setInfo] = useState<Exercise | null>(null);
 
   const muscles = useMemo(() => workoutRepo.getDistinctMuscleGroups(), []);
-  const results: Exercise[] = useMemo(() => workoutRepo.searchExercises(q, muscle), [q, muscle]);
+  const results: Exercise[] = useMemo(
+    () => workoutRepo.searchExercises(q, mine ? undefined : muscle, undefined, mine),
+    [q, muscle, mine]
+  );
 
   const toggle = (ex: Exercise) => {
     haptic.tap();
@@ -75,9 +80,10 @@ export default function ExercisesScreen() {
         style={styles.chipsScroll}
         contentContainerStyle={styles.chips}
       >
-        <Chip label="All" selected={!muscle} onPress={() => setMuscle(undefined)} />
+        <Chip label="All" selected={!muscle && !mine} onPress={() => { setMuscle(undefined); setMine(false); }} />
+        <Chip label="My exercises" selected={mine} onPress={() => { setMine(true); setMuscle(undefined); }} />
         {muscles.map((m) => (
-          <Chip key={m} label={m} selected={muscle === m} onPress={() => setMuscle(m)} />
+          <Chip key={m} label={m} selected={!mine && muscle === m} onPress={() => { setMuscle(m); setMine(false); }} />
         ))}
       </ScrollView>
 
@@ -94,7 +100,25 @@ export default function ExercisesScreen() {
         extraData={selected}
         contentContainerStyle={{ paddingHorizontal: space[4], paddingBottom: 24 }}
         keyboardShouldPersistTaps="handled"
-        ListEmptyComponent={<FsText variant="caption" style={{ marginTop: space[4] }}>No exercises found.</FsText>}
+        ListEmptyComponent={
+          <View style={{ marginTop: space[4], gap: space[3], alignItems: 'flex-start' }}>
+            <FsText variant="caption">{mine ? "You haven't created any exercises yet." : 'No exercises found.'}</FsText>
+            {mine && <Button title="New exercise" variant="ghost" onPress={() => router.push('/exercise/new')} />}
+          </View>
+        }
+        ListFooterComponent={
+          results.length > 0 ? (
+            <Pressable
+              onPress={() => WebBrowser.openBrowserAsync('https://ascendapi.com').catch(() => {})}
+              style={styles.creditFooter}
+              hitSlop={6}
+            >
+              <FsText variant="caption" style={{ color: colors.muted, textAlign: 'center' }}>
+                Exercise data & demos by ExerciseDB · AscendAPI
+              </FsText>
+            </Pressable>
+          ) : null
+        }
         renderItem={({ item }) => {
           const idx = isPicking ? selected.findIndex((e) => e.id === item.id) : -1;
           return (
@@ -107,7 +131,7 @@ export default function ExercisesScreen() {
               <View style={{ flex: 1 }}>
                 <FsText variant="bodyMedium" numberOfLines={1}>{item.name}</FsText>
                 <FsText variant="caption">
-                  {[item.muscleGroup, item.equipment].filter(Boolean).join(' · ') || '—'}
+                  {[item.muscleGroup, item.equipment, item.isCustom ? 'Custom' : null].filter(Boolean).join(' · ') || '—'}
                 </FsText>
               </View>
               {isPicking ? (
@@ -161,6 +185,7 @@ const styles = themedStyles(() => StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   checkCircleOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  creditFooter: { paddingTop: space[6], paddingBottom: space[2], alignItems: 'center' },
   footer: {
     paddingHorizontal: space[4], paddingTop: space[3],
     borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.bg,

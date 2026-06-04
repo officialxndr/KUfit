@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { View, TextInput, Pressable, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Search, ChevronDown, ChevronRight } from 'lucide-react-native';
 
 import { Card, FsText, Button } from '@/components/ui';
@@ -8,14 +8,20 @@ import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { Exercise } from '@/types';
 
+const MINE = '__mine';
+
 export function WorkoutExercises() {
   const router = useRouter();
   const [query, setQuery] = useState('');
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  // "My exercises" defaults open; muscle groups start collapsed.
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({ [MINE]: true });
+  const [all, setAll] = useState<Exercise[]>([]);
 
-  // Group the full catalog by muscle once.
+  // Reload on focus so newly created / deleted custom exercises show up immediately.
+  useFocusEffect(useCallback(() => { setAll(workoutRepo.getAllExercises()); }, []));
+
+  const customs = useMemo(() => all.filter((e) => e.isCustom), [all]);
   const groups = useMemo(() => {
-    const all = workoutRepo.getAllExercises();
     const map = new Map<string, Exercise[]>();
     for (const ex of all) {
       const key = ex.muscleGroup || 'Other';
@@ -24,12 +30,10 @@ export function WorkoutExercises() {
       else map.set(key, [ex]);
     }
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  }, []);
+  }, [all]);
 
   const q = query.trim().toLowerCase();
-  const matches = q
-    ? workoutRepo.getAllExercises().filter((e) => e.name.toLowerCase().includes(q)).slice(0, 60)
-    : [];
+  const matches = q ? all.filter((e) => e.name.toLowerCase().includes(q)).slice(0, 60) : [];
 
   const open = (ex: Exercise) => router.push(`/exercise/${ex.id}`);
 
@@ -70,7 +74,29 @@ export function WorkoutExercises() {
           )}
         </Card>
       ) : (
-        groups.map(([muscle, list]) => {
+        <>
+        {customs.length > 0 && (
+          <Card style={{ marginBottom: space[3], padding: 0 }}>
+            <Pressable style={styles.groupHead} onPress={() => setExpanded((e) => ({ ...e, [MINE]: !e[MINE] }))}>
+              <FsText variant="bodyMedium" style={{ flex: 1 }}>My exercises</FsText>
+              <FsText variant="caption" style={{ marginRight: space[2] }}>{customs.length}</FsText>
+              <View style={{ transform: [{ rotate: expanded[MINE] ? '0deg' : '-90deg' }] }}>
+                <ChevronDown color={colors.muted} size={16} />
+              </View>
+            </Pressable>
+            {expanded[MINE] &&
+              customs.map((ex) => (
+                <Pressable key={ex.id} style={[styles.exRow, styles.divider]} onPress={() => open(ex)}>
+                  <View style={{ flex: 1 }}>
+                    <FsText variant="body" numberOfLines={1}>{ex.name}</FsText>
+                    <FsText variant="caption">{[ex.muscleGroup, ex.equipment].filter(Boolean).join(' · ') || '—'}</FsText>
+                  </View>
+                  <ChevronRight color={colors.muted} size={16} />
+                </Pressable>
+              ))}
+          </Card>
+        )}
+        {groups.map(([muscle, list]) => {
           const isOpen = !!expanded[muscle];
           return (
             <Card key={muscle} style={{ marginBottom: space[3], padding: 0 }}>
@@ -96,7 +122,8 @@ export function WorkoutExercises() {
                 ))}
             </Card>
           );
-        })
+        })}
+        </>
       )}
     </>
   );

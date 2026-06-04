@@ -90,15 +90,29 @@ export function nextSetCell(
   return { exLocalId: next.exLocalId, setLocalId: next.setLocalId };
 }
 
-/** Whether completing this set should start the rest timer (true unless mid-round in a superset). */
+/**
+ * Whether completing this set should start the rest timer. False mid-round in a superset,
+ * and also false between the two arms of a unilateral round (rest after the *second* arm,
+ * not between L and R).
+ */
 export function restAfterSet(
   exercises: LocalExercise[],
   exLocalId: string,
   setLocalId: string
 ): boolean {
   const seq = buildSetSequence(exercises);
-  const cell = seq.find((c) => c.exLocalId === exLocalId && c.setLocalId === setLocalId);
-  return cell ? cell.isLastInRound : true;
+  const i = seq.findIndex((c) => c.exLocalId === exLocalId && c.setLocalId === setLocalId);
+  if (i < 0) return true;
+  if (!seq[i].isLastInRound) return false;
+  // Unilateral: if the next set is the same exercise + same setNumber (the other arm), defer rest.
+  const ex = exercises.find((e) => e.localId === exLocalId);
+  const st = ex?.sets.find((s) => s.localId === setLocalId);
+  const next = seq[i + 1];
+  if (ex && st?.side && next?.exLocalId === exLocalId) {
+    const nextSt = ex.sets.find((s) => s.localId === next.setLocalId);
+    if (nextSt && nextSt.setNumber === st.setNumber) return false;
+  }
+  return true;
 }
 
 /**

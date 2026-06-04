@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { X, ScanLine, Search, Plus, Star, Utensils } from 'lucide-react-native';
 
@@ -257,6 +258,19 @@ export default function AddFoodModal() {
             </View>
           ) : null
         }
+        ListFooterComponent={
+          rows.length > 0 ? (
+            <Pressable
+              onPress={() => WebBrowser.openBrowserAsync('https://world.openfoodfacts.org').catch(() => {})}
+              style={styles.creditFooter}
+              hitSlop={6}
+            >
+              <FsText variant="caption" style={{ color: colors.muted, textAlign: 'center' }}>
+                Food data from Open Food Facts (ODbL)
+              </FsText>
+            </Pressable>
+          ) : null
+        }
         renderItem={({ item }) => item.kind === 'recipe' ? (
           <Pressable style={styles.resultRow} onPress={() => pickRecipe(item.recipe)}>
             <Utensils color={colors.primary} size={16} />
@@ -322,6 +336,7 @@ const styles = themedStyles(() => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: space[3],
     paddingVertical: space[3], borderBottomWidth: 1, borderBottomColor: colors.border,
   },
+  creditFooter: { paddingTop: space[6], paddingBottom: space[2], alignItems: 'center' },
   scanOverlay: { padding: space[4], gap: space[4] },
   iconBtn: { alignSelf: 'flex-start' },
 }));

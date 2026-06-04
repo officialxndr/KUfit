@@ -10,6 +10,8 @@ import { X, Trash2, GripVertical, Dumbbell, Link2, Link2Off } from 'lucide-react
 
 import { FsText, Button, Card } from '@/components/ui';
 import { KebabMenu } from '@/components/KebabMenu';
+import { AttachmentDropdown } from '@/components/AttachmentDropdown';
+import { PerArmDropdown } from '@/components/PerArmDropdown';
 import { useTemplateDraftStore, type DraftExercise } from '@/stores/templateDraftStore';
 import { useNavStore } from '@/stores/navStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -209,6 +211,13 @@ export default function NewTemplate() {
     router.push('/exercises?pick=template');
   };
 
+  // Per-arm (unilateral) lives on the exercise definition, so persist it + reflect it in the draft.
+  const applyPerArm = (d: DraftExercise, next: { unilateral: boolean; leadSide: 'L' | 'R' }) => {
+    workoutRepo.setExerciseUnilateral(d.exercise.id, next.unilateral);
+    if (next.unilateral) workoutRepo.setExerciseLeadSide(d.exercise.id, next.leadSide);
+    patch(d.exercise.id, { exercise: { ...d.exercise, unilateral: next.unilateral, leadSide: next.leadSide } });
+  };
+
   // Deep-link / fallback: load the template if we arrived with an id but the draft isn't primed.
   useEffect(() => {
     if (params.id && editingId !== params.id) {
@@ -223,8 +232,11 @@ export default function NewTemplate() {
       Alert.alert('Incomplete', 'Add a name and at least one exercise.');
       return;
     }
+    // template/new is a modal pushed over /(tabs); pop it (not router.replace, which would
+    // stack a second tabs screen → double transition). Set the sub-tab first.
     useNavStore.getState().setSection('workout', 'library');
-    router.replace('/(tabs)');
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)');
   };
 
   const title = editingId ? 'Edit Template' : wizard ? (step === 1 ? 'Add Exercises' : 'Configure') : 'New Template';
@@ -254,16 +266,31 @@ export default function NewTemplate() {
         />
       </View>
       {showConfig && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[2] }}>
-          <NumField label="Sets" value={d.defaultSets} onChange={(n) => patch(d.exercise.id, { defaultSets: n })} />
-          <NumField label="Reps" value={d.defaultReps} onChange={(n) => patch(d.exercise.id, { defaultReps: n })} />
-          <NumField
-            label={`Weight (${UNIT_LABELS[unit].weight})`}
-            value={d.defaultWeightKg != null ? toDisplay(d.defaultWeightKg, unit) : 0}
-            onChange={(n) => patch(d.exercise.id, { defaultWeightKg: n > 0 ? toKg(n, unit) : null })}
-          />
-          <NumField label="Rest (s)" value={d.restSeconds} onChange={(n) => patch(d.exercise.id, { restSeconds: n })} />
-        </View>
+        <>
+          {/* Per-arm + attachment sit above the numeric fields, below the name/muscle label. */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2], marginBottom: space[2] }}>
+            <PerArmDropdown
+              unilateral={d.exercise.unilateral}
+              leadSide={d.exercise.leadSide}
+              onChange={(next) => applyPerArm(d, next)}
+            />
+            <AttachmentDropdown
+              equipment={d.exercise.equipment}
+              value={d.attachment ?? null}
+              onChange={(v) => patch(d.exercise.id, { attachment: v })}
+            />
+          </View>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[2] }}>
+            <NumField label="Sets" value={d.defaultSets} onChange={(n) => patch(d.exercise.id, { defaultSets: n })} />
+            <NumField label="Reps" value={d.defaultReps} onChange={(n) => patch(d.exercise.id, { defaultReps: n })} />
+            <NumField
+              label={`Weight (${UNIT_LABELS[unit].weight})`}
+              value={d.defaultWeightKg != null ? toDisplay(d.defaultWeightKg, unit) : 0}
+              onChange={(n) => patch(d.exercise.id, { defaultWeightKg: n > 0 ? toKg(n, unit) : null })}
+            />
+            <NumField label="Rest (s)" value={d.restSeconds} onChange={(n) => patch(d.exercise.id, { restSeconds: n })} />
+          </View>
+        </>
       )}
     </View>
   );

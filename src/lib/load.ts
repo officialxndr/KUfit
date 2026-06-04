@@ -23,7 +23,13 @@ export function isPerSide(ex: { perSide?: boolean | null; equipment?: string | n
   return ex.perSide ?? defaultPerSide(ex.equipment);
 }
 
-/** Volume multiplier: 2 for a per-side (two-implement) movement, else 1. */
-export function loadFactor(ex: { perSide?: boolean | null; equipment?: string | null }): number {
+/**
+ * Volume multiplier: 2 for a per-side (two-implement) movement, else 1.
+ *
+ * Unilateral (per-arm) exercises log each side as its own set, so both sides are already
+ * summed from the actual L/R rows — the ×2 must NOT also apply, or it'd double-count.
+ */
+export function loadFactor(ex: { perSide?: boolean | null; equipment?: string | null; unilateral?: boolean | null }): number {
+  if (ex.unilateral) return 1;
   return isPerSide(ex) ? 2 : 1;
 }

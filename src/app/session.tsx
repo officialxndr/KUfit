@@ -4,13 +4,16 @@ import Animated, { ZoomIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
-import { Check, Plus, Minus, Trash2, X, Timer, Delete, ChevronDown, StickyNote, Info, Link2, Link2Off, Flame, HeartPulse } from 'lucide-react-native';
+import { Check, Plus, Minus, Trash2, X, Timer, Delete, ChevronDown, StickyNote, Info, Link2, Link2Off, Flame, HeartPulse, Scale, ArrowUp } from 'lucide-react-native';
 
 import { FsText, Button, Card } from '@/components/ui';
 import { KebabMenu } from '@/components/KebabMenu';
+import { AttachmentDropdown } from '@/components/AttachmentDropdown';
+import { PerArmDropdown } from '@/components/PerArmDropdown';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useNavStore } from '@/stores/navStore';
+import { isPerSide } from '@/lib/load';
 import { toDisplay, toKg, UNIT_LABELS } from '@/lib/units';
 import { haptic } from '@/lib/haptics';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
@@ -41,7 +44,7 @@ export default function SessionScreen() {
   const {
     active, name, startedAt, exercises,
     addSet, updateSet, removeSet, removeExercise, setNotes, setRestSeconds,
-    startSuperset, ungroup, finish, discard,
+    setExercisePerSide, setAttachment, setUnilateral, setLeadSide, startSuperset, ungroup, finish, discard,
   } = useSessionStore();
 
   const REST_PRESETS = [30, 60, 90, 120, 180];
@@ -55,6 +58,7 @@ export default function SessionScreen() {
   const focusCell = (next: Focus) => { setFocus(next); setPristine(true); };
   const [rest, setRest] = useState<Rest>({ exId: null, setId: null, remaining: 0, total: 0 });
   const [notesEx, setNotesEx] = useState<{ id: string; text: string } | null>(null);
+  const [loadEx, setLoadEx] = useState<{ id: string; perSide: boolean } | null>(null);
   // `setId` present → editing one set's rest override; absent → the exercise default.
   const [restEx, setRestEx] = useState<{ id: string; setId?: string; seconds: number } | null>(null);
   const [customRest, setCustomRest] = useState('');
@@ -114,8 +118,13 @@ export default function SessionScreen() {
   }, [active]);
 
   const backToWorkout = (subTab: string) => {
+    // /session is a fullScreenModal pushed over /(tabs). Set the target sub-tab on the
+    // (still-mounted) tabs underneath, then POP the modal to reveal it. Using
+    // router.replace('/(tabs)') here instead spawns a *second* tabs screen on top of the
+    // original — the "land on library, then wipe back to library again" double transition.
     useNavStore.getState().setSection('workout', subTab);
-    router.replace('/(tabs)');
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)');
   };
   // Redirect home if the session ends — but not when we're finishing (that routes to the summary).
   useEffect(() => { if (!active && !finishing.current) backToWorkout('library'); }, [active]);
@@ -170,7 +179,9 @@ export default function SessionScreen() {
   const onDiscard = () => {
     Alert.alert('Discard workout?', 'This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Discard', style: 'destructive', onPress: () => { discard(); backToWorkout('library'); } },
+      // `discard()` flips `active` → false; the effect above does the single nav back to
+      // the library. (Navigating here too would double-replace → the "wipe back" flash.)
+      { text: 'Discard', style: 'destructive', onPress: () => discard() },
     ]);
   };
 
@@ -224,6 +235,37 @@ export default function SessionScreen() {
     setPristine(false);
   };
 
+  // The value to carry into the focused cell: the previous set's value (this workout), else
+  // last workout's value for that set (the ghost). Returns null when there's nothing to carry.
+  const prevSource = (): { weightKg: number; reps: number } | null => {
+    if (!focus) return null;
+    const ex = exercises.find((e) => e.localId === focus.ex);
+    const i = ex ? ex.sets.findIndex((s) => s.localId === focus.set) : -1;
+    const st = ex?.sets[i];
+    if (!ex || !st) return null;
+    const prevSet = i > 0 ? ex.sets[i - 1] : null;
+    const ghost = ex.lastSets.find((l) => l.setNumber === st.setNumber && (l.side ?? null) === (st.side ?? null));
+    return prevSet ?? ghost ?? null;
+  };
+
+  /** Display value the "use previous" button will apply to the focused field, or null. */
+  const prevValue = (): number | null => {
+    const src = prevSource();
+    if (!src || !focus) return null;
+    return focus.field === 'w' ? wDisp(src.weightKg) : src.reps;
+  };
+
+  const usePrev = () => {
+    const src = prevSource();
+    if (!src || !focus) return;
+    const ex = exercises.find((e) => e.localId === focus.ex);
+    const st = ex?.sets.find((s) => s.localId === focus.set);
+    if (!ex || !st) return;
+    updateSet(ex.localId, st.localId, focus.field === 'w' ? { weightKg: src.weightKg } : { reps: src.reps });
+    setPristine(false);
+    haptic.tap();
+  };
+
   const Cell = ({ exId, setId, field, value, focused, done }: { exId: string; setId: string; field: Field; value: number; focused: boolean; done?: boolean }) => (
     <Pressable onPress={() => focusCell({ ex: exId, set: setId, field })} style={[styles.cell, done && !focused && styles.cellDone, focused && styles.cellFocused]}>
       <FsText variant="bodyMedium" style={{ color: value > 0 ? colors.text : colors.muted, fontVariant: ['tabular-nums'] }}>
@@ -255,6 +297,12 @@ export default function SessionScreen() {
     router.push('/exercises?pick=session');
   };
 
+  // Apply a per-arm choice, skipping no-op changes so set rows aren't needlessly rebuilt.
+  const applyPerArm = (ex: LocalExercise, next: { unilateral: boolean; leadSide: 'L' | 'R' }) => {
+    if (!!ex.exercise.unilateral !== next.unilateral) setUnilateral(ex.localId, next.unilateral);
+    if (next.unilateral && (ex.exercise.leadSide ?? 'L') !== next.leadSide) setLeadSide(ex.localId, next.leadSide);
+  };
+
   const renderExercise = (ex: LocalExercise, label?: string) => (
     <Card key={ex.localId} style={{ marginBottom: space[3] }}>
       <View style={styles.exHeader}>
@@ -275,8 +323,23 @@ export default function SessionScreen() {
               : { icon: Link2, label: 'Superset', onPress: () => onSupersetPress(ex) },
             { icon: StickyNote, label: ex.notes ? 'Edit notes' : 'Add notes', onPress: () => setNotesEx({ id: ex.localId, text: ex.notes ?? '' }) },
             { icon: Timer, label: 'Rest timer', onPress: () => { setRestEx({ id: ex.localId, seconds: ex.restSeconds || 90 }); setCustomRest(''); } },
+            { icon: Scale, label: 'Load counting', onPress: () => setLoadEx({ id: ex.localId, perSide: isPerSide(ex.exercise) }) },
             { icon: Trash2, label: 'Delete exercise', danger: true, onPress: () => confirmRemoveExercise(ex.localId, ex.exercise.name) },
           ]}
+        />
+      </View>
+
+      {/* Per-arm + attachment controls sit directly below the name/subheading, above the sets grid. */}
+      <View style={styles.metaRow}>
+        <PerArmDropdown
+          unilateral={ex.exercise.unilateral}
+          leadSide={ex.exercise.leadSide}
+          onChange={(next) => applyPerArm(ex, next)}
+        />
+        <AttachmentDropdown
+          equipment={ex.exercise.equipment}
+          value={ex.attachment ?? null}
+          onChange={(v) => setAttachment(ex.localId, v)}
         />
       </View>
 
@@ -296,7 +359,8 @@ export default function SessionScreen() {
       </View>
 
       {ex.sets.map((st, i) => {
-        const ghost = ex.lastSets.find((l) => l.setNumber === st.setNumber);
+        const ghost = ex.lastSets.find((l) => l.setNumber === st.setNumber && (l.side ?? null) === (st.side ?? null));
+        const nextSet = ex.sets[i + 1];
         const wFocused = focus?.ex === ex.localId && focus?.set === st.localId && focus?.field === 'w';
         const rFocused = focus?.ex === ex.localId && focus?.set === st.localId && focus?.field === 'r';
         const restHere = rest.setId === st.localId && rest.remaining > 0;
@@ -307,7 +371,7 @@ export default function SessionScreen() {
                 ref={(n) => { if (n) rowRefs.current.set(st.localId, n as unknown as View); else rowRefs.current.delete(st.localId); }}
                 style={[styles.setRow, st.done && styles.setRowDone]}
               >
-                <View style={styles.colSet}><View style={[styles.setChip, st.done && styles.setChipDone]}><FsText variant="bodyMedium" style={{ fontVariant: ['tabular-nums'] }}>{st.setNumber}</FsText></View></View>
+                <View style={styles.colSet}><View style={[styles.setChip, st.done && styles.setChipDone]}><FsText variant="bodyMedium" style={{ fontVariant: ['tabular-nums'] }}>{`${st.setNumber}${st.side ?? ''}`}</FsText></View></View>
                 <FsText variant="caption" style={[styles.colPrev, { textAlign: 'center', fontVariant: ['tabular-nums'] }]}>
                   {ghost ? `${wDisp(ghost.weightKg)} × ${ghost.reps}` : '—'}
                 </FsText>
@@ -332,7 +396,7 @@ export default function SessionScreen() {
                 </View>
               </View>
             </Swipeable>
-            {i < ex.sets.length - 1 && (
+            {nextSet && nextSet.setNumber !== st.setNumber && (
               <Pressable
                 style={styles.restDivider}
                 onPress={() => { setRestEx({ id: ex.localId, setId: st.localId, seconds: st.restSeconds ?? (ex.restSeconds || 90) }); setCustomRest(''); }}
@@ -359,6 +423,9 @@ export default function SessionScreen() {
       </Pressable>
     </Card>
   );
+
+  // Rest-timer fill: 100% at the start of the rest, depleting to 0% as it counts down.
+  const restPct = rest.total > 0 ? Math.max(0, Math.min(100, (rest.remaining / rest.total) * 100)) : 0;
 
   return (
     <GestureHandlerRootView style={styles.screen}>
@@ -390,7 +457,7 @@ export default function SessionScreen() {
 
       <ScrollView
         ref={scrollRef}
-        contentContainerStyle={{ paddingBottom: focus ? 360 : rest.remaining > 0 ? 160 : 120 }}
+        contentContainerStyle={{ paddingBottom: focus ? 410 : rest.remaining > 0 ? 190 : 120 }}
         keyboardShouldPersistTaps="handled"
       >
         <View ref={contentRef} style={{ paddingHorizontal: space[4], paddingTop: space[4] }}>
@@ -420,22 +487,44 @@ export default function SessionScreen() {
 
       {rest.remaining > 0 && !focus && (
         <View style={[styles.restBanner, { paddingBottom: insets.bottom || space[3] }]}>
-          <Timer color={colors.primary} size={18} />
-          <FsText variant="cardTitle" style={{ flex: 1, fontVariant: ['tabular-nums'] }}>Rest · {mmss(rest.remaining)}</FsText>
-          <Pressable onPress={() => setRest({ exId: null, setId: null, remaining: 0, total: 0 })} hitSlop={8}>
-            <FsText variant="bodyMedium" style={{ color: colors.primary }}>Skip</FsText>
-          </Pressable>
+          <View style={styles.restBannerRow}>
+            <Timer color={colors.primary} size={18} />
+            <FsText variant="cardTitle" style={{ flex: 1, fontVariant: ['tabular-nums'] }}>Rest · {mmss(rest.remaining)}</FsText>
+            <Pressable onPress={() => setRest({ exId: null, setId: null, remaining: 0, total: 0 })} hitSlop={8}>
+              <FsText variant="bodyMedium" style={{ color: colors.primary }}>Skip</FsText>
+            </Pressable>
+          </View>
+          <View style={[styles.restBarTrack, { marginTop: space[2] }]}>
+            <View style={[styles.restBarFill, { width: `${restPct}%` }]} />
+          </View>
         </View>
       )}
 
       {focus && (
         <View style={[styles.numpad, { paddingBottom: insets.bottom || space[3] }]}>
           {rest.remaining > 0 && (
-            <View style={styles.numpadRest}>
-              <Timer color={colors.primary} size={14} />
-              <FsText variant="caption" style={{ color: colors.primary, fontVariant: ['tabular-nums'] }}>Rest {mmss(rest.remaining)}</FsText>
+            <View style={styles.restTimerBox}>
+              <View style={styles.restTimerRow}>
+                <Timer color={colors.primary} size={15} />
+                <FsText variant="bodyMedium" style={{ color: colors.primary, flex: 1 }}>Rest</FsText>
+                <FsText variant="bodyMedium" style={{ color: colors.primary, fontVariant: ['tabular-nums'], fontWeight: '700' }}>{mmss(rest.remaining)}</FsText>
+              </View>
+              <View style={styles.restBarTrack}>
+                <View style={[styles.restBarFill, { width: `${restPct}%` }]} />
+              </View>
             </View>
           )}
+          {(() => {
+            const pv = prevValue();
+            return pv != null ? (
+              <Pressable onPress={usePrev} style={styles.prevBtn} hitSlop={4}>
+                <ArrowUp color={colors.primary} size={15} />
+                <FsText variant="caption" style={{ color: colors.primary, fontWeight: '600' }}>
+                  Use previous {focus.field === 'w' ? weightLabel : 'reps'}: {pv}
+                </FsText>
+              </Pressable>
+            ) : null;
+          })()}
           <View style={styles.padRow}>
             <Key label="1" onPress={() => press('1')} />
             <Key label="2" onPress={() => press('2')} />
@@ -547,6 +636,33 @@ export default function SessionScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* Load counting (per-side volume) — same control as the exercise detail, inline mid-workout */}
+      <Modal visible={!!loadEx} transparent animationType="fade" onRequestClose={() => setLoadEx(null)}>
+        <Pressable style={styles.noteBackdrop} onPress={() => setLoadEx(null)}>
+          <Pressable style={styles.noteCard} onPress={(e) => e.stopPropagation()}>
+            <FsText variant="cardTitle" style={{ marginBottom: space[1] }}>Load counting</FsText>
+            <FsText variant="caption" style={{ marginBottom: space[3] }}>
+              How the logged weight counts toward volume. Use “Per side” for two-arm dumbbell/kettlebell moves — the weight is per hand, so it counts ×2.
+            </FsText>
+            <View style={{ flexDirection: 'row', gap: space[2] }}>
+              {([{ on: true, label: 'Per side ×2' }, { on: false, label: 'Total' }] as const).map((opt) => {
+                const sel = !!loadEx && loadEx.perSide === opt.on;
+                return (
+                  <Pressable
+                    key={opt.label}
+                    style={[styles.loadOpt, sel && styles.loadOptOn]}
+                    onPress={() => { if (loadEx) { setExercisePerSide(loadEx.id, opt.on); setLoadEx({ ...loadEx, perSide: opt.on }); haptic.tap(); } }}
+                  >
+                    <FsText variant="bodyMedium" style={{ color: sel ? colors.white : colors.muted }}>{opt.label}</FsText>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Button title="Done" onPress={() => setLoadEx(null)} style={{ marginTop: space[4] }} />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </GestureHandlerRootView>
   );
 }
@@ -608,16 +724,23 @@ const styles = themedStyles(() => StyleSheet.create({
   addSet: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: space[2], marginTop: 4, justifyContent: 'center' },
   restBanner: {
     position: 'absolute', left: 0, right: 0, bottom: 0,
-    flexDirection: 'row', alignItems: 'center', gap: space[2],
     backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border,
     paddingHorizontal: space[4], paddingTop: space[3],
   },
+  restBannerRow: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
   numpad: {
     position: 'absolute', left: 0, right: 0, bottom: 0,
     backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border,
     padding: space[2], gap: space[2],
   },
-  numpadRest: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingBottom: 2 },
+  restTimerBox: { gap: 6, paddingHorizontal: 4, paddingTop: 2 },
+  restTimerRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  restBarTrack: { height: 6, borderRadius: 3, backgroundColor: colors.surfaceHigh, overflow: 'hidden' },
+  restBarFill: { height: '100%', borderRadius: 3, backgroundColor: colors.primary },
+  prevBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 9, borderRadius: radius.sm, backgroundColor: colors.surfaceHigh,
+  },
   padRow: { flexDirection: 'row', gap: space[2] },
   key: { flex: 1, height: 52, borderRadius: radius.md, backgroundColor: colors.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
   keyLabel: { fontSize: 24, lineHeight: 30, color: colors.text, fontWeight: '400' },
@@ -638,5 +761,8 @@ const styles = themedStyles(() => StyleSheet.create({
     width: 90, textAlign: 'right', backgroundColor: colors.surfaceHigh, borderRadius: radius.sm,
     paddingHorizontal: 12, paddingVertical: 8, color: colors.text, fontSize: 14,
   },
+  loadOpt: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: radius.sm, backgroundColor: colors.surfaceHigh },
+  loadOptOn: { backgroundColor: colors.primary },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: space[2], marginBottom: space[2] },
 }));
 

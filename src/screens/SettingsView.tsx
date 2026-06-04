@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 
 import { Image } from 'react-native';
-import { UserCircle, Camera, Heart, Search, X } from 'lucide-react-native';
+import { UserCircle, Camera, Heart, Search, X, ExternalLink } from 'lucide-react-native';
 import Constants from 'expo-constants';
 import { Card, FsText, SectionHeader, Chip, Button } from '@/components/ui';
 import { SwipeToConfirm } from '@/components/SwipeToConfirm';
@@ -53,6 +53,7 @@ const T = {
   notifications: 'notifications reminders alerts schedule notify food weight measurement',
   server: 'server backup sync self hosted url token connection',
   developer: 'developer dev demo data sample seed debug',
+  about: 'about credits attribution acknowledgements licenses exercise food data source exercisedb ascendapi open food facts odbl legal',
 } as const;
 
 const SEXES: Sex[] = ['MALE', 'FEMALE', 'OTHER'];
@@ -121,7 +122,7 @@ export function SettingsView() {
   // Whether any visible section matches the query (developer card only counts if unlocked).
   const noResults = q !== '' && ![
     T.units, T.appearance, T.profile, T.body, T.activity, T.goals, T.help, T.support,
-    T.data, T.offline, T.health, T.coaching, T.motion, T.notifications, T.server,
+    T.data, T.offline, T.health, T.coaching, T.motion, T.notifications, T.server, T.about,
     ...(devUnlocked ? [T.developer] : []),
   ].some(show);
 
@@ -137,6 +138,8 @@ export function SettingsView() {
   };
 
   const openSupport = () => { WebBrowser.openBrowserAsync(SUPPORT_URL).catch(() => {}); };
+  const openExerciseDb = () => { WebBrowser.openBrowserAsync('https://ascendapi.com').catch(() => {}); };
+  const openOpenFoodFacts = () => { WebBrowser.openBrowserAsync('https://world.openfoodfacts.org').catch(() => {}); };
 
   // ── Data backup / restore / wipe ──
   const [busy, setBusy] = useState(false);
@@ -557,6 +560,24 @@ export function SettingsView() {
         </Card>
       )}
 
+      <Card hidden={!show(T.about)} style={{ marginBottom: space[3] }}>
+        <SectionHeader title="About & credits" />
+        <FsText variant="caption" style={{ marginBottom: space[2] }}>
+          Exercise data, images, and demo GIFs are provided by ExerciseDB, built by AscendAPI.
+        </FsText>
+        <Pressable onPress={openExerciseDb} style={styles.creditRow}>
+          <FsText variant="bodyMedium" style={{ color: colors.primary, fontWeight: '600' }}>ExerciseDB · AscendAPI</FsText>
+          <ExternalLink color={colors.primary} size={16} />
+        </Pressable>
+        <FsText variant="caption" style={{ marginTop: space[4], marginBottom: space[2] }}>
+          Food & barcode data contains information from Open Food Facts, made available under the Open Database License (ODbL).
+        </FsText>
+        <Pressable onPress={openOpenFoodFacts} style={styles.creditRow}>
+          <FsText variant="bodyMedium" style={{ color: colors.primary, fontWeight: '600' }}>Open Food Facts</FsText>
+          <ExternalLink color={colors.primary} size={16} />
+        </Pressable>
+      </Card>
+
       {q === '' && (
         <Pressable onPress={tapVersion} style={{ alignItems: 'center', paddingVertical: space[4] }}>
           <FsText variant="caption" style={{ color: colors.muted }}>Hale v{appVersion}</FsText>
@@ -663,6 +684,7 @@ const styles = themedStyles(() => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space[2],
     backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 13,
   },
+  creditRow: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
   wipeBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: space[4] },
   wipeCard: { borderWidth: 1, borderColor: colors.danger },
   toggleRow: { flexDirection: 'row', alignItems: 'center', marginTop: space[3] },
