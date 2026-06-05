@@ -73,6 +73,11 @@ External network (Open Food Facts, ExerciseDB CDN) is called directly from the d
 - `navStore` — shell navigation state: active `section` + `subTab` (local-only).
 - `routineStore` — workout **routines** (named template rotations, auto-pick least-recently-done,
   a **default** routine for the FAB quick-action); local-only, persisted via AsyncStorage.
+- **Pre-set templates** (`lib/presetTemplates.ts`, no store) — a static list of curated starter
+  workouts that reference the bundled catalog by stable **`exerciseDbId`** (not localId). The
+  `preset-templates` modal (opened from the Workout library card above Exercise Library) calls
+  `addPresetTemplate`, which resolves each id via `WorkoutRepo.getExerciseByDbId` and `saveTemplate`s a
+  real, user-owned `WorkoutTemplate` (the preset is just a seed — never linked back).
 - `serverStore` — optional server URL + token; **null by default** (sync inactive until set).
 - `remindersStore` — per-reminder schedules for the **reminders system** (`measurements`/`weight`/
   `workout`/`food`): each has `enabled`, `frequency` (daily/weekly/custom), `weekdays[]`, `hour`/`minute`,

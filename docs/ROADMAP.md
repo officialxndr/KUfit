@@ -10,6 +10,11 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       "Cable Pushdown", collision-safe). Reseed is `SEED_VERSION`-gated and upserts **in place** by
       `exerciseDbId`, preserving localIds (so templates/history survive) and user overrides
       (perSide/unilateral/leadSide). `scripts/lib-debake.mjs` is shared by the seed script.
+- [x] **Pre-set templates** — a curated set of starter workouts (Full Body, Push/Pull/Legs,
+      Upper/Lower, Dumbbell-only, Bodyweight) on the Workout library, above the Exercise Library card.
+      Each "Add to my templates" saves a real, fully-editable `WorkoutTemplate` the user owns.
+      `lib/presetTemplates.ts` references the catalog by stable `exerciseDbId` (resolved at add time via
+      `WorkoutRepo.getExerciseByDbId`); screen at `app/preset-templates.tsx`.
 - [x] **Cable attachments** — pick Rope/Bar/V-Bar/… per cable exercise; history/PRs/ghosts are keyed
       on (exercise + attachment), so each attachment is its own progress line. Stored per performance
       (`session_exercises.attachment`) with a template default (`lib/attachments.ts`).

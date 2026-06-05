@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { View, Pressable, TextInput, StyleSheet, Alert } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { ChevronRight, Play, Plus, Repeat, Trash2, ArrowRightCircle, Pencil, Star, Search } from 'lucide-react-native';
+import { ChevronRight, Play, Plus, Repeat, Trash2, ArrowRightCircle, Pencil, Star, Search, Sparkles } from 'lucide-react-native';
 import { formatDistanceToNow } from 'date-fns';
 
 import { Card, FsText, Button, SectionHeader, Badge } from '@/components/ui';
@@ -338,6 +338,23 @@ export function WorkoutLibrary() {
           ))}
         </>
       )}
+
+      <Pressable onPress={() => router.push('/preset-templates')}>
+        <Card style={{ marginBottom: space[3] }}>
+          <View style={styles.rowBetween}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3], flex: 1 }}>
+              <View style={styles.iconWrap}>
+                <Sparkles color={colors.primary} size={18} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <FsText variant="cardTitle">Pre-set templates</FsText>
+                <FsText variant="caption">Ready-made workouts you can pull in and tweak</FsText>
+              </View>
+            </View>
+            <ChevronRight color={colors.muted} size={20} />
+          </View>
+        </Card>
+      </Pressable>
 
       <Pressable onPress={() => router.push('/exercises')}>
         <Card>

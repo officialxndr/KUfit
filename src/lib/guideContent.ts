@@ -250,6 +250,11 @@ export const GUIDE: GuideSection[] = [
     intro: 'Save workouts you repeat so you can start them in one tap.',
     entries: [
       {
+        title: 'Pre-set templates',
+        body: 'New to lifting or just want a starting point? Tap “Pre-set templates” at the bottom of the Workout library for ready-made workouts — Full Body, Push/Pull/Legs, Upper/Lower, a dumbbell-only routine, and a no-equipment bodyweight session. “Add to my templates” drops a copy into your templates that you fully own and can edit, rename, or delete like any other.',
+        keywords: 'preset starter example ready made beginner sample pull workouts ppl upper lower full body bodyweight',
+      },
+      {
         title: 'Building a template',
         body: 'Create a template by adding exercises and their default sets, reps, weight, and rest. You can also set per-arm and a default cable attachment per exercise. Starting a workout from the template pre-fills everything.',
         keywords: 'routine plan create build default reusable',

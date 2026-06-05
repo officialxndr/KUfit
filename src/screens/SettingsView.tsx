@@ -23,11 +23,10 @@ import { useServerStore } from '@/stores/serverStore';
 import { useNavStore } from '@/stores/navStore';
 import { testServerConnection } from '@/lib/sync';
 import { health, healthPlatformLabel } from '@/lib/health';
-import { ACTIVITY_DESCRIPTIONS } from '@/lib/tdee';
 import { downloadAllMedia } from '@/lib/exerciseMedia';
 import { colors, radius, space, themedStyles, SURFACE_PRESETS, ACCENT_PRESETS } from '@/theme/tokens';
 import { useThemeStore } from '@/stores/themeStore';
-import type { ActiveCalorieSource, ActivityLevel, Sex, UnitSystem } from '@/types';
+import type { ActiveCalorieSource, Sex, UnitSystem } from '@/types';
 
 // Donation link — opens in the browser (no in-app payment, to stay within Apple's
 // rules; external donations are 0% on Android and exempt from Apple's IAP cut).
@@ -40,8 +39,7 @@ const T = {
   appearance: 'appearance theme dark light mode colour color accent scheme display',
   profile: 'profile name height birth date birthday age sex gender avatar photo picture',
   body: 'body composition fat navy estimate dexa lean mass percentage tape measurement',
-  activity: 'activity level sedentary light moderate active very tdee maintenance',
-  goals: 'goals goal weight target calorie calories macro macros protein carbs fat phase tdee maintenance calculator body fat',
+  goals: 'goals goal weight target calorie calories macro macros protein carbs fat phase tdee maintenance calculator body fat activity level sedentary light moderate active very',
   help: 'help tour guide guided walkthrough onboarding tutorial intro feature guide docs documentation reference manual search how to explain features',
   feedback: 'feedback bug report issue problem crash feature request idea suggestion contact developer',
   support: 'support hale donate donation contribute tip sponsor give back',
@@ -57,7 +55,6 @@ const T = {
 } as const;
 
 const SEXES: Sex[] = ['MALE', 'FEMALE', 'OTHER'];
-const ACTIVITIES: ActivityLevel[] = ['SEDENTARY', 'LIGHT', 'MODERATE', 'ACTIVE', 'VERY_ACTIVE'];
 const ACTIVE_CAL_SOURCES: { key: ActiveCalorieSource; label: string }[] = [
   { key: 'off', label: 'Off' },
   { key: 'auto', label: 'Automatic' },
@@ -121,7 +118,7 @@ export function SettingsView() {
 
   // Whether any visible section matches the query (developer card only counts if unlocked).
   const noResults = q !== '' && ![
-    T.units, T.appearance, T.profile, T.body, T.activity, T.goals, T.help, T.support,
+    T.units, T.appearance, T.profile, T.body, T.goals, T.help, T.support,
     T.data, T.offline, T.health, T.coaching, T.motion, T.notifications, T.server, T.about,
     ...(devUnlocked ? [T.developer] : []),
   ].some(show);
@@ -390,29 +387,11 @@ export function SettingsView() {
         </View>
       </Card>
 
-      <Card hidden={!show(T.activity)} style={{ marginBottom: space[3] }}>
-        <SectionHeader title="Activity Level" />
-        <View style={{ gap: space[2] }}>
-          {ACTIVITIES.map((a) => (
-            <Pressable
-              key={a}
-              onPress={() => setProfile({ activityLevel: a })}
-              style={[styles.optionRow, profile.activityLevel === a && styles.optionRowActive]}
-            >
-              <View style={{ flex: 1 }}>
-                <FsText variant="bodyMedium">{a[0] + a.slice(1).toLowerCase().replace('_', ' ')}</FsText>
-                <FsText variant="caption">{ACTIVITY_DESCRIPTIONS[a]}</FsText>
-              </View>
-            </Pressable>
-          ))}
-        </View>
-      </Card>
-
       <Card hidden={!show(T.goals)} style={{ marginBottom: space[3] }}>
         <SectionHeader title="Goals" />
         <FsText variant="caption" style={{ marginBottom: space[3] }}>
-          Your weight goal, calorie & macro targets, training and nutrient goals all live in one place
-          now — the Goals editor (the target icon on Food/Workout/Health, or Dashboard → Goals).
+          Your weight goal, activity level, calorie & macro targets, training and nutrient goals all live
+          in one place now — the Goals editor (the target icon on Food/Workout/Health, or Dashboard → Goals).
         </FsText>
         <Button title="Edit goals" variant="ghost" onPress={() => setSection('dashboard', 'goals')} />
       </Card>
@@ -715,14 +694,4 @@ const styles = themedStyles(() => StyleSheet.create({
     paddingHorizontal: 14,
   },
   input: { flex: 1, color: colors.text, paddingVertical: 12, fontSize: 14 },
-  optionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: space[3],
-    borderRadius: radius.md,
-    backgroundColor: colors.surfaceHigh,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  optionRowActive: { borderColor: colors.primary },
 }));

@@ -139,6 +139,12 @@ export class WorkoutRepo {
     return row ? mapExercise(row as any) : null;
   }
 
+  /** Resolve a bundled exercise by its stable ExerciseDB id (used by preset templates). */
+  getExerciseByDbId(exerciseDbId: string): Exercise | null {
+    const row = db.getFirstSync(`SELECT * FROM exercises WHERE exerciseDbId = ? LIMIT 1`, [exerciseDbId]);
+    return row ? mapExercise(row as any) : null;
+  }
+
   getAllExercises(): Exercise[] {
     return (db.getAllSync(`SELECT * FROM exercises ORDER BY name`) as any[]).map(mapExercise);
   }

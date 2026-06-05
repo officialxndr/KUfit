@@ -20,6 +20,7 @@ export const WHATS_NEW = {
     'Per-arm (L/R) sets: log each arm separately with a lead side; volume sums both arms. Set it (and Load counting) from the little selectors under the exercise name.',
     'Faster logging: a "Use previous" button on the keypad reuses the last set\'s weight/reps, plus a bigger rest timer with a countdown bar.',
     'Your own exercises: create them, find them in a "My exercises" group, and delete the ones you made (catalog ones are protected).',
+    'Pre-set templates: ready-made starter workouts (Full Body, Push/Pull/Legs, Upper/Lower, Dumbbell-only, Bodyweight) — tap one to drop an editable copy into your templates. Find it above the Exercise Library.',
     'New searchable Feature guide in Settings → Help, and credits for our data sources (ExerciseDB, Open Food Facts).',
   ],
 };

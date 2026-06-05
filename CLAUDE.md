@@ -72,6 +72,10 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   `DonationBanner`, and Settings → Support Hale (donate card sits at the bottom of Settings).
 - **Multi-add exercises**: the picker (`app/exercises.tsx`) multi-selects when opened with `?pick=template`
   / `?pick=session` — numbered in pick order, then "Add N"; plain `/exercises` browses (tap → detail).
+- **Pre-set templates**: curated starter workouts in `lib/presetTemplates.ts` reference the catalog by
+  **stable `exerciseDbId`** (never localId — that's per-device). `addPresetTemplate` resolves via
+  `WorkoutRepo.getExerciseByDbId` and `saveTemplate`s a real, user-owned template (the preset is only a
+  seed). Entry: the "Pre-set templates" card above Exercise Library → `app/preset-templates.tsx` modal.
 - **Design**: `src/theme/tokens.ts` + `src/theme/text.ts` (ported from `../FitSelf Design System/colors_and_type.css`).
   Dark-first, one indigo accent (`#6366f1`), flat, lucide icons, no emoji in UI chrome.
 - **UI kit**: `src/components/ui/index.tsx` (Screen, Card, Button, Badge, Chip, FsText, SectionHeader).
