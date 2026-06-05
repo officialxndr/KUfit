@@ -88,3 +88,30 @@ export async function syncScheduledNotifications(reminders: Record<ReminderKey, 
     /* notifications unavailable (e.g. Expo Go) — reminders still show as banners */
   }
 }
+
+/**
+ * Dev tool: fire a one-off local notification a couple seconds out to confirm permission is
+ * granted and delivery works. Returns the outcome so the UI can report it.
+ */
+export async function sendTestNotification(): Promise<'sent' | 'denied' | 'unavailable'> {
+  try {
+    const granted = await ensurePermission();
+    if (!granted) return 'denied';
+    await ensureAndroidChannel();
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Hale test notification',
+        body: 'Notifications are working — you can lock your screen to see it on the Lock Screen too.',
+        data: { test: true },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: 2,
+        channelId: Platform.OS === 'android' ? ANDROID_CHANNEL : undefined,
+      },
+    });
+    return 'sent';
+  } catch {
+    return 'unavailable';
+  }
+}

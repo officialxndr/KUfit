@@ -70,7 +70,8 @@ public class HaleLiveActivityModule: Module {
             totalExercises: i("totalExercises"),
             startedAt: date("startedAtMs") ?? Date(),
             restEndsAt: date("restEndsAtMs"),
-            volumeText: s("volumeText")
+            volumeText: s("volumeText"),
+            caloriesText: s("caloriesText")
         )
     }
 }

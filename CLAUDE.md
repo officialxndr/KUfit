@@ -68,9 +68,13 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   `modules/hale-live-activity/` (ActivityKit: `start`/`update`/`end`/`isSupported`) driven by
   `src/lib/liveActivity.ts`. `sessionStore` starts it on workout begin, updates it on set complete /
   exercise add-remove (not on weight/rep keystrokes — ActivityKit has an update budget), and ends it on
-  finish/discard; `_layout.tsx` ends any orphaned activity on launch (the session is in-memory only). The
-  SwiftUI lives in the widget extension (`targets/widget/LiveActivity.swift`), pulls the **same app theme** from
-  the widget snapshot, and self-ticks the elapsed/rest timers via `Text(…style:.timer)` (no constant pushes).
+  finish/discard; `_layout.tsx` ends any orphaned activity on launch (the session is in-memory only). It shows
+  the current exercise, sets done/total, a live **calorie estimate** (`caloriesBurnedFromDuration`), volume,
+  and a **rest countdown** fed from the session screen's rest timer (`setLiveActivityRest(endsAt)`) — during
+  rest the timer counts **down**, otherwise it counts **up** (elapsed). The SwiftUI lives in the widget
+  extension (`targets/widget/LiveActivity.swift`), pulls the **same app theme** from the widget snapshot, and
+  self-ticks both timers via `Text(…style:.timer)` / `Text(timerInterval:)` (no per-second pushes — so the
+  Lock Screen / Dynamic Island countdown stays correct even while the app is backgrounded).
   **`WorkoutActivityAttributes.swift` is duplicated verbatim** in `modules/hale-live-activity/ios/` and
   `targets/widget/` (ActivityKit matches app↔widget by the type's name) — **edit both copies together.**
   Needs `NSSupportsLiveActivities` (`app.json`) + a dev/prod build; iOS 16.2+.
@@ -86,7 +90,9 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   drives the real screens (`components/FeatureTour.tsx` + `tourStore` + `src/lib/tourSteps.ts` — steps grouped
   into pages + `advanced` flag, resolved by `tourStepsFor(tier, pageKey?)`). Replay from
   Settings → Help. Hidden **dev tools** (tap the Settings version footer 7× → `devStore`) reveal a
-  demo-data seeder (`src/lib/demoSeed.ts`: Load / Clear) that fills realistic activity for screenshots.
+  demo-data seeder (`src/lib/demoSeed.ts`: Load / Clear) that fills realistic activity for screenshots,
+  **rest-end haptic testers** (`REST_END_HAPTICS` in `lib/haptics.ts` — feel candidate cues, pick one), and a
+  **test-notification** button (`sendTestNotification` in `lib/reminders.ts`).
 - **Feedback**: `src/app/feedback.tsx` (bug + feature forms) → `src/lib/feedback.ts` emails the report
   (mailto, **no server**) with auto diagnostics, and saves it via `FeedbackRepo` (`feedback` table, with
   sync-ready columns for a future community-voting board). `components/WhatsNew.tsx` shows a

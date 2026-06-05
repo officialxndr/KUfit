@@ -89,8 +89,11 @@ External network (Open Food Facts, ExerciseDB CDN) is called directly from the d
   — a Lock Screen + Dynamic Island activity for the in-progress workout. The ActivityKit lifecycle lives in a
   **local Expo native module** (`start`/`update`/`end`/`isSupported`); `sessionStore` calls it on
   start/finish/discard and on set-complete / exercise add-remove (not on weight/rep keystrokes — ActivityKit
-  has an update budget), and `_layout.tsx` ends any orphan on launch. The SwiftUI (in the widget extension)
-  reads the same themed snapshot and self-ticks the elapsed/rest timers via `Text(…style:.timer)`.
+  has an update budget), and `_layout.tsx` ends any orphan on launch. It shows current exercise, sets
+  done/total, a live calorie estimate, volume, and a **rest countdown** — the session screen's rest timer is
+  **timestamp-based** (`rest.endsAt`, so it survives backgrounding without drift) and feeds the same end time
+  to the activity via `setLiveActivityRest`. The SwiftUI (in the widget extension) reads the same themed
+  snapshot and self-ticks the elapsed/rest timers via `Text(…style:.timer)` / `Text(timerInterval:)`.
   `WorkoutActivityAttributes` is duplicated in the module and the widget target (ActivityKit matches by type
   name) — keep both copies identical. Needs `NSSupportsLiveActivities` + a dev/prod build; iOS 16.2+.
 - **Pre-set templates** (`lib/presetTemplates.ts`, no store) — a static list of curated starter

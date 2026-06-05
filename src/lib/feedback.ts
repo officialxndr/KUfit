@@ -5,7 +5,7 @@ import * as Device from 'expo-device';
 import { feedbackRepo, type FeedbackType } from '@/lib/repositories/FeedbackRepo';
 
 /** Where bug reports / feature requests are emailed (no server — the user sends from their mail app). */
-export const FEEDBACK_EMAIL = 'zander.halverson99@gmail.com';
+export const FEEDBACK_EMAIL = 'haledevteam@protonmail.com';
 
 /**
  * Bump this whenever there's something new for testers to see. The What's-New sheet

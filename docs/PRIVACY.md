@@ -67,4 +67,4 @@ updated" date.
 
 ## Contact
 
-Questions about privacy? Contact the developer at **zander.halverson99@gmail.com**.
+Questions about privacy? Contact the developer at **haledevteam@protonmail.com**.

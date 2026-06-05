@@ -34,9 +34,10 @@ struct WorkoutLiveActivityView: View {
                     Text(st.startedAt, style: .timer)
                         .font(.system(size: 22, weight: .bold, design: .rounded)).monospacedDigit()
                         .multilineTextAlignment(.trailing).foregroundStyle(t.text).frame(maxWidth: 82)
-                    if !st.volumeText.isEmpty {
-                        Text(st.volumeText).font(.system(size: 11)).foregroundStyle(t.muted)
-                    }
+                }
+                let sub = [st.caloriesText, st.volumeText].filter { !$0.isEmpty }.joined(separator: " · ")
+                if !sub.isEmpty {
+                    Text(sub).font(.system(size: 11)).foregroundStyle(t.muted).lineLimit(1)
                 }
             }
         }
@@ -80,8 +81,9 @@ struct WorkoutLiveActivity: Widget {
                     HStack {
                         Text("\(st.setsDone)/\(st.totalSets) sets").font(.system(size: 12)).foregroundStyle(t.muted)
                         Spacer()
-                        if !st.volumeText.isEmpty {
-                            Text(st.volumeText).font(.system(size: 12)).foregroundStyle(t.muted)
+                        let sub = [st.caloriesText, st.volumeText].filter { !$0.isEmpty }.joined(separator: " · ")
+                        if !sub.isEmpty {
+                            Text(sub).font(.system(size: 12)).foregroundStyle(t.muted)
                         }
                     }
                 }

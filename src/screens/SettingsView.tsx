@@ -11,6 +11,8 @@ import { SwipeToConfirm } from '@/components/SwipeToConfirm';
 import { useDevStore } from '@/stores/devStore';
 import { useRefreshStore } from '@/stores/refreshStore';
 import { loadDemoData, clearLoggedData } from '@/lib/demoSeed';
+import { REST_END_HAPTICS } from '@/lib/haptics';
+import { sendTestNotification } from '@/lib/reminders';
 import { writeAndShareBackup, importFromUri, wipeAllData } from '@/lib/backup';
 import { pickAvatar } from '@/lib/avatar';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
@@ -50,7 +52,7 @@ const T = {
   motion: 'motion animation animations confetti celebration reduce transitions',
   notifications: 'notifications reminders alerts schedule notify food weight measurement',
   server: 'server backup sync self hosted url token connection',
-  developer: 'developer dev demo data sample seed debug',
+  developer: 'developer dev demo data sample seed debug haptic haptics vibration rest test notification notifications push',
   about: 'about credits attribution acknowledgements licenses exercise food data source exercisedb ascendapi open food facts odbl legal',
 } as const;
 
@@ -201,6 +203,17 @@ export function SettingsView() {
     { text: 'Cancel', style: 'cancel' },
     { text: 'Clear', style: 'destructive', onPress: () => runSeed(clearLoggedData, 'Logged data cleared.') },
   ]);
+  const onTestNotification = async () => {
+    const result = await sendTestNotification();
+    Alert.alert(
+      result === 'sent' ? 'Test notification scheduled' : result === 'denied' ? 'Notifications are off' : 'Unavailable',
+      result === 'sent'
+        ? 'It should arrive in ~2 seconds — lock your screen to see it on the Lock Screen too.'
+        : result === 'denied'
+          ? 'Notifications aren’t permitted. Enable them for Hale in iOS Settings, then try again.'
+          : 'Notifications need a dev/native build (they’re a no-op in Expo Go).'
+    );
+  };
 
   const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState('');
@@ -536,7 +549,31 @@ export function SettingsView() {
           </FsText>
           <Button title={seeding ? 'Working…' : 'Load sample data'} onPress={onLoadDemo} loading={seeding} disabled={seeding} />
           <Button title="Clear logged data" variant="ghost" onPress={onClearDemo} disabled={seeding} style={{ marginTop: space[2] }} />
-          <Button title="Turn off developer tools" variant="ghost" onPress={() => setDevMode(false)} disabled={seeding} style={{ marginTop: space[2] }} />
+
+          <View style={styles.devDivider} />
+          <FsText variant="bodyMedium" style={{ marginBottom: space[1] }}>Rest-end haptics</FsText>
+          <FsText variant="caption" style={{ marginBottom: space[2] }}>
+            Tap each to feel it on a real device, then pick the cue for when a rest timer ends.
+          </FsText>
+          {REST_END_HAPTICS.map((h) => (
+            <Button
+              key={h.key}
+              title={h.label}
+              variant="ghost"
+              onPress={h.play}
+              style={{ marginTop: space[2] }}
+            />
+          ))}
+
+          <View style={styles.devDivider} />
+          <FsText variant="bodyMedium" style={{ marginBottom: space[1] }}>Notifications</FsText>
+          <FsText variant="caption" style={{ marginBottom: space[2] }}>
+            Fires a one-off local notification to confirm permission + delivery (needs a dev/native build).
+          </FsText>
+          <Button title="Send test notification" variant="ghost" onPress={onTestNotification} />
+
+          <View style={styles.devDivider} />
+          <Button title="Turn off developer tools" variant="ghost" onPress={() => setDevMode(false)} disabled={seeding} />
         </Card>
       )}
 
@@ -665,6 +702,7 @@ const styles = themedStyles(() => StyleSheet.create({
     backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 13,
   },
   creditRow: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+  devDivider: { height: 1, backgroundColor: colors.border, marginVertical: space[4] },
   wipeBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: space[4] },
   wipeCard: { borderWidth: 1, borderColor: colors.danger },
   toggleRow: { flexDirection: 'row', alignItems: 'center', marginTop: space[3] },

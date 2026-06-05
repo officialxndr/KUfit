@@ -11,7 +11,7 @@ Hale is built by a solo developer, and the fastest ways to reach me are:
   a pre-filled email with a few basic diagnostics so I can help faster.
 - **On TestFlight:** take a screenshot anywhere in the app and send it with a note through
   TestFlight's built-in feedback.
-- **Email:** **zander.halverson99@gmail.com**
+- **Email:** **haledevteam@protonmail.com**
 
 I read every message and aim to reply within a few days.
 

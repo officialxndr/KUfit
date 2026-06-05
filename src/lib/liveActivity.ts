@@ -3,6 +3,8 @@ import { requireOptionalNativeModule } from 'expo-modules-core';
 
 import { loadFactor } from '@/lib/load';
 import { formatVolume } from '@/lib/units';
+import { caloriesBurnedFromDuration } from '@/lib/activities';
+import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import type { LocalExercise } from '@/types';
 
@@ -32,6 +34,14 @@ export interface LiveActivitySession {
 }
 
 let started = false;
+/** Epoch ms when the current rest ends (0 = not resting). Set from the session screen's
+ *  rest timer so the activity's countdown stays in sync (and self-ticks even backgrounded). */
+let currentRestEndsMs = 0;
+
+/** Update the rest countdown shown on the activity. Pass null / a past time to clear it. */
+export function setLiveActivityRest(endsAtMs: number | null): void {
+  currentRestEndsMs = endsAtMs && endsAtMs > Date.now() ? endsAtMs : 0;
+}
 
 function buildState(s: LiveActivitySession): Record<string, string | number> {
   const unit = useSettingsStore.getState().profile.unitSystem;
@@ -55,21 +65,30 @@ function buildState(s: LiveActivitySession): Record<string, string | number> {
   if (idx < 0) idx = s.exercises.length - 1;
   const current = idx >= 0 ? s.exercises[idx] : null;
 
+  // Live calorie estimate (MET × bodyweight × elapsed) — the no-watch fallback the app
+  // already uses on finish. Refreshes each push; the timer self-ticks between pushes.
+  const startedAtMs = s.startedAt ? new Date(s.startedAt).getTime() : Date.now();
+  const elapsedMin = Math.max(0, (Date.now() - startedAtMs) / 60000);
+  const bodyWeightKg = healthRepo.getLatestWeightEntry()?.weightKg ?? 75;
+  const kcal = Math.round(caloriesBurnedFromDuration(elapsedMin, bodyWeightKg));
+
   return {
     exerciseName: current ? current.exercise.name : 'Workout',
     setsDone,
     totalSets,
     exerciseIndex: s.exercises.length ? idx + 1 : 0,
     totalExercises: s.exercises.length,
-    startedAtMs: s.startedAt ? new Date(s.startedAt).getTime() : Date.now(),
-    restEndsAtMs: 0,
+    startedAtMs,
+    restEndsAtMs: currentRestEndsMs > Date.now() ? currentRestEndsMs : 0,
     volumeText: volumeKg > 0 ? formatVolume(volumeKg, unit) : '',
+    caloriesText: kcal > 0 ? `${kcal} kcal` : '',
   };
 }
 
 export function startLiveActivity(s: LiveActivitySession): void {
   if (Platform.OS !== 'ios' || !Native) return;
   try {
+    currentRestEndsMs = 0;
     if (!Native.isSupported()) return;
     Native.start(s.name || 'Workout', buildState(s));
     started = true;
@@ -93,6 +112,7 @@ export function updateLiveActivity(s: LiveActivitySession): void {
 
 export function endLiveActivity(): void {
   started = false;
+  currentRestEndsMs = 0;
   if (Platform.OS !== 'ios' || !Native) return;
   try {
     Native.end();

@@ -13,6 +13,7 @@ import { PerArmDropdown } from '@/components/PerArmDropdown';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useNavStore } from '@/stores/navStore';
+import { updateLiveActivity, setLiveActivityRest } from '@/lib/liveActivity';
 import { isPerSide } from '@/lib/load';
 import { toDisplay, toKg, UNIT_LABELS } from '@/lib/units';
 import { haptic } from '@/lib/haptics';
@@ -28,7 +29,7 @@ import type { LocalExercise, LocalSet } from '@/types';
 
 type Field = 'w' | 'r';
 interface Focus { ex: string; set: string; field: Field; }
-interface Rest { exId: string | null; setId: string | null; remaining: number; total: number; }
+interface Rest { exId: string | null; setId: string | null; endsAt: number; total: number; }
 
 const mmss = (secs: number) => `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
 function elapsed(startedAt: string | null): string {
@@ -56,7 +57,12 @@ export default function SessionScreen() {
   const [focus, setFocus] = useState<Focus | null>(null);
   const [pristine, setPristine] = useState(true);
   const focusCell = (next: Focus) => { setFocus(next); setPristine(true); };
-  const [rest, setRest] = useState<Rest>({ exId: null, setId: null, remaining: 0, total: 0 });
+  const [rest, setRest] = useState<Rest>({ exId: null, setId: null, endsAt: 0, total: 0 });
+  // Remaining is derived from a wall-clock end time (not a decrementing counter), so it stays
+  // correct after the app is backgrounded — JS timers freeze, but `endsAt` doesn't. The 1s
+  // `force` re-render below keeps the displayed value ticking while the app is active.
+  const restRemaining = rest.endsAt > 0 ? Math.max(0, Math.ceil((rest.endsAt - Date.now()) / 1000)) : 0;
+  const restBuzzed = useRef(0);
   const [notesEx, setNotesEx] = useState<{ id: string; text: string } | null>(null);
   const [loadEx, setLoadEx] = useState<{ id: string; perSide: boolean } | null>(null);
   // `setId` present → editing one set's rest override; absent → the exercise default.
@@ -90,20 +96,17 @@ export default function SessionScreen() {
     return () => clearInterval(t);
   }, []);
 
+  // Buzz once when a rest naturally counts down to zero (guarded by the rest's `endsAt` so
+  // it fires once per rest, even though `restRemaining` is recomputed every render), and flip
+  // the Live Activity back to the elapsed timer. Manual skip zeroes `endsAt`, so this won't fire.
   useEffect(() => {
-    if (rest.remaining <= 0) return;
-    const t = setInterval(
-      () => setRest((r) => (r.remaining <= 1 ? { ...r, remaining: 0 } : { ...r, remaining: r.remaining - 1 })),
-      1000
-    );
-    return () => clearInterval(t);
-  }, [rest.remaining]);
-
-  // Buzz when a rest timer counts down to zero — but not when it's manually
-  // dismissed (the ✕ zeroes `total`, so this only fires on a natural finish).
-  useEffect(() => {
-    if (rest.total > 0 && rest.remaining === 0) haptic.restOver();
-  }, [rest.remaining, rest.total]);
+    if (rest.endsAt > 0 && rest.total > 0 && restRemaining === 0 && restBuzzed.current !== rest.endsAt) {
+      restBuzzed.current = rest.endsAt;
+      haptic.restOver();
+      setLiveActivityRest(0);
+      updateLiveActivity(useSessionStore.getState());
+    }
+  }, [restRemaining, rest.endsAt, rest.total]);
 
   // Live heart-rate readout — polls Health every few seconds while the session is
   // active. Returns null in Expo Go / without a watch, so the header simply hides it.
@@ -185,8 +188,14 @@ export default function SessionScreen() {
     ]);
   };
 
-  const startRest = (exId: string, setId: string, secs: number) =>
-    setRest({ exId, setId, remaining: secs, total: secs });
+  const startRest = (exId: string, setId: string, secs: number) => {
+    const endsAt = Date.now() + secs * 1000;
+    setRest({ exId, setId, endsAt, total: secs });
+    // Feed the same end time to the Live Activity so its countdown stays in sync (and keeps
+    // ticking natively on the Lock Screen / Dynamic Island even while the app is backgrounded).
+    setLiveActivityRest(endsAt);
+    updateLiveActivity(useSessionStore.getState());
+  };
 
   const press = (key: string) => {
     if (!focus) return;
@@ -363,7 +372,7 @@ export default function SessionScreen() {
         const nextSet = ex.sets[i + 1];
         const wFocused = focus?.ex === ex.localId && focus?.set === st.localId && focus?.field === 'w';
         const rFocused = focus?.ex === ex.localId && focus?.set === st.localId && focus?.field === 'r';
-        const restHere = rest.setId === st.localId && rest.remaining > 0;
+        const restHere = rest.setId === st.localId && restRemaining > 0;
         return (
           <Fragment key={st.localId}>
             <Swipeable renderRightActions={() => renderSwipeActions(ex, st)} overshootRight={false}>
@@ -406,7 +415,7 @@ export default function SessionScreen() {
                 <View style={styles.restPill}>
                   <Timer color={restHere ? colors.primary : colors.muted} size={12} />
                   <FsText variant="caption" style={{ color: restHere ? colors.primary : colors.muted, fontVariant: ['tabular-nums'], fontWeight: restHere ? '700' : '400' }}>
-                    {restHere ? mmss(rest.remaining) : mmss(st.restSeconds ?? (ex.restSeconds || 90))}
+                    {restHere ? mmss(restRemaining) : mmss(st.restSeconds ?? (ex.restSeconds || 90))}
                   </FsText>
                   {st.restSeconds != null && !restHere && <View style={styles.restCustomDot} />}
                 </View>
@@ -425,7 +434,7 @@ export default function SessionScreen() {
   );
 
   // Rest-timer fill: 100% at the start of the rest, depleting to 0% as it counts down.
-  const restPct = rest.total > 0 ? Math.max(0, Math.min(100, (rest.remaining / rest.total) * 100)) : 0;
+  const restPct = rest.total > 0 ? Math.max(0, Math.min(100, (restRemaining / rest.total) * 100)) : 0;
 
   return (
     <GestureHandlerRootView style={styles.screen}>
@@ -457,7 +466,7 @@ export default function SessionScreen() {
 
       <ScrollView
         ref={scrollRef}
-        contentContainerStyle={{ paddingBottom: focus ? 410 : rest.remaining > 0 ? 190 : 120 }}
+        contentContainerStyle={{ paddingBottom: focus ? 410 : restRemaining > 0 ? 190 : 120 }}
         keyboardShouldPersistTaps="handled"
       >
         <View ref={contentRef} style={{ paddingHorizontal: space[4], paddingTop: space[4] }}>
@@ -485,12 +494,19 @@ export default function SessionScreen() {
         </View>
       </ScrollView>
 
-      {rest.remaining > 0 && !focus && (
+      {restRemaining > 0 && !focus && (
         <View style={[styles.restBanner, { paddingBottom: insets.bottom || space[3] }]}>
           <View style={styles.restBannerRow}>
             <Timer color={colors.primary} size={18} />
-            <FsText variant="cardTitle" style={{ flex: 1, fontVariant: ['tabular-nums'] }}>Rest · {mmss(rest.remaining)}</FsText>
-            <Pressable onPress={() => setRest({ exId: null, setId: null, remaining: 0, total: 0 })} hitSlop={8}>
+            <FsText variant="cardTitle" style={{ flex: 1, fontVariant: ['tabular-nums'] }}>Rest · {mmss(restRemaining)}</FsText>
+            <Pressable
+              onPress={() => {
+                setRest({ exId: null, setId: null, endsAt: 0, total: 0 });
+                setLiveActivityRest(0);
+                updateLiveActivity(useSessionStore.getState());
+              }}
+              hitSlop={8}
+            >
               <FsText variant="bodyMedium" style={{ color: colors.primary }}>Skip</FsText>
             </Pressable>
           </View>
@@ -502,12 +518,12 @@ export default function SessionScreen() {
 
       {focus && (
         <View style={[styles.numpad, { paddingBottom: insets.bottom || space[3] }]}>
-          {rest.remaining > 0 && (
+          {restRemaining > 0 && (
             <View style={styles.restTimerBox}>
               <View style={styles.restTimerRow}>
                 <Timer color={colors.primary} size={15} />
                 <FsText variant="bodyMedium" style={{ color: colors.primary, flex: 1 }}>Rest</FsText>
-                <FsText variant="bodyMedium" style={{ color: colors.primary, fontVariant: ['tabular-nums'], fontWeight: '700' }}>{mmss(rest.remaining)}</FsText>
+                <FsText variant="bodyMedium" style={{ color: colors.primary, fontVariant: ['tabular-nums'], fontWeight: '700' }}>{mmss(restRemaining)}</FsText>
               </View>
               <View style={styles.restBarTrack}>
                 <View style={[styles.restBarFill, { width: `${restPct}%` }]} />
