@@ -46,6 +46,10 @@ example
 # config + Swift sources, ignore the generated artifacts).
 targets/*/generated.entitlements
 targets/*/Info.plist
+# ...but the watch target's Info.plist is hand-written (apple-targets only generates an EMPTY
+# one for `type: 'watch'`, and only when the file is absent), so it MUST be tracked or the watch
+# ships without WKApplication + the HealthKit purpose strings → App Store validation fails.
+!targets/watch/Info.plist
 targets/*/Assets.xcassets/
 
 # build artifacts
