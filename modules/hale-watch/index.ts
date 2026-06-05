@@ -18,6 +18,10 @@ export interface HaleWatchModule {
   isSupported(): boolean;
   /** True when the paired watch app is reachable right now (foreground + in range). */
   isReachable(): boolean;
+  /** True when a watch is paired and the Hale watch app is installed (auto-launch is possible). */
+  isWatchAppInstalled(): boolean;
+  /** Launch the watch app into a strength workout (HealthKit `startWatchApp`). No-op without a watch. */
+  startWatchWorkout(): void;
   /** Push the latest workout snapshot (JSON string) to the watch. */
   updateState(json: string): void;
   addListener(

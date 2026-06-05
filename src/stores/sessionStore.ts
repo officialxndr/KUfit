@@ -4,7 +4,7 @@ import { epley1RM } from '@/lib/epley';
 import { normalizeSupersets } from '@/lib/supersets';
 import { appendRound, removeSetOrRound, expandToPairs, collapseToSingles, reorderLead } from '@/lib/unilateral';
 import { startLiveActivity, updateLiveActivity, endLiveActivity } from '@/lib/liveActivity';
-import { syncWatch, endWatch } from '@/lib/watch';
+import { syncWatch, endWatch, launchWatchWorkout } from '@/lib/watch';
 import type { Exercise, LocalExercise, LocalSet, Side } from '@/types';
 
 /**
@@ -64,6 +64,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({ active: true, sessionLocalId, name, startedAt: nowIso(), exercises: [], counter: 0, pendingSuperset: null });
     startLiveActivity(get());
     syncWatch(get());
+    launchWatchWorkout();
   },
 
   startFromTemplate: (templateLocalId, name) => {
@@ -72,6 +73,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({ active: true, sessionLocalId, name, startedAt: nowIso(), exercises, counter: 1000, pendingSuperset: null });
     startLiveActivity(get());
     syncWatch(get());
+    launchWatchWorkout();
   },
 
   addExercise: (exercise) => {

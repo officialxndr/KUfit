@@ -14,6 +14,9 @@ struct CurrentSet: Decodable, Equatable {
     let weight: Int
     let reps: Int
     let prevText: String
+    /// Whether this set is already logged (the user navigated back to it). Optional for decode
+    /// safety against older snapshots.
+    let done: Bool?
 }
 
 struct TemplateItem: Decodable, Identifiable, Equatable {

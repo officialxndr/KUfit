@@ -39,8 +39,13 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   by `scripts/seed-exercises.mjs` (walk the **`after=` cursor** — `cursor`/`offset`/`page`/`limit` are
   ignored) + a cleanup/de-bake pass (`scripts/lib-debake.mjs`). `lib/exerciseSeed.ts` reseeds when empty/
   duplicate-bloated/stale/`SEED_VERSION`-changed, **upserting in place by `exerciseDbId`** (preserves
-  localIds + user perSide/unilateral/leadSide overrides). **Attribution required** — ExerciseDB/AscendAPI
+  localIds + user perSide/unilateral/leadSide overrides). Hand-curated non-API exercises live in a separate
+  `assets/exercises/extra.json` (stable **`hale-*` ids**, machines + popular staples ExerciseDB lacks) that the
+  seed concatenates with the catalog — kept apart so regenerating `catalog.json` never clobbers them; bump
+  `SEED_VERSION` when you add to it. **Attribution required** — ExerciseDB/AscendAPI
   and Open Food Facts (ODbL) are credited in Settings → About & credits + list footers; keep it.
+  Exercise **search matches name OR equipment** (`searchExercises`) so a machine name finds its exercises;
+  the picker filters by muscle + equipment chips (`getDistinctEquipment`, most-common first).
 - **Bluetooth**: `src/lib/renphoTape.ts` — Renpho RF-BMF01 tape (`react-native-ble-plx`); the
   `useRenphoTape()` hook drives `components/TapeMeasureView.tsx` (opened from `measurements.tsx`).
 - **Nutrition-label OCR**: `src/lib/nutritionOcr.ts` — on-device ML Kit text recognition
@@ -101,20 +106,30 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   commands back that `initWatchBridge()` routes onto the **same** `sessionStore`/`restStore` actions the phone
   UI calls (so PR/volume/superset/rest logic is reused). `sessionStore` calls `syncWatch`/`endWatch` next to
   every Live Activity call; `themeStore` re-pushes on theme change; `_layout.tsx` wires the bridge at launch.
+  Starting a workout on the phone **auto-launches the watch app** into it — `sessionStore` →
+  `launchWatchWorkout()` → the native module's `startWatchWorkout` → HealthKit **`startWatchApp(with:)`** (the
+  one sanctioned way to foreground the watch app; guarded on a paired + installed watch). The watch then starts
+  its own session off the `active:true` snapshot (`WorkoutManager`'s `guard !running` blocks a double-start).
   The watch runs an **`HKWorkoutSession`** for HR-based live calories (kept for the Live Activity via
   `watchLiveCalories()`; saved to Health, so the phone's existing `finishActiveWorkout` →
   `getActiveEnergyBurned` reconciliation improves the stored number for free). Transport is **WatchConnectivity,
   not App Groups** (those don't cross devices). The Swift `Snapshot`/command shapes in `targets/watch/` mirror
-  the JS keys in `lib/watch.ts` — **keep them in sync.** watchOS can't let the phone force the watch app
-  foreground: opening the watch app shows the active workout; starting from the **watch** is the reliable
-  foregrounding path. Needs a paid team + a physical watch (App Groups/HealthKit signing; no simulator).
+  the JS keys in `lib/watch.ts` — **keep them in sync.** Besides the phone-initiated auto-launch above,
+  starting from the **watch** is the other reliable foregrounding path. Needs a paid team + a physical watch
+  (App Groups/HealthKit signing; no simulator).
   **Watch UI** (`targets/watch/Views.swift`): the set-entry screen is **steppers + Digital Crown** (no keypad)
   — big value with **−/+** that step **weight by 5, reps by 1**, snapped to clean whole numbers (`snapped()`);
-  one **Next/Done** button; **Finish (✓) / Discard (✗) live in the nav toolbar** (stay visible during rest).
+  the crown uses **`sensitivity: .high`** so a partial turn moves several detents (`.low` needed a near-full
+  revolution per step). One **Next/Done** button; **Finish (✓) / Discard (✗) live in the nav toolbar** (stay
+  visible during rest).
   The **rest screen** is the screen *content* (not an overlay, so the toolbar stays): a ring with the countdown
   centered, a **Next set** button below it, **solid black** background. The watch **mirrors the phone's focused
   cell**: `session.tsx` calls `setWatchFocus()` on focus change → the snapshot's `currentSet`/`currentField`
-  follow the tapped cell (else the watch uses its own first-unfinished logic). The watch's live HR-based
+  follow the tapped cell (else the watch uses its own first-unfinished logic). **Completing a set from the
+  watch advances `currentFocus` itself** (`handleMessage` `completeSet` → `nextSetCell` → `setWatchFocus`,
+  mirroring the phone numpad) — otherwise focus stays pinned on the just-completed set and the watch can't move
+  past it; the snapshot carries `currentSet.done` so re-confirming an already-logged set saves edits without
+  re-firing rest. The watch's live HR-based
   calories also show in the **phone** session header (`watchLiveCalories()`).
 - **Per-accent app icon** (`lib/appIcon.ts` + `expo-alternate-app-icons` config plugin): the iOS app icon
   background follows the chosen accent. Preset accents (violet/sky/emerald/amber/rose) have pre-generated icons

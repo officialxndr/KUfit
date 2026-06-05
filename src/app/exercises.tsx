@@ -23,14 +23,16 @@ export default function ExercisesScreen() {
   const isPicking = pick === 'template' || pick === 'session';
   const [q, setQ] = useState('');
   const [muscle, setMuscle] = useState<string | undefined>(undefined);
+  const [equipment, setEquipment] = useState<string | undefined>(undefined);
   const [mine, setMine] = useState(false);
   const [selected, setSelected] = useState<Exercise[]>([]);
   const [info, setInfo] = useState<Exercise | null>(null);
 
   const muscles = useMemo(() => workoutRepo.getDistinctMuscleGroups(), []);
+  const equipmentTypes = useMemo(() => workoutRepo.getDistinctEquipment(), []);
   const results: Exercise[] = useMemo(
-    () => workoutRepo.searchExercises(q, mine ? undefined : muscle, undefined, mine),
-    [q, muscle, mine]
+    () => workoutRepo.searchExercises(q, mine ? undefined : muscle, mine ? undefined : equipment, mine),
+    [q, muscle, equipment, mine]
   );
 
   const toggle = (ex: Exercise) => {
@@ -96,10 +98,26 @@ export default function ExercisesScreen() {
         style={styles.chipsScroll}
         contentContainerStyle={styles.chips}
       >
-        <Chip label="All" selected={!muscle && !mine} onPress={() => { setMuscle(undefined); setMine(false); }} />
-        <Chip label="My exercises" selected={mine} onPress={() => { setMine(true); setMuscle(undefined); }} />
+        <Chip
+          label="All"
+          selected={!muscle && !equipment && !mine}
+          onPress={() => { setMuscle(undefined); setEquipment(undefined); setMine(false); }}
+        />
+        <Chip label="My exercises" selected={mine} onPress={() => { setMine(true); setMuscle(undefined); setEquipment(undefined); }} />
         {muscles.map((m) => (
           <Chip key={m} label={m} selected={!mine && muscle === m} onPress={() => { setMuscle(m); setMine(false); }} />
+        ))}
+      </ScrollView>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.chipsScroll}
+        contentContainerStyle={styles.chips}
+      >
+        <Chip label="Any equipment" selected={!equipment && !mine} onPress={() => setEquipment(undefined)} />
+        {equipmentTypes.map((eq) => (
+          <Chip key={eq} label={eq} selected={!mine && equipment === eq} onPress={() => { setEquipment(eq); setMine(false); }} />
         ))}
       </ScrollView>
 

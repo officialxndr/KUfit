@@ -102,7 +102,9 @@ export class WorkoutRepo {
   searchExercises(q: string, muscle?: string, equipment?: string, onlyCustom?: boolean): Exercise[] {
     let sql = `SELECT * FROM exercises WHERE 1=1`;
     const params: any[] = [];
-    if (q) { sql += ` AND name LIKE ?`; params.push(`%${q}%`); }
+    // Free-text matches the name OR the equipment, so typing a machine ("smith machine",
+    // "cable", "sled") surfaces exercises on it — not just exercises named after it.
+    if (q) { sql += ` AND (name LIKE ? OR equipment LIKE ?)`; params.push(`%${q}%`, `%${q}%`); }
     if (muscle) { sql += ` AND muscleGroup = ?`; params.push(muscle); }
     if (equipment) { sql += ` AND equipment = ?`; params.push(equipment); }
     if (onlyCustom) sql += ` AND isCustom = 1`;
@@ -313,6 +315,16 @@ export class WorkoutRepo {
       `SELECT DISTINCT muscleGroup FROM exercises WHERE muscleGroup IS NOT NULL ORDER BY muscleGroup`
     ) as any[];
     return rows.map((r) => r.muscleGroup);
+  }
+
+  /** Distinct equipment values for the picker's filter chips, most-common first (so machines
+   *  and common gear lead). */
+  getDistinctEquipment(): string[] {
+    const rows = db.getAllSync(
+      `SELECT equipment FROM exercises WHERE equipment IS NOT NULL AND equipment != ''
+       GROUP BY equipment ORDER BY COUNT(*) DESC`
+    ) as any[];
+    return rows.map((r) => r.equipment);
   }
 
   // ── Templates ───────────────────────────────────────────────────────────────

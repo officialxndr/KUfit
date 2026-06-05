@@ -11,20 +11,16 @@ export const FEEDBACK_EMAIL = 'haledevteam@protonmail.com';
  * Bump this whenever there's something new for testers to see. The What's-New sheet
  * shows once per version (tracked in `app_meta`). Keep the list short + tester-focused.
  */
-export const WHATS_NEW_VERSION = '1.0.0-b6';
+export const WHATS_NEW_VERSION = '1.0.0-b7';
 export const WHATS_NEW = {
   title: "What's new to test",
   items: [
-    'Exercise library expanded to 1,500+ moves with demo GIFs — browse and search the whole catalog (it no longer cuts off partway).',
-    'Cable attachments: pick Rope / Bar / V-Bar etc. on a cable exercise — each attachment tracks its own weights, PRs, and history.',
-    'Per-arm (L/R) sets: log each arm separately with a lead side; volume sums both arms. Set it (and Load counting) from the little selectors under the exercise name.',
-    'Faster logging: a "Use previous" button on the keypad reuses the last set\'s weight/reps, plus a bigger rest timer with a countdown bar.',
-    'Your own exercises: create them, find them in a "My exercises" group, and delete the ones you made (catalog ones are protected).',
-    'Pre-set templates: ready-made starter workouts (Full Body, Push/Pull/Legs, Upper/Lower, Dumbbell-only, Bodyweight) — tap one to drop an editable copy into your templates. Find it above the Exercise Library.',
-    'iOS widgets (x4): pick Food (calorie ring + macros + weight/body-fat), Workout (next workout + this-week sets/volume), Health (weight, body-fat/lean/fat, trend), or a combined Overview that shows all three (Medium or Large). Home screen + lock screen, matching your in-app theme/accent. Long-press the home screen → + → search "Hale".',
-    'Workout Live Activity: start a workout and you\'ll get a Lock Screen + Dynamic Island live view — current exercise, sets done, a rest countdown, calories, volume, and elapsed time (shown as "X min / X hr" so it stays readable on the Always-On Display). (iPhone, real device; turn on Live Activities in iOS Settings if you don\'t see it.)',
-    'App icon matches your accent: pick an accent in Settings → Appearance and the app icon background changes to match (indigo keeps the original). iOS will ask you to confirm the icon change.',
-    'New searchable Feature guide in Settings → Help, and credits for our data sources (ExerciseDB, Open Food Facts).',
+    'Apple Watch app: log a workout from your wrist — elapsed time, live heart-rate calories, and the current set entered with +/- and the Digital Crown. Full-screen rest timer, then finish → summary. Start from the watch (your routine + templates) or the phone. (Install the watch app and keep your phone nearby.)',
+    'Watch auto-launch: starting a workout on your phone now opens the watch app right into it. Grant the one-time Apple Health "workout" permission the first time.',
+    'Watch polish: the Digital Crown changes weight/reps with far less turning, and completing sets on the watch now advances correctly even when you tap around on the phone.',
+    'Search exercises by machine: type a machine ("Smith machine", "cable", "sled") to find its exercises — plus a new equipment filter row in the picker (tap a machine type to narrow the list).',
+    '65 new exercises: machines (hack/pendulum/belt squat, pec deck, seal & Meadows row, standing leg curl…), barbell/dumbbell staples (barbell hip thrust, RDL variants, face pull, JM/Z/landmine press, Bayesian curl…), and bodyweight/core (Nordic curl, dragon flag, hollow hold, ab-wheel rollout, toes-to-bar…).',
+    'Exercise preview now scrolls: long-press an exercise in the picker and the popup scrolls through all the instructions (it used to be stuck). Exiting the picker with exercises selected also asks before discarding.',
   ],
 };
 

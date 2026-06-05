@@ -113,17 +113,26 @@ External network (Open Food Facts, ExerciseDB CDN) is called directly from the d
   metrics, which `initWatchBridge()` routes onto the **same** `sessionStore`/`restStore` actions the phone UI
   calls — so both devices stay in lockstep and all PR/volume/superset/rest logic is reused. `sessionStore`
   pushes a fresh snapshot (`syncWatch`/`endWatch`) next to every Live Activity call; `themeStore` re-pushes on
-  theme change; `_layout.tsx` wires the bridge at launch. The watch runs an **`HKWorkoutSession`** for
+  theme change; `_layout.tsx` wires the bridge at launch. Starting a workout on the phone also **auto-launches
+  the watch app** into it: `sessionStore` calls `launchWatchWorkout()` → the native module's `startWatchWorkout`
+  → HealthKit `startWatchApp(with:)` (guarded on a paired + installed watch; the watch then starts its own
+  session via the `active:true` snapshot, `WorkoutManager`'s `guard !running` preventing a double-start). The
+  watch runs an **`HKWorkoutSession`** for
   heart-rate-based active calories (also keeps the app alive during rests) — pushed live for the Live Activity
   calorie readout (`watchLiveCalories()`), and, because it's saved to HealthKit, picked up for free by the
   phone's existing post-finish reconciliation (`finishActiveWorkout` → `getActiveEnergyBurned`). Finishing is
   shared via `lib/finishWorkout.ts` (`finishActiveWorkout`, extracted from `session.tsx`). The set-entry UI is
   **steppers + Digital Crown** (no keypad): −/+ step weight by 5, reps by 1, `snapped()` to clean whole numbers;
-  Finish/Discard sit in the nav toolbar. The **rest screen** is screen content (toolbar stays visible): a ring
+  the crown uses `sensitivity: .high` so a partial turn moves several detents. Finish/Discard sit in the nav
+  toolbar. The **rest screen** is screen content (toolbar stays visible): a ring
   with the countdown centered (`TimelineView` + `Text(timerInterval:countsDown:)`), a Next-set button below, a
   black background. The watch **mirrors the phone's focused cell** — `session.tsx` calls `setWatchFocus()` on
   focus change, and `buildSnapshot` resolves the snapshot's `currentSet`/`currentField` to the focused cell
-  (falling back to the first-unfinished set when nothing is focused). The Swift `Snapshot`/command shapes mirror
+  (falling back to the first-unfinished set when nothing is focused). **Completing a set *from the watch*
+  advances the focus** itself (`handleMessage`'s `completeSet` calls `nextSetCell` → `setWatchFocus`, mirroring
+  the phone numpad) — otherwise `currentFocus` would stay pinned on the just-completed set and the watch couldn't
+  move past it; re-confirming an already-logged set (the snapshot carries `currentSet.done`) saves edits without
+  re-firing rest and still advances. The Swift `Snapshot`/command shapes mirror
   the JS keys in `lib/watch.ts` — keep them in sync. **The `hale-watch` podspec must live in `modules/hale-watch/
   ios/`** or the module won't register in `ExpoModulesProvider` (WCSession never activates — see CLAUDE.md).
   Needs a paid team + a physical watch (App Groups/HealthKit signing; no simulator). Older watches (SE 1st-gen,
@@ -260,10 +269,17 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
   pager — `cursor`/`offset`/`page`/`limit` are ignored), pulling all ~1500 with GIFs. A cleanup pass
   normalizes names, infers category, tidies equipment, and **de-bakes** attachment names via shared
   `scripts/lib-debake.mjs` (only when the cleaned name stays unique). `lib/exerciseSeed.ts` imports the
-  catalog on launch; it reseeds when empty, duplicate-bloated, stale, or the **`SEED_VERSION`** changed,
+  catalog on launch (concatenated with a hand-curated `assets/exercises/extra.json` — non-API machines and
+  popular staples ExerciseDB lacks, with stable `hale-*` ids so they're never clobbered when the script
+  regenerates `catalog.json`, and upsert/prune alongside it); it reseeds when empty, duplicate-bloated, stale,
+  or the **`SEED_VERSION`** changed,
   **upserting in place by `exerciseDbId`** so localIds (and the templates/sessions that reference them)
   survive — `WorkoutRepo.upsertExercise` updates only catalog columns, preserving user overrides
   (perSide/unilateral/leadSide), then `pruneSeededExercisesNotIn` drops removed entries.
+- **Exercise search/filter** — `app/exercises.tsx` is the picker (browse, or multi-select when opened with
+  `?pick=`). Free-text search matches **name OR equipment** (`WorkoutRepo.searchExercises`), so typing a
+  machine ("smith machine", "cable", "sled") surfaces exercises on it. Two chip rows filter on top: muscle
+  group (`getDistinctMuscleGroups`) and equipment (`getDistinctEquipment`, most-common first), AND-ed together.
 - **Attachments & per-arm** — `lib/attachments.ts` (cable attachment list + `supportsAttachment`,
   cable-only) and `lib/unilateral.ts` (pure L/R set-list transforms: expand/collapse/append/remove/
   reorder/renumber). A cable **attachment** is chosen per performance and stored on

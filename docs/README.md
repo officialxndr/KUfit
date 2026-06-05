@@ -130,6 +130,10 @@ node scripts/seed-exercises.mjs --download   # also download every GIF + generat
 > the cleaned name stays unique). The app's seed (`src/lib/exerciseSeed.ts`) reseeds when empty,
 > duplicate-bloated, stale, or the `SEED_VERSION` changes — upserting **in place** by `exerciseDbId` so
 > localIds (and user perSide/unilateral/leadSide overrides) survive.
+>
+> Hand-curated exercises ExerciseDB doesn't have (machines + popular staples) live in a separate
+> `assets/exercises/extra.json` (stable `hale-*` ids) that the seed **concatenates** with `catalog.json` —
+> kept apart so re-running the generator never clobbers them. Add to that file and bump `SEED_VERSION`.
 GIF URLs are public CDN links (`static.exercisedb.dev`), so even without `--download` the app caches
 each GIF to the device the first time it's viewed, and Settings → "Download exercise demos" caches
 them all in bulk.

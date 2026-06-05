@@ -1,13 +1,17 @@
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { getMeta, setMeta } from '@/lib/db';
 import catalog from '@/assets/exercises/catalog.json';
+// Hand-curated exercises that aren't in ExerciseDB (machines + a few popular staples). Kept in
+// a separate file with stable `hale-*` ids so they're never clobbered when `scripts/seed-
+// exercises.mjs` regenerates catalog.json, and they upsert/prune alongside it.
+import extra from '@/assets/exercises/extra.json';
 
 /**
  * Bump when catalog.json *content* changes in a way that should reach existing installs
  * even though the row count is the same (renamed/de-baked exercises, new metadata). The
  * count-based `stale` check only catches growth, so this forces an in-place re-upsert.
  */
-const SEED_VERSION = '2025-06-04-debake';
+const SEED_VERSION = '2026-06-05-extra-exercises-v2';
 
 interface CatalogEntry {
   exerciseDbId: string;
@@ -42,7 +46,7 @@ interface CatalogEntry {
  * legacy bug), which can't be repaired in place and is wiped + rebuilt fresh.
  */
 export function seedExercisesIfEmpty() {
-  const entries = catalog as CatalogEntry[];
+  const entries = [...(catalog as CatalogEntry[]), ...(extra as CatalogEntry[])];
   const total = workoutRepo.countSeededExercises();
   const distinct = workoutRepo.countDistinctSeededExercises();
   const polluted = total !== distinct; // duplicate exerciseDbId rows present

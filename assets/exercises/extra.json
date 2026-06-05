@@ -1,0 +1,1182 @@
+[
+  {
+    "exerciseDbId": "hale-hack-squat-machine",
+    "name": "Hack Squat (Machine)",
+    "muscleGroup": "Upper legs",
+    "equipment": "Machine",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Quads"
+    ],
+    "musclesSecondary": [
+      "Glutes",
+      "Hamstrings"
+    ],
+    "instructions": [
+      "Set your shoulders and back against the machine's pads and place your feet on the platform shoulder-width apart.",
+      "Release the safety handles and lower by bending your knees until your thighs are about parallel to the platform.",
+      "Drive through your heels to press back up without locking the knees hard.",
+      "Repeat for the desired number of repetitions."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-pendulum-squat",
+    "name": "Pendulum Squat",
+    "muscleGroup": "Upper legs",
+    "equipment": "Machine",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Quads"
+    ],
+    "musclesSecondary": [
+      "Glutes"
+    ],
+    "instructions": [
+      "Position your back and shoulders against the pads and set your feet on the platform.",
+      "Unlock the machine and lower under control as the arc swings you down.",
+      "Descend until your thighs pass parallel, keeping your heels planted.",
+      "Press back up through the platform to the start."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-belt-squat",
+    "name": "Belt Squat",
+    "muscleGroup": "Upper legs",
+    "equipment": "Machine",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Quads"
+    ],
+    "musclesSecondary": [
+      "Glutes",
+      "Hamstrings"
+    ],
+    "instructions": [
+      "Fasten the belt around your hips and stand on the platform with feet shoulder-width apart.",
+      "Release the lever and squat down by bending your hips and knees.",
+      "Lower until your thighs are about parallel, keeping your torso upright.",
+      "Drive up through your heels to stand."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-pec-deck",
+    "name": "Pec Deck (Machine Fly)",
+    "muscleGroup": "Chest",
+    "equipment": "Machine",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Pectorals"
+    ],
+    "musclesSecondary": [
+      "Delts"
+    ],
+    "instructions": [
+      "Sit with your back flat against the pad and grasp the handles at chest height.",
+      "Bring the handles together in front of your chest by squeezing your pecs.",
+      "Pause briefly at the contraction.",
+      "Return under control until you feel a stretch across the chest."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-reverse-pec-deck",
+    "name": "Reverse Pec Deck (Rear Delt Machine)",
+    "muscleGroup": "Shoulders",
+    "equipment": "Machine",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Delts"
+    ],
+    "musclesSecondary": [
+      "Upper back",
+      "Traps"
+    ],
+    "instructions": [
+      "Sit facing the pad and grasp the handles with arms extended in front of you.",
+      "Pull the handles back in a wide arc by squeezing your rear delts and upper back.",
+      "Pause when your arms are out to the sides.",
+      "Return slowly to the start."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-chest-supported-row-machine",
+    "name": "Chest-Supported Row (Machine)",
+    "muscleGroup": "Back",
+    "equipment": "Machine",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Upper back"
+    ],
+    "musclesSecondary": [
+      "Lats",
+      "Biceps"
+    ],
+    "instructions": [
+      "Set the chest pad so your torso is supported and grasp the handles.",
+      "Row the handles toward you by driving your elbows back and squeezing your shoulder blades.",
+      "Pause at full contraction.",
+      "Lower under control to a full stretch."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-assisted-triceps-dip-machine",
+    "name": "Assisted Triceps Dip (Machine)",
+    "muscleGroup": "Upper arms",
+    "equipment": "Assisted",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Triceps"
+    ],
+    "musclesSecondary": [
+      "Pectorals",
+      "Delts"
+    ],
+    "instructions": [
+      "Set the assistance weight and place your knees on the pad, gripping the dip handles.",
+      "Keep your torso fairly upright to bias the triceps.",
+      "Lower until your elbows reach about 90 degrees.",
+      "Press back up by extending your elbows."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-hip-thrust-machine",
+    "name": "Hip Thrust (Machine)",
+    "muscleGroup": "Upper legs",
+    "equipment": "Machine",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Glutes"
+    ],
+    "musclesSecondary": [
+      "Hamstrings"
+    ],
+    "instructions": [
+      "Sit in the machine with the pad across your hips and your feet planted.",
+      "Drive your hips up by squeezing your glutes until your thighs are level.",
+      "Pause at the top.",
+      "Lower under control without letting the weight rest."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-barbell-hip-thrust",
+    "name": "Barbell Hip Thrust",
+    "muscleGroup": "Upper legs",
+    "equipment": "Barbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Glutes"
+    ],
+    "musclesSecondary": [
+      "Hamstrings"
+    ],
+    "instructions": [
+      "Sit on the floor with your upper back against a bench and roll a padded barbell over your hips.",
+      "Plant your feet flat, shoulder-width apart.",
+      "Drive through your heels and squeeze your glutes to lift your hips until your torso is parallel to the floor.",
+      "Pause, then lower under control."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-glute-kickback-machine",
+    "name": "Glute Kickback (Machine)",
+    "muscleGroup": "Upper legs",
+    "equipment": "Machine",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Glutes"
+    ],
+    "musclesSecondary": [
+      "Hamstrings"
+    ],
+    "instructions": [
+      "Brace your torso against the pad and place one foot on the lever.",
+      "Push the lever back and up by squeezing your glute.",
+      "Pause at full extension.",
+      "Return under control and repeat, then switch sides."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-ab-crunch-machine",
+    "name": "Ab Crunch (Machine)",
+    "muscleGroup": "Waist",
+    "equipment": "Machine",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Abs"
+    ],
+    "musclesSecondary": [],
+    "instructions": [
+      "Sit with your back against the pad and grasp the handles by your shoulders.",
+      "Crunch forward by contracting your abs, curling your chest toward your hips.",
+      "Pause at the bottom of the crunch.",
+      "Return slowly to the start."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-cable-crunch",
+    "name": "Cable Crunch",
+    "muscleGroup": "Waist",
+    "equipment": "Cable",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Abs"
+    ],
+    "musclesSecondary": [],
+    "instructions": [
+      "Kneel below a high pulley with a rope attachment held by your head.",
+      "Crunch down by contracting your abs, bringing your elbows toward your thighs.",
+      "Pause at the fully contracted position.",
+      "Return slowly, keeping tension on the abs."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-nordic-hamstring-curl",
+    "name": "Nordic Hamstring Curl",
+    "muscleGroup": "Upper legs",
+    "equipment": "Bodyweight",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Hamstrings"
+    ],
+    "musclesSecondary": [
+      "Glutes"
+    ],
+    "instructions": [
+      "Kneel upright with your ankles anchored under a pad or held by a partner.",
+      "Keeping your hips extended and body straight, lower your torso toward the floor as slowly as possible.",
+      "Catch yourself with your hands when you can no longer resist.",
+      "Push off lightly and use your hamstrings to pull yourself back up."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-reverse-nordic-curl",
+    "name": "Reverse Nordic Curl",
+    "muscleGroup": "Upper legs",
+    "equipment": "Bodyweight",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Quads"
+    ],
+    "musclesSecondary": [],
+    "instructions": [
+      "Kneel upright with your torso tall and core braced.",
+      "Keeping your hips extended, lean backward by bending only at the knees.",
+      "Lower as far as your quads allow under control.",
+      "Contract your quads to return to upright."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-copenhagen-plank",
+    "name": "Copenhagen Plank",
+    "muscleGroup": "Upper legs",
+    "equipment": "Bodyweight",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Adductors"
+    ],
+    "musclesSecondary": [
+      "Abs"
+    ],
+    "instructions": [
+      "Set up in a side plank with your top leg resting on a bench at about knee height.",
+      "Lift your hips and bottom leg off the floor so you're supported by your forearm and top leg.",
+      "Squeeze your inner thigh to hold a straight line.",
+      "Hold for time, then switch sides."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-jm-press",
+    "name": "JM Press",
+    "muscleGroup": "Upper arms",
+    "equipment": "Barbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Triceps"
+    ],
+    "musclesSecondary": [
+      "Delts"
+    ],
+    "instructions": [
+      "Lie on a flat bench holding a barbell with a shoulder-width grip, arms extended.",
+      "Lower the bar toward your upper neck by tucking your elbows, a hybrid of a press and a skull crusher.",
+      "Stop when your forearms near your biceps.",
+      "Press the bar back up by extending your triceps."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-squeeze-press",
+    "name": "Squeeze Press",
+    "muscleGroup": "Chest",
+    "equipment": "Dumbbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Pectorals"
+    ],
+    "musclesSecondary": [
+      "Triceps"
+    ],
+    "instructions": [
+      "Lie on a flat bench pressing two dumbbells together hard in the center.",
+      "Keeping them pressed together, lower to your chest, then press up.",
+      "Maintain inward pressure the whole set."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-meadows-row",
+    "name": "Meadows Row",
+    "muscleGroup": "Back",
+    "equipment": "Barbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Lats"
+    ],
+    "musclesSecondary": [
+      "Upper back",
+      "Biceps"
+    ],
+    "instructions": [
+      "Stand perpendicular to a landmine barbell and grip the sleeve with one hand.",
+      "Hinge over with a flat back and row the end of the bar up toward your hip.",
+      "Lower under control; finish the set, then switch sides."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-seal-row",
+    "name": "Seal Row",
+    "muscleGroup": "Back",
+    "equipment": "Barbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Upper back"
+    ],
+    "musclesSecondary": [
+      "Lats",
+      "Biceps"
+    ],
+    "instructions": [
+      "Lie face-down on a bench raised high enough for the bar to hang at arm’s length.",
+      "Row the bar up to the underside of the bench by driving your elbows back.",
+      "Pause, then lower to a full stretch."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-kroc-row",
+    "name": "Kroc Row",
+    "muscleGroup": "Back",
+    "equipment": "Dumbbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Lats"
+    ],
+    "musclesSecondary": [
+      "Upper back",
+      "Biceps",
+      "Forearms"
+    ],
+    "instructions": [
+      "Brace on a bench or rack and grip a heavy dumbbell with one hand.",
+      "Row explosively to your hip, allowing a little body english for high reps.",
+      "Control the descent; switch sides."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-chest-supported-dumbbell-row",
+    "name": "Chest-Supported Dumbbell Row",
+    "muscleGroup": "Back",
+    "equipment": "Dumbbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Upper back"
+    ],
+    "musclesSecondary": [
+      "Lats",
+      "Biceps"
+    ],
+    "instructions": [
+      "Lie chest-down on an incline bench holding a dumbbell in each hand.",
+      "Row both dumbbells up by driving your elbows back and squeezing your shoulder blades.",
+      "Lower under control to a full stretch."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-snatch-grip-deadlift",
+    "name": "Snatch-Grip Deadlift",
+    "muscleGroup": "Back",
+    "equipment": "Barbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Upper back"
+    ],
+    "musclesSecondary": [
+      "Hamstrings",
+      "Glutes",
+      "Traps"
+    ],
+    "instructions": [
+      "Take a very wide (snatch) grip on the bar with a flat back and hips set.",
+      "Drive through the floor and stand tall, keeping the bar close.",
+      "Lower under control to the floor."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-deficit-deadlift",
+    "name": "Deficit Deadlift",
+    "muscleGroup": "Back",
+    "equipment": "Barbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Hamstrings"
+    ],
+    "musclesSecondary": [
+      "Glutes",
+      "Upper back",
+      "Spine"
+    ],
+    "instructions": [
+      "Stand on a low platform so the bar starts a couple inches lower than normal.",
+      "Brace, push the floor away, and stand tall.",
+      "Lower under control."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-cable-face-pull",
+    "name": "Cable Face Pull",
+    "muscleGroup": "Shoulders",
+    "equipment": "Cable",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Delts"
+    ],
+    "musclesSecondary": [
+      "Upper back",
+      "Traps"
+    ],
+    "instructions": [
+      "Set a rope at upper-chest height and grip it with both hands, palms in.",
+      "Pull the rope toward your face, splitting your hands apart and squeezing the rear delts.",
+      "Return under control."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-viking-press",
+    "name": "Viking Press",
+    "muscleGroup": "Shoulders",
+    "equipment": "Barbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Delts"
+    ],
+    "musclesSecondary": [
+      "Triceps"
+    ],
+    "instructions": [
+      "Set up at a landmine or viking press handle at chest height, neutral grip.",
+      "Press the handle up and slightly forward to lockout.",
+      "Lower under control."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-landmine-press",
+    "name": "Landmine Press",
+    "muscleGroup": "Shoulders",
+    "equipment": "Barbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Delts"
+    ],
+    "musclesSecondary": [
+      "Triceps",
+      "Pectorals"
+    ],
+    "instructions": [
+      "Hold the end of a landmine barbell at shoulder height, staggered stance.",
+      "Press the bar up and forward until your arm is extended.",
+      "Lower under control; switch sides if pressing single-arm."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-z-press",
+    "name": "Z Press",
+    "muscleGroup": "Shoulders",
+    "equipment": "Barbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Delts"
+    ],
+    "musclesSecondary": [
+      "Triceps",
+      "Abs"
+    ],
+    "instructions": [
+      "Sit on the floor with legs straight and the bar at your shoulders.",
+      "Brace hard and press overhead without leaning back.",
+      "Lower to your shoulders under control."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-bayesian-cable-curl",
+    "name": "Bayesian Cable Curl",
+    "muscleGroup": "Upper arms",
+    "equipment": "Cable",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Biceps"
+    ],
+    "musclesSecondary": [
+      "Forearms"
+    ],
+    "instructions": [
+      "Face away from a low pulley, handle in one hand, arm extended behind you.",
+      "Curl the handle up while keeping your upper arm back to maximize the stretch.",
+      "Lower slowly; switch sides."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-waiter-curl",
+    "name": "Waiter Curl",
+    "muscleGroup": "Upper arms",
+    "equipment": "Dumbbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Biceps"
+    ],
+    "musclesSecondary": [],
+    "instructions": [
+      "Hold a single dumbbell vertically in both hands, cupping the top plate.",
+      "Curl it up to shoulder height keeping elbows in.",
+      "Lower slowly."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-overhead-cable-triceps-extension",
+    "name": "Overhead Cable Triceps Extension",
+    "muscleGroup": "Upper arms",
+    "equipment": "Cable",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Triceps"
+    ],
+    "musclesSecondary": [],
+    "instructions": [
+      "Face away from a high pulley with a rope, elbows up by your ears.",
+      "Extend your arms overhead until straight, keeping elbows still.",
+      "Return under control."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-bulgarian-split-squat",
+    "name": "Bulgarian Split Squat",
+    "muscleGroup": "Upper legs",
+    "equipment": "Dumbbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Quads"
+    ],
+    "musclesSecondary": [
+      "Glutes",
+      "Hamstrings"
+    ],
+    "instructions": [
+      "Stand a couple feet in front of a bench, rear foot laces-down on it, a dumbbell in each hand.",
+      "Lower straight down by bending your front knee until your back knee nears the floor.",
+      "Drive up through your front heel; finish the set, then switch legs."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-curtsy-lunge",
+    "name": "Curtsy Lunge",
+    "muscleGroup": "Upper legs",
+    "equipment": "Dumbbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Glutes"
+    ],
+    "musclesSecondary": [
+      "Quads",
+      "Adductors"
+    ],
+    "instructions": [
+      "Stand tall holding dumbbells; step one foot back and across behind the other.",
+      "Lower into a lunge, keeping your front knee tracking over your foot.",
+      "Return to standing; alternate sides."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-smith-machine-lunge",
+    "name": "Smith Machine Lunge",
+    "muscleGroup": "Upper legs",
+    "equipment": "Smith Machine",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Quads"
+    ],
+    "musclesSecondary": [
+      "Glutes"
+    ],
+    "instructions": [
+      "Set the bar across your upper back in a Smith machine, one foot forward in a split stance.",
+      "Lower straight down until your back knee nears the floor.",
+      "Drive up; finish the set, then switch legs."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-reverse-lunge",
+    "name": "Reverse Lunge",
+    "muscleGroup": "Upper legs",
+    "equipment": "Dumbbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Quads"
+    ],
+    "musclesSecondary": [
+      "Glutes",
+      "Hamstrings"
+    ],
+    "instructions": [
+      "Stand tall holding dumbbells.",
+      "Step one foot straight back and lower until both knees are bent ~90 degrees.",
+      "Drive through the front heel to return; alternate sides."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-standing-leg-curl",
+    "name": "Standing Leg Curl",
+    "muscleGroup": "Upper legs",
+    "equipment": "Machine",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Hamstrings"
+    ],
+    "musclesSecondary": [
+      "Calves"
+    ],
+    "instructions": [
+      "Stand in the machine with one ankle behind the pad, torso supported.",
+      "Curl your heel toward your glute by contracting the hamstring.",
+      "Lower under control; switch legs."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-frog-pump",
+    "name": "Frog Pump",
+    "muscleGroup": "Upper legs",
+    "equipment": "Bodyweight",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Glutes"
+    ],
+    "musclesSecondary": [
+      "Hamstrings"
+    ],
+    "instructions": [
+      "Lie on your back with the soles of your feet together and knees out.",
+      "Drive your hips up by squeezing your glutes.",
+      "Lower under control and repeat for high reps."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-jefferson-curl",
+    "name": "Jefferson Curl",
+    "muscleGroup": "Upper legs",
+    "equipment": "Dumbbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Spine"
+    ],
+    "musclesSecondary": [
+      "Hamstrings"
+    ],
+    "instructions": [
+      "Stand on a box holding a light weight, feet hip-width.",
+      "Slowly roll down one vertebra at a time, letting the weight hang toward your feet.",
+      "Reverse the motion to roll back up. Use light loads."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-spanish-squat",
+    "name": "Spanish Squat",
+    "muscleGroup": "Upper legs",
+    "equipment": "Band",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Quads"
+    ],
+    "musclesSecondary": [],
+    "instructions": [
+      "Loop a heavy band around a post and the back of your knees, leaning back into it.",
+      "Squat straight down keeping your shins vertical.",
+      "Drive back up through your heels."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-tibialis-raise",
+    "name": "Tibialis Raise",
+    "muscleGroup": "Lower legs",
+    "equipment": "Bodyweight",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Calves"
+    ],
+    "musclesSecondary": [],
+    "instructions": [
+      "Stand with your back to a wall, heels a step out and weight on your heels.",
+      "Pull your toes up toward your shins as high as possible.",
+      "Lower under control."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-toes-to-bar",
+    "name": "Toes to Bar",
+    "muscleGroup": "Waist",
+    "equipment": "Bodyweight",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Abs"
+    ],
+    "musclesSecondary": [
+      "Lats"
+    ],
+    "instructions": [
+      "Hang from a pull-up bar with an overhand grip.",
+      "Keeping legs fairly straight, raise your toes up to touch the bar.",
+      "Lower under control without swinging."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-hollow-body-hold",
+    "name": "Hollow Body Hold",
+    "muscleGroup": "Waist",
+    "equipment": "Bodyweight",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Abs"
+    ],
+    "musclesSecondary": [],
+    "instructions": [
+      "Lie on your back and press your lower back into the floor.",
+      "Lift your shoulders and legs, arms overhead, into a shallow banana shape.",
+      "Hold, breathing steadily."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-dragon-flag",
+    "name": "Dragon Flag",
+    "muscleGroup": "Waist",
+    "equipment": "Bodyweight",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Abs"
+    ],
+    "musclesSecondary": [
+      "Spine"
+    ],
+    "instructions": [
+      "Lie on a bench gripping behind your head for support.",
+      "Brace and lift your whole body so only your upper back stays on the bench.",
+      "Lower under control without letting your hips sag."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-cable-woodchopper",
+    "name": "Cable Woodchopper",
+    "muscleGroup": "Waist",
+    "equipment": "Cable",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Abs"
+    ],
+    "musclesSecondary": [
+      "Delts"
+    ],
+    "instructions": [
+      "Set a high pulley and grip the handle with both hands.",
+      "Pull diagonally down and across your body to the opposite hip, rotating your torso.",
+      "Return under control; finish the set, then switch sides."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-ab-wheel-rollout",
+    "name": "Ab Wheel Rollout",
+    "muscleGroup": "Waist",
+    "equipment": "Ab Wheel",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Abs"
+    ],
+    "musclesSecondary": [
+      "Lats",
+      "Spine"
+    ],
+    "instructions": [
+      "Kneel holding an ab wheel under your shoulders.",
+      "Roll forward as far as you can control while bracing your core, keeping your hips from sagging.",
+      "Pull back to the start using your abs."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-cable-pallof-press",
+    "name": "Cable Pallof Press",
+    "muscleGroup": "Waist",
+    "equipment": "Cable",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Abs"
+    ],
+    "musclesSecondary": [],
+    "instructions": [
+      "Stand side-on to a cable at chest height, handle held at your sternum with both hands.",
+      "Press the handle straight out, resisting the pull to rotate.",
+      "Return to your chest; finish the set, then switch sides."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-suitcase-carry",
+    "name": "Suitcase Carry",
+    "muscleGroup": "Waist",
+    "equipment": "Dumbbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Abs"
+    ],
+    "musclesSecondary": [
+      "Forearms",
+      "Traps"
+    ],
+    "instructions": [
+      "Hold a heavy dumbbell in one hand at your side.",
+      "Walk with an upright, level torso, resisting the lean to one side.",
+      "Switch hands and repeat."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-sled-push",
+    "name": "Sled Push",
+    "muscleGroup": "Upper legs",
+    "equipment": "Sled",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Quads"
+    ],
+    "musclesSecondary": [
+      "Glutes",
+      "Calves",
+      "Cardiovascular system"
+    ],
+    "instructions": [
+      "Load a sled and grip the high or low handles, arms extended.",
+      "Drive it forward with powerful steps, staying low.",
+      "Keep a steady, hard pace for the distance."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-sled-drag",
+    "name": "Sled Drag",
+    "muscleGroup": "Upper legs",
+    "equipment": "Sled",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Quads"
+    ],
+    "musclesSecondary": [
+      "Hamstrings",
+      "Calves"
+    ],
+    "instructions": [
+      "Attach a strap to a sled and walk forward (or backward) dragging it.",
+      "Take strong steps, leaning into the resistance.",
+      "Backward drags bias the quads; forward bias the posterior chain."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-plate-pinch-hold",
+    "name": "Plate Pinch Hold",
+    "muscleGroup": "Lower arms",
+    "equipment": "Weighted",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Forearms"
+    ],
+    "musclesSecondary": [],
+    "instructions": [
+      "Pinch one or two weight plates together (smooth side out) between your fingers and thumb.",
+      "Stand tall and hold for time without letting them slip.",
+      "Lower under control; switch hands."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-behind-the-back-wrist-curl",
+    "name": "Behind-the-Back Wrist Curl",
+    "muscleGroup": "Lower arms",
+    "equipment": "Barbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Forearms"
+    ],
+    "musclesSecondary": [],
+    "instructions": [
+      "Stand holding a barbell behind your glutes with an overhand grip.",
+      "Let the bar roll to your fingertips, then curl it up by flexing your wrists.",
+      "Lower under control."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-neck-curl",
+    "name": "Neck Curl",
+    "muscleGroup": "Neck",
+    "equipment": "Weighted",
+    "category": "STRENGTH",
+    "musclesPrimary": [],
+    "musclesSecondary": [],
+    "instructions": [
+      "Lie face-up on a bench with your head off the end, a light plate on your forehead (use a towel).",
+      "Lower your head back, then curl your chin toward your chest.",
+      "Move slowly through a comfortable range."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-neck-extension",
+    "name": "Neck Extension",
+    "muscleGroup": "Neck",
+    "equipment": "Weighted",
+    "category": "STRENGTH",
+    "musclesPrimary": [],
+    "musclesSecondary": [],
+    "instructions": [
+      "Lie face-down on a bench with your head off the end, a light plate held on the back of your head.",
+      "Lower your chin toward your chest, then extend your head back up.",
+      "Move slowly and avoid jerking."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-kelso-shrug",
+    "name": "Kelso Shrug",
+    "muscleGroup": "Back",
+    "equipment": "Dumbbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Traps"
+    ],
+    "musclesSecondary": [
+      "Upper back"
+    ],
+    "instructions": [
+      "Lie chest-down on an incline bench holding dumbbells, arms hanging.",
+      "Retract your shoulder blades, shrugging the weights up without bending your elbows.",
+      "Lower under control."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-kas-glute-bridge",
+    "name": "Kas Glute Bridge",
+    "muscleGroup": "Upper legs",
+    "equipment": "Barbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Glutes"
+    ],
+    "musclesSecondary": [
+      "Hamstrings"
+    ],
+    "instructions": [
+      "Set up like a hip thrust but start with hips already raised, shins vertical.",
+      "Lower a few inches and drive back up, keeping constant tension on the glutes.",
+      "Use a short range and squeeze hard at the top."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-b-stance-hip-thrust",
+    "name": "B-Stance Hip Thrust",
+    "muscleGroup": "Upper legs",
+    "equipment": "Dumbbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Glutes"
+    ],
+    "musclesSecondary": [
+      "Hamstrings"
+    ],
+    "instructions": [
+      "Set up for a hip thrust but stagger your feet, the working leg flat and the other as a light kickstand.",
+      "Drive through the working heel to lift your hips, squeezing that glute.",
+      "Lower under control; switch sides."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-b-stance-romanian-deadlift",
+    "name": "B-Stance Romanian Deadlift",
+    "muscleGroup": "Upper legs",
+    "equipment": "Dumbbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Hamstrings"
+    ],
+    "musclesSecondary": [
+      "Glutes"
+    ],
+    "instructions": [
+      "Stagger your stance, most weight on the front leg, the back foot a light kickstand.",
+      "Hinge at the hips, lowering the weights down the front leg.",
+      "Drive your hips forward to stand; switch sides."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-single-leg-hip-thrust",
+    "name": "Single-Leg Hip Thrust",
+    "muscleGroup": "Upper legs",
+    "equipment": "Bodyweight",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Glutes"
+    ],
+    "musclesSecondary": [
+      "Hamstrings"
+    ],
+    "instructions": [
+      "Rest your upper back on a bench with one foot planted and the other leg extended.",
+      "Drive through the planted heel to lift your hips, squeezing the glute.",
+      "Lower under control; switch legs."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-hip-airplane",
+    "name": "Hip Airplane",
+    "muscleGroup": "Upper legs",
+    "equipment": "Bodyweight",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Glutes"
+    ],
+    "musclesSecondary": [
+      "Hamstrings"
+    ],
+    "instructions": [
+      "Balance on one leg with a soft knee, hinged forward at the hip.",
+      "Rotate your hips open and closed under control while staying balanced.",
+      "Keep the motion slow; switch legs."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-shrimp-squat",
+    "name": "Shrimp Squat",
+    "muscleGroup": "Upper legs",
+    "equipment": "Bodyweight",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Quads"
+    ],
+    "musclesSecondary": [
+      "Glutes"
+    ],
+    "instructions": [
+      "Stand on one leg, holding the other foot behind you with the same-side hand.",
+      "Squat down until your trailing knee lightly touches the floor.",
+      "Drive back up; switch legs."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-bird-dog",
+    "name": "Bird Dog",
+    "muscleGroup": "Waist",
+    "equipment": "Bodyweight",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Spine"
+    ],
+    "musclesSecondary": [
+      "Glutes",
+      "Abs"
+    ],
+    "instructions": [
+      "Start on all fours with a flat back and braced core.",
+      "Extend your opposite arm and leg until level, without letting your hips rotate.",
+      "Return under control and alternate sides."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-pseudo-planche-push-up",
+    "name": "Pseudo Planche Push-up",
+    "muscleGroup": "Chest",
+    "equipment": "Bodyweight",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Pectorals"
+    ],
+    "musclesSecondary": [
+      "Delts",
+      "Serratus anterior"
+    ],
+    "instructions": [
+      "Set up in a push-up with hands by your waist, fingers pointed back, leaning forward over your hands.",
+      "Lower your chest while keeping the forward lean.",
+      "Press back up, maintaining the lean throughout."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-dead-hang",
+    "name": "Dead Hang",
+    "muscleGroup": "Lower arms",
+    "equipment": "Bodyweight",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Forearms"
+    ],
+    "musclesSecondary": [
+      "Lats"
+    ],
+    "instructions": [
+      "Hang from a pull-up bar with an overhand grip, arms straight and shoulders active.",
+      "Relax your lower body and hold for time.",
+      "Drop down under control."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-battle-ropes",
+    "name": "Battle Ropes",
+    "muscleGroup": "Shoulders",
+    "equipment": "Rope",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Delts"
+    ],
+    "musclesSecondary": [
+      "Forearms",
+      "Cardiovascular system"
+    ],
+    "instructions": [
+      "Hold one end of a heavy rope in each hand, knees softly bent.",
+      "Whip the ropes up and down (or in waves) as fast as you can sustain.",
+      "Keep a braced core for the work interval."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-assault-bike-air-bike",
+    "name": "Assault Bike (Air Bike)",
+    "muscleGroup": "Cardio",
+    "equipment": "Stationary Bike",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Cardiovascular system"
+    ],
+    "musclesSecondary": [],
+    "instructions": [
+      "Sit on a fan/air bike and grip the moving handles.",
+      "Drive with your legs and push-pull the handles together.",
+      "Work at the target pace or interval."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-jumping-jacks",
+    "name": "Jumping Jacks",
+    "muscleGroup": "Cardio",
+    "equipment": "Bodyweight",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Cardiovascular system"
+    ],
+    "musclesSecondary": [],
+    "instructions": [
+      "Stand tall, then jump your feet out while raising your arms overhead.",
+      "Jump back to the start.",
+      "Repeat at a steady rhythm."
+    ]
+  }
+]

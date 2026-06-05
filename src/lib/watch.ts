@@ -3,7 +3,7 @@ import { requireOptionalNativeModule } from 'expo-modules-core';
 
 import { loadFactor } from '@/lib/load';
 import { formatVolume, toDisplay, toKg, UNIT_LABELS } from '@/lib/units';
-import { restAfterSet } from '@/lib/supersets';
+import { nextSetCell, restAfterSet } from '@/lib/supersets';
 import { buildTheme } from '@/lib/widget';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -36,6 +36,8 @@ interface WatchMessage {
 interface NativeWatch {
   isSupported(): boolean;
   isReachable(): boolean;
+  isWatchAppInstalled(): boolean;
+  startWatchWorkout(): void;
   updateState(json: string): void;
   addListener(event: 'onMessage', listener: (msg: WatchMessage) => void): { remove: () => void };
 }
@@ -165,6 +167,7 @@ function buildSnapshot(s: WatchSession): Record<string, unknown> {
       side: set.side ?? '',
       weight: wDisp(set.weightKg),
       reps: set.reps,
+      done: set.done,
       prevText: prev ? `${wDisp(prev.weightKg)} × ${prev.reps}` : '',
     };
   }
@@ -208,6 +211,18 @@ export function syncWatch(s?: WatchSession): void {
 export function endWatch(): void {
   currentFocus = null;
   syncWatch({ active: false, name: '', startedAt: null, exercises: [] });
+}
+
+/** Auto-launch the paired watch app into the workout (called on start from the phone). No-op off
+ *  iOS, in Expo Go, or when no watch app is installed. */
+export function launchWatchWorkout(): void {
+  if (Platform.OS !== 'ios' || !Native) return;
+  try {
+    if (!Native.isWatchAppInstalled()) return;
+    Native.startWatchWorkout();
+  } catch (err) {
+    if (__DEV__) console.warn('[watch] launch failed:', err);
+  }
 }
 
 // ── Commands from the watch ────────────────────────────────────────────────────
@@ -254,8 +269,17 @@ function handleMessage(msg: WatchMessage): void {
       case 'completeSet': {
         const exId = String(msg.exId ?? '');
         const setId = String(msg.setId ?? '');
+        const before = useSessionStore.getState().exercises
+          .find((e) => e.localId === exId)?.sets.find((s) => s.localId === setId);
+        const wasDone = before?.done ?? false;
         session.updateSet(exId, setId, { done: true });
-        maybeStartRest(exId, setId);
+        // Don't (re)start a rest when re-confirming a set the user navigated back to.
+        if (!wasDone) maybeStartRest(exId, setId);
+        // Advance the watch's focus to the next set in completion order — mirrors the phone
+        // numpad's press('next') (session.tsx). Without this, currentFocus stays pinned on the
+        // just-completed set, so the watch can't move past it (and revisiting a done set no-ops).
+        const nx = nextSetCell(useSessionStore.getState().exercises, exId, setId);
+        setWatchFocus(nx ? { exId: nx.exLocalId, setId: nx.setLocalId, field: 'weight' } : null);
         break;
       }
       case 'skipRest':

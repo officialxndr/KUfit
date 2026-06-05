@@ -163,7 +163,9 @@ struct ActiveWorkoutView: View {
             Binding(get: { value }, set: { value = snapped($0) }),
             from: 0, through: 999,
             by: stepAmount,
-            sensitivity: .low, isContinuous: false, isHapticFeedbackEnabled: true
+            // .high so a partial turn moves several steps (.low needed a near-full revolution
+            // per step). Detents still snap to clean 5 / 1 values via the binding above.
+            sensitivity: .high, isContinuous: false, isHapticFeedbackEnabled: true
         )
     }
 
@@ -201,7 +203,10 @@ struct ActiveWorkoutView: View {
                     .lineLimit(1).minimumScaleFactor(0.5)
                 stepButton("plus.circle.fill") { step(1) }
             }
-            if !cs.prevText.isEmpty {
+            if cs.done == true {
+                Label("Logged", systemImage: "checkmark.circle.fill")
+                    .font(.system(size: 10)).foregroundStyle(.green)
+            } else if !cs.prevText.isEmpty {
                 Text("Prev \(cs.prevText)").font(.system(size: 10)).foregroundStyle(palette.muted)
             }
         }
@@ -215,8 +220,10 @@ struct ActiveWorkoutView: View {
     }
 
     private func nextButton(_ cs: CurrentSet) -> some View {
-        Button { next(cs) } label: {
-            Text(field == .weight ? "Next" : "Done")
+        // On the reps field of an already-logged set the action re-saves rather than first-logs.
+        let label = field == .weight ? "Next" : (cs.done == true ? "Update" : "Done")
+        return Button { next(cs) } label: {
+            Text(label)
                 .font(.system(size: 17, weight: .semibold)).frame(maxWidth: .infinity)
         }
         .tint(palette.accent)

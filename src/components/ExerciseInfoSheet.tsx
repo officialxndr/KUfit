@@ -26,9 +26,13 @@ export function ExerciseInfoSheet({ exercise, onClose }: { exercise: Exercise | 
 
   return (
     <Modal visible={!!exercise} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
-          {exercise && (
+      {/* Backdrop and card are siblings (not nested) so the card's ScrollView keeps the drag
+          gesture — wrapping the card in a Pressable made it swallow scrolls. The backdrop sits
+          behind; taps on the card land on the card (a plain View), taps outside dismiss. */}
+      <View style={styles.root}>
+        <Pressable style={styles.backdrop} onPress={onClose} />
+        {exercise && (
+          <View style={styles.card}>
             <>
               <View style={styles.media}>
                 {source ? (
@@ -76,15 +80,16 @@ export function ExerciseInfoSheet({ exercise, onClose }: { exercise: Exercise | 
                 ) : null}
               </ScrollView>
             </>
-          )}
-        </Pressable>
-      </Pressable>
+          </View>
+        )}
+      </View>
     </Modal>
   );
 }
 
 const styles = themedStyles(() => StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: space[6] },
+  root: { flex: 1, justifyContent: 'center', padding: space[6] },
+  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)' },
   card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: space[4] },
   media: {
     width: '100%', height: 180, backgroundColor: colors.surfaceHigh, borderRadius: radius.md,

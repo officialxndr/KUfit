@@ -1,5 +1,6 @@
 import ExpoModulesCore
 import WatchConnectivity
+import HealthKit
 
 /// Phone-side WatchConnectivity relay for the Hale watchOS app.
 ///
@@ -51,6 +52,7 @@ private final class WatchConnector: NSObject, WCSessionDelegate {
 
 public class HaleWatchModule: Module {
   private let connector = WatchConnector()
+  private let healthStore = HKHealthStore()
 
   public func definition() -> ModuleDefinition {
     Name("HaleWatch")
@@ -75,6 +77,32 @@ public class HaleWatchModule: Module {
 
     Function("updateState") { (json: String) in
       self.connector.send(json)
+    }
+
+    /// True when a watch is paired AND the Hale watch app is installed on it — so the JS side
+    /// only attempts an auto-launch when it can actually succeed.
+    Function("isWatchAppInstalled") { () -> Bool in
+      guard WCSession.isSupported() else { return false }
+      let s = WCSession.default
+      return s.isPaired && s.isWatchAppInstalled
+    }
+
+    /// Launch the paired Hale watch app into a strength workout (HealthKit `startWatchApp`).
+    /// The watch app then starts its own `HKWorkoutSession` when the phone's `active:true`
+    /// snapshot arrives (WorkoutManager's `guard !running` prevents a double-start). No-op when
+    /// HealthKit is unavailable or no watch app is installed.
+    Function("startWatchWorkout") {
+      guard HKHealthStore.isHealthDataAvailable(), WCSession.isSupported() else { return }
+      let s = WCSession.default
+      guard s.isPaired, s.isWatchAppInstalled else { return }
+      let config = HKWorkoutConfiguration()
+      config.activityType = .traditionalStrengthTraining
+      config.locationType = .indoor
+      // Requesting workout-share auth is idempotent; on first run it surfaces the prompt the
+      // watch session needs, then launches the app. Both calls fail gracefully (no crash).
+      self.healthStore.requestAuthorization(toShare: [HKObjectType.workoutType()], read: []) { [weak self] _, _ in
+        self?.healthStore.startWatchApp(with: config) { _, _ in }
+      }
     }
   }
 }

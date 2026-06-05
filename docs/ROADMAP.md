@@ -37,6 +37,21 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       gotcha:** the `hale-watch` podspec must sit in `modules/hale-watch/ios/` or the WCSession module won't
       register; older watches (SE 1st-gen / watchOS ≤10) need the deploy target at 10.0 + a direct `devicectl`
       install.
+- [x] **Apple Watch refinements** — (1) the phone **auto-launches the watch app** when you start a workout
+      (HealthKit `startWatchApp(with:)` via `launchWatchWorkout`); (2) the Digital Crown now uses
+      `sensitivity: .high` so a partial turn moves several steps (was a near-full revolution per step); (3) fixed
+      set mirroring — completing a set **from the watch** now advances `currentFocus` (`nextSetCell` →
+      `setWatchFocus`), so the watch no longer sticks on the just-completed set, and re-confirming an
+      already-logged set (snapshot carries `currentSet.done`) saves edits without re-firing rest.
+- [x] **Exercise search by machine + curated extras** — free-text search matches **name OR equipment**
+      (`searchExercises`) so typing a machine surfaces its exercises, plus an **equipment filter chip row**
+      (`getDistinctEquipment`) beside the muscle chips. Added **65** hand-curated non-API exercises ExerciseDB
+      lacks (`assets/exercises/extra.json`, stable `hale-*` ids, merged into the seed) — machines (hack/pendulum/
+      belt squat, pec deck, chest-supported/seal/Meadows row, standing leg curl, glute kickback), barbell/
+      dumbbell staples (barbell + B-stance hip thrust, RDL variants, JM press, Z/landmine/Viking press, Bayesian
+      curl, snatch-grip/deficit deadlift), bodyweight + calisthenics (Nordic/reverse-Nordic/Copenhagen, dragon
+      flag, hollow hold, toes-to-bar, pseudo-planche push-up, dead hang), neck/grip/conditioning (neck curl/
+      extension, plate pinch, battle ropes, sled push/drag, air bike), and more — each with metadata + form cues.
 - [x] **Exercise picker polish** — selecting exercises for a workout/template now **confirms before exiting**
       if you've made a selection (no accidental loss on a misclick), and the list **dismisses the keyboard on
       scroll** (`keyboardDismissMode="on-drag"`). `src/app/exercises.tsx`.
@@ -222,7 +237,9 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       instead of one-tap-then-close. Browsing (no `pick`) still opens the exercise detail page.
 - [x] **Long-press exercise preview** — `components/ExerciseInfoSheet.tsx`: press-and-hold a row in the picker
       to peek at an exercise (demo GIF, muscles, equipment, instructions) without losing your selection; a hint
-      above the list announces the gesture.
+      above the list announces the gesture. Its instructions list now **scrolls** — the card was wrapped in a
+      `Pressable` (to swallow background taps) that won the touch-responder race over the inner `ScrollView`;
+      backdrop + card are now siblings so nothing intercepts the scroll.
 - [x] **Modal top-padding fix** — sheet-style modals (`exercises`, `template/new`, …) were adding the device's
       top safe-area inset *on top of* the iOS page-sheet's own offset → wasted space. Dropped the redundant
       inset (full-screen `onboarding` keeps its real status-bar inset; its hero margin trimmed).
