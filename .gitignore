@@ -42,6 +42,12 @@ example
 /ios
 /android
 
+# expo-apple-targets: prebuild regenerates these from expo-target.config.js (keep the
+# config + Swift sources, ignore the generated artifacts).
+targets/*/generated.entitlements
+targets/*/Info.plist
+targets/*/Assets.xcassets/
+
 # build artifacts
 *.ipa
 *.apk

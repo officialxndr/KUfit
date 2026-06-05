@@ -49,6 +49,31 @@ Assistant automations via the sync layer (`serverStore` is null by default).
 - **Reminders/notifications**: `remindersStore` + `src/lib/reminders.ts` (schedules `expo-notifications`)
   + pure `src/lib/reminderStatus.ts` (Dashboard banner due-logic). Managed in `src/app/reminders.tsx`
   (Settings → Notifications & reminders). Notifications need a dev build; banners work in Expo Go.
+- **iOS widgets** (`targets/widget/` + `src/lib/widget.ts`): **four** WidgetKit/SwiftUI widgets users pick
+  from — **Food** (calorie *ring* with remaining in the center + themed macro bars + weight/body-fat),
+  **Workout** (next/last workout, this-week sessions + sets + volume + a 7-day volume bar sparkline),
+  **Health** (weight, body-fat %/lean/fat mass, weekly trend, goal), and a combined **Overview** (all three;
+  **Medium + Large**, the Large adding a 7-day volume sparkline). Food/Workout/Health support Small + Medium
+  home + Circular/Rectangular/Inline lock-screen. Built via
+  **`@bacons/apple-targets`** (`targets/widget/index.swift` is the source of truth; `expo prebuild` generates
+  the Xcode target, so `ios/` stays disposable and the generated `Info.plist`/`Assets.xcassets`/
+  `generated.entitlements` are git-ignored). The widget can't read SQLite, so `syncWidget()` writes a JSON
+  snapshot — including the **live app theme** (accent + surface colors, so home widgets match the in-app
+  appearance) — to the **App Group** `group.com.zanderhalverson.hale` (`ExtensionStorage`) and reloads. It's
+  called on AppState background/active (`_layout.tsx`) and on theme/accent change (`themeStore`). The Swift
+  `HaleSnapshot`/`WidgetTheme` structs mirror the JS snapshot keys — keep them in sync. Lock-screen families
+  stay monochrome (system tint), so theme colors only style the home widgets. Needs a dev/prod build (no
+  Expo Go); `ios.appleTeamId` must stay set in `app.json` for the target to sign.
+- **Workout Live Activity** (Lock Screen + Dynamic Island): a **local Expo native module**
+  `modules/hale-live-activity/` (ActivityKit: `start`/`update`/`end`/`isSupported`) driven by
+  `src/lib/liveActivity.ts`. `sessionStore` starts it on workout begin, updates it on set complete /
+  exercise add-remove (not on weight/rep keystrokes — ActivityKit has an update budget), and ends it on
+  finish/discard; `_layout.tsx` ends any orphaned activity on launch (the session is in-memory only). The
+  SwiftUI lives in the widget extension (`targets/widget/LiveActivity.swift`), pulls the **same app theme** from
+  the widget snapshot, and self-ticks the elapsed/rest timers via `Text(…style:.timer)` (no constant pushes).
+  **`WorkoutActivityAttributes.swift` is duplicated verbatim** in `modules/hale-live-activity/ios/` and
+  `targets/widget/` (ActivityKit matches app↔widget by the type's name) — **edit both copies together.**
+  Needs `NSSupportsLiveActivities` (`app.json`) + a dev/prod build; iOS 16.2+.
 - **Stats / date windows**: Dashboard → Reports and each section's far-right **Stats** tab
   (`FoodTrends` / `WorkoutStats` / `HealthTrends`) share `src/lib/useDateRange.ts` +
   `components/DateRangeBar.tsx` (segmented Week/Month/3 Mo/Year + ‹ › paging + custom range + Today) and
@@ -113,6 +138,18 @@ Assistant automations via the sync layer (`serverStore` is null by default).
 - **Android builds need JDK 17** (`JAVA_HOME` → JDK 17). The default JDK 25 fails native CMake configure
   (nitro-modules/worklets: *"restricted method in java.lang.System"*). `android/local.properties` holds `sdk.dir`.
 - **Bluetooth (Renpho tape)** needs a dev build **and a physical device** — emulators/simulators have no BLE.
+- **Workout Live Activity** (`modules/hale-live-activity/`): a **local Expo module** — `expo prebuild` +
+  `pod install` autolinks it (no entry needed in `package.json`); confirm it lands in `ios/Podfile.lock`. The
+  ActivityKit code is iOS 16.2-gated. Live Activities **don't render in the simulator** — test on a device with
+  a real workout (Lock Screen + Dynamic Island). The `WorkoutActivityAttributes.swift` copies in the module and
+  `targets/widget/` must match exactly. `eas build` runs prebuild, so it ships automatically.
+- **iOS widget** (`@bacons/apple-targets`): needs Xcode 16+ / a paid Apple team (App Groups can't be signed by a
+  free team). `expo prebuild -p ios` regenerates the `HaleWidget` target from `targets/widget/` each time —
+  **don't hand-edit the Xcode target**; edit `index.swift` / `expo-target.config.js`. EAS production builds run
+  prebuild, so the widget ships automatically. Test locally with `npx expo prebuild -p ios --clean` then
+  `expo run:ios --device` (the dev variant's widget bundle is `…hale.dev.widget`, sharing the same App Group).
+  The widget only updates when the app pushes a snapshot (`syncWidget()` on background) — it can look stale in
+  the simulator until you background the app once.
 - **Nutrition-label OCR** (`@react-native-ml-kit/text-recognition`) links via `expo prebuild` (no Expo Go);
   best tested on a physical device with a real label. The flow alerts gracefully when the module is absent.
 - **Local notifications** (`expo-notifications`) need a dev build; scheduling is a no-op in Expo Go.

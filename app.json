@@ -10,13 +10,18 @@
     "backgroundColor": "#0a0a0a",
     "ios": {
       "bundleIdentifier": "com.zanderhalverson.hale",
+      "appleTeamId": "356EHZDF23",
       "supportsTablet": false,
+      "entitlements": {
+        "com.apple.security.application-groups": ["group.com.zanderhalverson.hale"]
+      },
       "infoPlist": {
         "NSCameraUsageDescription": "Hale uses the camera to scan food barcodes.",
         "NSPhotoLibraryUsageDescription": "Hale uses your photos to set a profile picture.",
         "NSHealthShareUsageDescription": "Hale reads weight, activity, and heart rate from Apple Health to keep your stats in sync.",
         "NSHealthUpdateUsageDescription": "Hale can write workouts and weight to Apple Health.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSSupportsLiveActivities": true
       }
     },
     "android": {
@@ -89,7 +94,8 @@
           "isBackgroundEnabled": false,
           "bluetoothAlwaysPermission": "Hale connects to a compatible Bluetooth smart tape measure to log body measurements."
         }
-      ]
+      ],
+      "@bacons/apple-targets"
     ],
     "experiments": {
       "typedRoutes": true,

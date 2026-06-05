@@ -51,6 +51,17 @@ self-hosted server can be added later for backup and Home Assistant automations.
 - **Dashboard**: Overview (ring, macros, weekly chart, weight + ETA, pace alert, recent workouts) + a
   cross-domain **Reports** digest (Nutrition / Training / Weight & body / Goals over any date range). The
   goal editor opens from the header gear on every section.
+- **iOS widgets**: **four** WidgetKit/SwiftUI widgets users can pick — **Food** (calorie ring + macros +
+  weight/body-fat), **Workout** (next/last workout + this-week sessions/sets/volume + sparkline), **Health**
+  (weight, body-fat %/lean/fat, trend), and a combined **Overview** (all three; Medium + Large). Food/
+  Workout/Health support Small + Medium home screen + Circular/Rectangular/Inline lock-screen. Home
+  widgets are **themed by the in-app appearance** (accent + colors). Built with `@bacons/apple-targets`
+  (`targets/widget/`); the app pushes a snapshot to a shared App Group via `src/lib/widget.ts`. Native —
+  ships with a dev/prod build, not Expo Go / EAS Update.
+- **Workout Live Activity**: a **Lock Screen + Dynamic Island** activity while a workout is in progress —
+  current exercise, sets done/total, a self-ticking elapsed/rest timer, and volume, themed to match the app.
+  ActivityKit lifecycle in a local Expo native module (`modules/hale-live-activity/`) driven by
+  `src/lib/liveActivity.ts` + `sessionStore`. iOS 16.2+; native (dev/prod build).
 - **Motion & onboarding**: app-wide animation (screen transitions, count-up numbers, animated rings/charts,
   press feedback, confetti on PRs/goal-weight) — all behind the OS Reduce-Motion setting + a Settings
   toggle. First-run **onboarding wizard** plus a **guided feature tour** — pick a **Basic** or **Advanced**
@@ -169,6 +180,13 @@ features are inert in this build (`lib/health.ts` no-ops). Build the default (no
 paid account to get HealthKit back. **Bluetooth needs a physical device** either way.
 
 ## Optional integrations
+- **iOS widget** (`@bacons/apple-targets`): the home/lock-screen widget target lives in `targets/widget/`
+  (`index.swift` + `expo-target.config.js`) and is generated into the Xcode project by `expo prebuild`, so
+  `ios/` stays disposable (generated `Info.plist`/`Assets.xcassets`/`generated.entitlements` are git-ignored).
+  It reads a JSON snapshot the app writes to the App Group `group.com.zanderhalverson.hale` (`src/lib/widget.ts`).
+  Needs **Xcode 16+ and a paid Apple team** (App Groups can't be signed by a free team) and `ios.appleTeamId`
+  set in `app.json`. Test with `npx expo prebuild -p ios --clean` → `expo run:ios --device`; EAS production
+  builds include it automatically.
 - **Server backup**: Settings → "Server backup & sync" sets a self-hosted Hale server URL/token
   and tests the connection (`lib/sync.ts`). The full two-way sync engine is on the roadmap.
 - **Health (cross-platform)**: Settings → "Health" exposes the `lib/health.ts` seam. To activate,

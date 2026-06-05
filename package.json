@@ -3,6 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
+    "@bacons/apple-targets": "^4.0.7",
     "@expo/ui": "~56.0.15",
     "@kingstinct/react-native-healthkit": "^14.0.1",
     "@react-native-async-storage/async-storage": "2.2.0",

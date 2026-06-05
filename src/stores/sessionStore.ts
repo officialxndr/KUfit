@@ -3,6 +3,7 @@ import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { epley1RM } from '@/lib/epley';
 import { normalizeSupersets } from '@/lib/supersets';
 import { appendRound, removeSetOrRound, expandToPairs, collapseToSingles, reorderLead } from '@/lib/unilateral';
+import { startLiveActivity, updateLiveActivity, endLiveActivity } from '@/lib/liveActivity';
 import type { Exercise, LocalExercise, LocalSet, Side } from '@/types';
 
 /**
@@ -60,12 +61,14 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const name = 'Workout';
     const sessionLocalId = workoutRepo.startSession(name);
     set({ active: true, sessionLocalId, name, startedAt: nowIso(), exercises: [], counter: 0, pendingSuperset: null });
+    startLiveActivity(get());
   },
 
   startFromTemplate: (templateLocalId, name) => {
     const sessionLocalId = workoutRepo.startSession(name, templateLocalId);
     const exercises = workoutRepo.buildLocalExercisesFromTemplate(templateLocalId);
     set({ active: true, sessionLocalId, name, startedAt: nowIso(), exercises, counter: 1000, pendingSuperset: null });
+    startLiveActivity(get());
   },
 
   addExercise: (exercise) => {
@@ -94,12 +97,15 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         pendingSuperset: null,
       };
     });
+    updateLiveActivity(get());
   },
 
-  removeExercise: (localId) =>
+  removeExercise: (localId) => {
     set((s) => ({
       exercises: normalizeSupersets(s.exercises.filter((e) => e.localId !== localId)).map((e, i) => ({ ...e, order: i })),
-    })),
+    }));
+    updateLiveActivity(get());
+  },
 
   startSuperset: (exLocalId) =>
     set((s) => {
@@ -121,7 +127,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       ),
     })),
 
-  addSet: (exLocalId) =>
+  addSet: (exLocalId) => {
     set((s) => {
       let counter = s.counter;
       const nextId = () => String(++counter);
@@ -131,25 +137,32 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           : e
       );
       return { counter, exercises };
-    }),
+    });
+    updateLiveActivity(get());
+  },
 
-  updateSet: (exLocalId, setLocalId, patch) =>
+  updateSet: (exLocalId, setLocalId, patch) => {
     set((s) => ({
       exercises: s.exercises.map((e) =>
         e.localId !== exLocalId
           ? e
           : { ...e, sets: e.sets.map((st) => (st.localId === setLocalId ? { ...st, ...patch } : st)) }
       ),
-    })),
+    }));
+    // Only completing/uncompleting a set changes the activity — skip weight/rep keystrokes.
+    if ('done' in patch) updateLiveActivity(get());
+  },
 
-  removeSet: (exLocalId, setLocalId) =>
+  removeSet: (exLocalId, setLocalId) => {
     set((s) => ({
       exercises: s.exercises.map((e) =>
         e.localId !== exLocalId
           ? e
           : { ...e, sets: removeSetOrRound(e.sets, setLocalId, !!e.exercise.unilateral) }
       ),
-    })),
+    }));
+    updateLiveActivity(get());
+  },
 
   setNotes: (exLocalId, notes) =>
     set((s) => ({
@@ -231,6 +244,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     workoutRepo.finishSession(sessionLocalId, payload, nowIso(), caloriesBurned ?? null);
     const id = sessionLocalId;
     set({ active: false, sessionLocalId: null, name: '', startedAt: null, exercises: [], counter: 0, pendingSuperset: null });
+    endLiveActivity();
     return id;
   },
 
@@ -238,5 +252,6 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const { sessionLocalId } = get();
     if (sessionLocalId) workoutRepo.discardSession(sessionLocalId);
     set({ active: false, sessionLocalId: null, name: '', startedAt: null, exercises: [], counter: 0, pendingSuperset: null });
+    endLiveActivity();
   },
 }));

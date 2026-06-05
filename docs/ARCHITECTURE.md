@@ -73,6 +73,26 @@ External network (Open Food Facts, ExerciseDB CDN) is called directly from the d
 - `navStore` — shell navigation state: active `section` + `subTab` (local-only).
 - `routineStore` — workout **routines** (named template rotations, auto-pick least-recently-done,
   a **default** routine for the FAB quick-action); local-only, persisted via AsyncStorage.
+- **iOS widgets** (`lib/widget.ts` + `targets/widget/`, no store) — **four** WidgetKit/SwiftUI widgets
+  (Food / Workout / Health / combined Overview) added via the `@bacons/apple-targets` config plugin (target
+  source in `targets/widget/index.swift`, generated into the Xcode project by `expo prebuild`). They can't
+  read SQLite, so `syncWidget()` assembles one snapshot covering all of them — nutrition (calorie ring +
+  macros), workout (next/last, this-week sessions/sets/volume + a 7-day volume series from
+  `getVolumeBySession`/`getSetCount`), health (weight + body-fat via the same measured→DEXA→Navy priority as
+  Health → Body, lean/fat mass, weekly trend) — **plus the current app theme** (accent +
+  surface colors from `theme/tokens` `colors`) so the home widgets match the in-app appearance. It's written
+  as JSON to the shared **App Group** `group.com.zanderhalverson.hale` via `ExtensionStorage`, then
+  `reloadWidget()`. Called from `app/_layout.tsx` on AppState background/active and from `themeStore` on
+  theme/accent change (no-op off iOS / in Expo Go). The Swift `HaleSnapshot`/`WidgetTheme` structs mirror the
+  JS snapshot keys.
+- **Workout Live Activity** (`lib/liveActivity.ts` + `modules/hale-live-activity/` + `targets/widget/LiveActivity.swift`)
+  — a Lock Screen + Dynamic Island activity for the in-progress workout. The ActivityKit lifecycle lives in a
+  **local Expo native module** (`start`/`update`/`end`/`isSupported`); `sessionStore` calls it on
+  start/finish/discard and on set-complete / exercise add-remove (not on weight/rep keystrokes — ActivityKit
+  has an update budget), and `_layout.tsx` ends any orphan on launch. The SwiftUI (in the widget extension)
+  reads the same themed snapshot and self-ticks the elapsed/rest timers via `Text(…style:.timer)`.
+  `WorkoutActivityAttributes` is duplicated in the module and the widget target (ActivityKit matches by type
+  name) — keep both copies identical. Needs `NSSupportsLiveActivities` + a dev/prod build; iOS 16.2+.
 - **Pre-set templates** (`lib/presetTemplates.ts`, no store) — a static list of curated starter
   workouts that reference the bundled catalog by stable **`exerciseDbId`** (not localId). The
   `preset-templates` modal (opened from the Workout library card above Exercise Library) calls

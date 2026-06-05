@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 import { applyTheme, saveThemeToDisk, getActiveTheme } from '@/theme/tokens';
+import { syncWidget } from '@/lib/widget';
 
 /**
  * Selected app theme (a surface **preset** + an **accent**). `version` bumps on
@@ -28,11 +29,13 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     applyTheme(preset, accent);
     saveThemeToDisk(preset, accent);
     set((s) => ({ preset, version: s.version + 1 }));
+    syncWidget(); // recolor the iOS widget to match the new theme
   },
   setAccent: (accent) => {
     const { preset } = get();
     applyTheme(preset, accent);
     saveThemeToDisk(preset, accent);
     set((s) => ({ accent, version: s.version + 1 }));
+    syncWidget(); // recolor the iOS widget to match the new accent
   },
 }));

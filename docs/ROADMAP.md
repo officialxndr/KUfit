@@ -10,6 +10,23 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       "Cable Pushdown", collision-safe). Reseed is `SEED_VERSION`-gated and upserts **in place** by
       `exerciseDbId`, preserving localIds (so templates/history survive) and user overrides
       (perSide/unilateral/leadSide). `scripts/lib-debake.mjs` is shared by the seed script.
+- [x] **Workout Live Activity** (Lock Screen + Dynamic Island) — an in-progress-workout activity showing the
+      current exercise, sets done / total, a self-ticking elapsed (and rest) timer, and volume. ActivityKit
+      lifecycle in a **local Expo native module** (`modules/hale-live-activity/`) driven by `lib/liveActivity.ts`;
+      `sessionStore` starts/updates/ends it. SwiftUI in the widget extension (`targets/widget/LiveActivity.swift`),
+      themed from the same snapshot. Lays groundwork (native module + shared `ActivityAttributes`) reusable by a
+      future Apple Watch app. Needs `NSSupportsLiveActivities` + a dev/prod build (iOS 16.2+).
+- [x] **iOS home & lock-screen widgets** — **four** WidgetKit/SwiftUI widgets users choose from: **Food**
+      (calorie ring with remaining in the center + themed macro bars w/ numbers + weight/body-fat), **Workout**
+      (next + last workout, this-week sessions/sets/volume), **Health** (weight, body-fat %/lean/fat mass,
+      weekly trend, goal), and a combined **Overview** (all three; **Medium + Large**, the Large adding a
+      7-day volume sparkline). Food/Workout/Health support Small + Medium home + Circular/Rectangular/Inline
+      lock-screen. Home widgets are **styled by the
+      live app theme** (accent + surface colors push through the snapshot, so they match the in-app
+      appearance and update on theme change). Built with `@bacons/apple-targets` (`targets/widget/index.swift`);
+      `expo prebuild` generates the target so `ios/` stays disposable. `src/lib/widget.ts` (`syncWidget()`)
+      pushes the snapshot to the App Group `group.com.zanderhalverson.hale` and reloads on AppState
+      background/active + theme change. Requires a dev/prod build (no Expo Go).
 - [x] **Pre-set templates** — a curated set of starter workouts (Full Body, Push/Pull/Legs,
       Upper/Lower, Dumbbell-only, Bodyweight) on the Workout library, above the Exercise Library card.
       Each "Add to my templates" saves a real, fully-editable `WorkoutTemplate` the user owns.

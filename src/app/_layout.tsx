@@ -3,12 +3,14 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, AppState } from 'react-native';
 
 import { initDb } from '@/lib/db';
 import { seedExercisesIfEmpty } from '@/lib/exerciseSeed';
 import { seedBaseFoodsIfNeeded } from '@/lib/baseFoodsSeed';
 import { recoverTourPreview } from '@/lib/tourPreview';
+import { syncWidget } from '@/lib/widget';
+import { endLiveActivity } from '@/lib/liveActivity';
 import { configureNotifications, syncScheduledNotifications } from '@/lib/reminders';
 import { useRemindersStore } from '@/stores/remindersStore';
 import { useThemeStore } from '@/stores/themeStore';
@@ -38,6 +40,20 @@ export default function RootLayout() {
     if (useRemindersStore.getState().hydrated) sync();
     else { const unsub = useRemindersStore.subscribe((s) => { if (s.hydrated) { unsub(); sync(); } }); }
     setReady(true);
+  }, []);
+
+  // Keep the iOS home/lock-screen widget fresh: push a snapshot now and whenever the
+  // app leaves the foreground (when the user might actually look at the widget) or returns
+  // (in case the day rolled over). No-op off iOS / in Expo Go.
+  useEffect(() => {
+    syncWidget();
+    // The active workout lives only in memory, so on a fresh launch there's never one in
+    // progress — clear any Live Activity left ticking by a force-quit mid-workout.
+    endLiveActivity();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background' || state === 'active') syncWidget();
+    });
+    return () => sub.remove();
   }, []);
 
   if (!ready) {

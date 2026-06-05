@@ -786,6 +786,19 @@ export class WorkoutRepo {
     ) as any[];
   }
 
+  /** Total logged sets across finished sessions in a date range (for the widget's weekly summary). */
+  getSetCount(from: string, to: string): number {
+    const row = db.getFirstSync(
+      `SELECT COUNT(*) AS n
+       FROM exercise_sets es
+       JOIN session_exercises se ON es.sessionExerciseLocalId = se.localId
+       JOIN workout_sessions ws ON se.sessionLocalId = ws.localId
+       WHERE ws.finishedAt IS NOT NULL AND ws.deleted = 0 AND ws.startedAt >= ? AND ws.startedAt <= ?`,
+      [from, to]
+    ) as any;
+    return row?.n ?? 0;
+  }
+
   // Upsert template from server response
   upsertTemplateFromServer(tmpl: WorkoutTemplate): string {
     const existing = tmpl.id

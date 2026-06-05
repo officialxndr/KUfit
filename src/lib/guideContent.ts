@@ -83,6 +83,11 @@ export const GUIDE: GuideSection[] = [
         body: 'When a reminder is due (like logging your weight) a banner appears on the Dashboard so you can act on it in one tap. An optional, dismissible donation banner may also appear.',
         keywords: 'notifications nudges prompts',
       },
+      {
+        title: 'iOS widgets',
+        body: 'On iPhone you can add Hale widgets to your home screen or lock screen. There are four to choose from so you only see what you use: Food (a calorie ring with calories left in the center, your protein/carbs/fat with numbers, and weight/body-fat), Workout (your next and last workout, plus this week\'s workouts/sets/volume), Health (weight, body-fat % with lean/fat mass, and your weekly trend), and Overview — which shows all three at once. Food, Workout, and Health come in Small and Medium home-screen sizes plus lock-screen styles; Overview comes in Medium and Large. Add one the usual way: long-press an empty spot on the home screen, tap the + in the corner, search for "Hale", pick which widget and a size. The home-screen widgets match your in-app theme and accent color, and update when you change them. Widgets refresh whenever you leave the app, so log first, then check the widget.',
+        keywords: 'widget widgets home screen lock screen ios glance food workout health overview large small medium calories macros ring next workout sets volume weight body fat lean trend sparkline theme accent color',
+      },
     ],
   },
 
@@ -199,6 +204,11 @@ export const GUIDE: GuideSection[] = [
         title: 'Starting a workout',
         body: 'Start an empty workout and add exercises as you go, or start from a saved template/routine to pre-load its exercises and sets. The + button can start a workout from anywhere.',
         keywords: 'begin new session template routine empty',
+      },
+      {
+        title: 'Live Activity (Lock Screen & Dynamic Island)',
+        body: 'On iPhone, starting a workout shows a Live Activity on your Lock Screen and in the Dynamic Island — the current exercise, sets done out of total, a running workout timer, and your volume so far. It lets you glance at your phone between sets without unlocking the app, and it ends automatically when you finish or discard the workout. It needs a real device (it doesn\'t appear in the simulator) and Live Activities enabled in iOS Settings; the look matches your in-app accent color.',
+        keywords: 'live activity lock screen dynamic island timer between sets glance ios notification banner',
       },
       {
         title: 'Logging sets',
