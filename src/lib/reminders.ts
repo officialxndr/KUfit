@@ -20,12 +20,14 @@ const ANDROID_CHANNEL = 'reminders';
 /** Banner/list display config — call once at app startup before scheduling. */
 export function configureNotifications(): void {
   Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-    }),
+    handleNotification: async (notification) => {
+      // The rest-end notification is a background-only safety net: when it's delivered while the
+      // app is foreground, the in-app vibration already fired, so suppress the banner/sound.
+      if (notification.request.content.data?.restEnd) {
+        return { shouldShowBanner: false, shouldShowList: false, shouldPlaySound: false, shouldSetBadge: false };
+      }
+      return { shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false };
+    },
   });
 }
 
@@ -113,5 +115,43 @@ export async function sendTestNotification(): Promise<'sent' | 'denied' | 'unava
     return 'sent';
   } catch {
     return 'unavailable';
+  }
+}
+
+// ── Rest-timer "time's up" notification ─────────────────────────────────────────
+// Fires when a rest timer ends while the app is backgrounded/locked (JS is suspended and
+// `Vibration` can't fire from the background, so the in-app buzz alone never reaches a locked
+// phone). Suppressed in the foreground by the handler above. Only ever one rest is pending.
+
+let restNotificationId: string | null = null;
+
+/** Schedule the rest-over alert `seconds` out (cancels any previous one). No-op without permission. */
+export async function scheduleRestEndNotification(seconds: number): Promise<void> {
+  await cancelRestEndNotification();
+  try {
+    if (!(await ensurePermission())) return;
+    await ensureAndroidChannel();
+    restNotificationId = await Notifications.scheduleNotificationAsync({
+      content: { title: 'Rest’s over 💪', body: 'Back to it — your next set is ready.', sound: true, data: { restEnd: true } },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: Math.max(1, Math.round(seconds)),
+        channelId: Platform.OS === 'android' ? ANDROID_CHANNEL : undefined,
+      },
+    });
+  } catch {
+    restNotificationId = null;
+  }
+}
+
+/** Cancel a pending rest-over notification (rest skipped / ended in-app / workout finished). */
+export async function cancelRestEndNotification(): Promise<void> {
+  const id = restNotificationId;
+  restNotificationId = null;
+  if (!id) return;
+  try {
+    await Notifications.cancelScheduledNotificationAsync(id);
+  } catch {
+    /* already fired / unavailable */
   }
 }

@@ -22,7 +22,8 @@ export const WHATS_NEW = {
     'Your own exercises: create them, find them in a "My exercises" group, and delete the ones you made (catalog ones are protected).',
     'Pre-set templates: ready-made starter workouts (Full Body, Push/Pull/Legs, Upper/Lower, Dumbbell-only, Bodyweight) — tap one to drop an editable copy into your templates. Find it above the Exercise Library.',
     'iOS widgets (x4): pick Food (calorie ring + macros + weight/body-fat), Workout (next workout + this-week sets/volume), Health (weight, body-fat/lean/fat, trend), or a combined Overview that shows all three (Medium or Large). Home screen + lock screen, matching your in-app theme/accent. Long-press the home screen → + → search "Hale".',
-    'Workout Live Activity: start a workout and you\'ll get a Lock Screen + Dynamic Island live view — current exercise, sets done, a running timer, and volume — so you can glance at your phone between sets without unlocking. (iPhone, real device; turn on Live Activities in iOS Settings if you don\'t see it.)',
+    'Workout Live Activity: start a workout and you\'ll get a Lock Screen + Dynamic Island live view — current exercise, sets done, a rest countdown, calories, volume, and elapsed time (shown as "X min / X hr" so it stays readable on the Always-On Display). (iPhone, real device; turn on Live Activities in iOS Settings if you don\'t see it.)',
+    'App icon matches your accent: pick an accent in Settings → Appearance and the app icon background changes to match (indigo keeps the original). iOS will ask you to confirm the icon change.',
     'New searchable Feature guide in Settings → Help, and credits for our data sources (ExerciseDB, Open Food Facts).',
   ],
 };

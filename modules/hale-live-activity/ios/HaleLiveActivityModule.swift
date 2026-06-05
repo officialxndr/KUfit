@@ -1,5 +1,40 @@
 import ExpoModulesCore
 import ActivityKit
+import UIKit
+import ObjectiveC.runtime
+
+// MARK: - Suppress the system "you changed the icon" alert
+//
+// `setAlternateIconName` always presents a system UIAlertController. Rather than the fragile
+// private-`_setAlternateIconName:` trick (which Apple may break per iOS version), we swizzle
+// `UIViewController.present` and drop the alert that fires in the brief window right after we
+// change the icon. Uses only public APIs.
+
+private var haleSuppressIconAlert = false
+private var haleDidSwizzlePresent = false
+
+private func haleSwizzlePresentOnce() {
+    guard !haleDidSwizzlePresent else { return }
+    haleDidSwizzlePresent = true
+    let cls = UIViewController.self
+    guard
+        let original = class_getInstanceMethod(cls, #selector(UIViewController.present(_:animated:completion:))),
+        let swizzled = class_getInstanceMethod(cls, #selector(UIViewController.hale_present(_:animated:completion:)))
+    else { return }
+    method_exchangeImplementations(original, swizzled)
+}
+
+extension UIViewController {
+    @objc fileprivate func hale_present(_ vc: UIViewController, animated: Bool, completion: (() -> Void)?) {
+        if haleSuppressIconAlert, vc is UIAlertController {
+            haleSuppressIconAlert = false
+            completion?()
+            return // drop the icon-change alert
+        }
+        // Implementations are exchanged, so this calls through to the original `present`.
+        self.hale_present(vc, animated: animated, completion: completion)
+    }
+}
 
 /// Starts / updates / ends the workout Live Activity from JS. The SwiftUI for the activity
 /// lives in the widget extension (`targets/widget/LiveActivity.swift`); this module owns the
@@ -40,6 +75,26 @@ public class HaleLiveActivityModule: Module {
         Function("end") {
             self.endNow()
         }
+
+        // ── Alternate app icon (silent) ──────────────────────────────────────────
+        // The icons themselves are registered by the `expo-alternate-app-icons` config plugin;
+        // we just switch them here without iOS's "You have changed the icon" alert.
+
+        Function("getAppIcon") { () -> String? in
+            UIApplication.shared.alternateIconName
+        }
+
+        Function("setAppIcon") { (name: String?) in
+            DispatchQueue.main.async {
+                guard UIApplication.shared.supportsAlternateIcons else { return }
+                haleSwizzlePresentOnce()
+                haleSuppressIconAlert = true
+                UIApplication.shared.setAlternateIconName(name, completionHandler: nil)
+                // Keep the suppress flag up long enough for the alert to present and be dropped
+                // by the swizzle (the completion handler can fire before the alert presents).
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { haleSuppressIconAlert = false }
+            }
+        }
     }
 
     private func endNow() {
@@ -70,6 +125,8 @@ public class HaleLiveActivityModule: Module {
             totalExercises: i("totalExercises"),
             startedAt: date("startedAtMs") ?? Date(),
             restEndsAt: date("restEndsAtMs"),
+            elapsedText: s("elapsedText"),
+            restText: s("restText"),
             volumeText: s("volumeText"),
             caloriesText: s("caloriesText")
         )

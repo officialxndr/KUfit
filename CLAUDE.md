@@ -77,7 +77,27 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   Lock Screen / Dynamic Island countdown stays correct even while the app is backgrounded).
   **`WorkoutActivityAttributes.swift` is duplicated verbatim** in `modules/hale-live-activity/ios/` and
   `targets/widget/` (ActivityKit matches app↔widget by the type's name) — **edit both copies together.**
-  Needs `NSSupportsLiveActivities` (`app.json`) + a dev/prod build; iOS 16.2+.
+  Needs `NSSupportsLiveActivities` (`app.json`) + a dev/prod build; iOS 16.2+. The Lock Screen / Always-On
+  Display freeze most content, so timers must use a **self-updating Text date style** (the system ticks those
+  even on the AOD). Rest = `Text(timerInterval:countsDown:)` (digital countdown); **elapsed** =
+  `Text(startedAt, style: .relative)` — units ("3 min", "1 hr 5 min") that self-update. Never use `.timer`
+  style (rendered as "3 minut…" on the AOD) or a pushed static string (freezes when locked — JS is suspended).
+  The non-tickable **calorie** estimate still needs the 30s `session.tsx` refresh (frozen when backgrounded).
+- **Rest-end alert when backgrounded**: the in-app vibration can't reach a locked phone (JS suspended +
+  `Vibration` is foreground-only), so `startRest` also schedules a **local notification** for the rest-end time
+  (`scheduleRestEndNotification` in `lib/reminders.ts`) — cancelled on skip/finish/unmount. The notification
+  handler **suppresses it in the foreground** (where the in-app buzz fired); the buzz effect skips the in-app
+  vibration if the rest ended >2.5s ago (i.e. while backgrounded — the notification already alerted).
+- **Per-accent app icon** (`lib/appIcon.ts` + `expo-alternate-app-icons` config plugin): the iOS app icon
+  background follows the chosen accent. Preset accents (violet/sky/emerald/amber/rose) have pre-generated icons
+  (white logo on the accent — `scripts/gen-accent-icons.mjs`, output `assets/icons/accent-*.png`, registered as
+  alternate icons via the plugin in `app.json`); **indigo (default) + any custom hex keep the polished brand
+  `icon.png`**. The icon is **opt-in, not automatic** — changing accents does NOT swap the icon (that would
+  fire iOS's alert on every experiment); the user taps **"Match app icon to accent"** in Settings → Appearance,
+  which calls `applyAccentIcon` → our native `HaleLiveActivity.setAppIcon`. That **suppresses iOS's "you changed
+  the icon" alert** by swizzling `UIViewController.present` to drop the alert in the brief window after
+  `setAlternateIconName` (public APIs only — App-Store-safe; the private `_setAlternateIconName:` trick does
+  *not* reliably suppress on iOS 18). Re-run the gen script if the logo/accents change.
 - **Stats / date windows**: Dashboard → Reports and each section's far-right **Stats** tab
   (`FoodTrends` / `WorkoutStats` / `HealthTrends`) share `src/lib/useDateRange.ts` +
   `components/DateRangeBar.tsx` (segmented Week/Month/3 Mo/Year + ‹ › paging + custom range + Today) and
@@ -90,9 +110,12 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   drives the real screens (`components/FeatureTour.tsx` + `tourStore` + `src/lib/tourSteps.ts` — steps grouped
   into pages + `advanced` flag, resolved by `tourStepsFor(tier, pageKey?)`). Replay from
   Settings → Help. Hidden **dev tools** (tap the Settings version footer 7× → `devStore`) reveal a
-  demo-data seeder (`src/lib/demoSeed.ts`: Load / Clear) that fills realistic activity for screenshots,
-  **rest-end haptic testers** (`REST_END_HAPTICS` in `lib/haptics.ts` — feel candidate cues, pick one), and a
-  **test-notification** button (`sendTestNotification` in `lib/reminders.ts`).
+  demo-data seeder (`src/lib/demoSeed.ts`: Load / Clear) that fills realistic activity for screenshots, a
+  **haptics diagnostic** (`fireDiagnosticHaptic`), and a **test-notification** button (`sendTestNotification`).
+  The **rest-timer alert** vibration is a user-facing picker in Settings → Motion: `playRestEndHaptic` uses the
+  classic **`Vibration`** motor (~3s patterns in `lib/haptics.ts` — the subtle Taptic cues didn't feel like a
+  timer), keyed by `profile.restEndHaptic`. (Vibration only fires in the foreground — iOS won't buzz from the
+  background; a locked-screen rest alert would need a local notification.)
 - **Feedback**: `src/app/feedback.tsx` (bug + feature forms) → `src/lib/feedback.ts` emails the report
   (mailto, **no server**) with auto diagnostics, and saves it via `FeedbackRepo` (`feedback` table, with
   sync-ready columns for a future community-voting board). `components/WhatsNew.tsx` shows a

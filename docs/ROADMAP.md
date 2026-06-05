@@ -10,6 +10,10 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       "Cable Pushdown", collision-safe). Reseed is `SEED_VERSION`-gated and upserts **in place** by
       `exerciseDbId`, preserving localIds (so templates/history survive) and user overrides
       (perSide/unilateral/leadSide). `scripts/lib-debake.mjs` is shared by the seed script.
+- [x] **Per-accent app icon** — the iOS app icon background follows the Settings → Appearance accent. Preset
+      accents get pre-generated alternate icons (`scripts/gen-accent-icons.mjs` → `assets/icons/`, via
+      `expo-alternate-app-icons`); indigo/custom keep the brand icon. `lib/appIcon.ts` switches it on accent
+      change (only when it actually differs, to avoid iOS's "icon changed" alert).
 - [x] **Workout Live Activity** (Lock Screen + Dynamic Island) — an in-progress-workout activity showing the
       current exercise, sets done / total, a self-ticking elapsed (and rest) timer, and volume. ActivityKit
       lifecycle in a **local Expo native module** (`modules/hale-live-activity/`) driven by `lib/liveActivity.ts`;

@@ -16,6 +16,8 @@ struct WorkoutActivityAttributes: ActivityAttributes {
         var totalExercises: Int
         var startedAt: Date
         var restEndsAt: Date?
+        var elapsedText: String
+        var restText: String
         var volumeText: String
         var caloriesText: String
     }

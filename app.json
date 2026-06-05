@@ -95,7 +95,17 @@
           "bluetoothAlwaysPermission": "Hale connects to a compatible Bluetooth smart tape measure to log body measurements."
         }
       ],
-      "@bacons/apple-targets"
+      "@bacons/apple-targets",
+      [
+        "expo-alternate-app-icons",
+        [
+          { "name": "Violet", "ios": "./assets/icons/accent-violet.png", "android": { "foregroundImage": "./assets/images/android-icon-foreground.png", "backgroundColor": "#8b5cf6" } },
+          { "name": "Sky", "ios": "./assets/icons/accent-sky.png", "android": { "foregroundImage": "./assets/images/android-icon-foreground.png", "backgroundColor": "#0ea5e9" } },
+          { "name": "Emerald", "ios": "./assets/icons/accent-emerald.png", "android": { "foregroundImage": "./assets/images/android-icon-foreground.png", "backgroundColor": "#10b981" } },
+          { "name": "Amber", "ios": "./assets/icons/accent-amber.png", "android": { "foregroundImage": "./assets/images/android-icon-foreground.png", "backgroundColor": "#f59e0b" } },
+          { "name": "Rose", "ios": "./assets/icons/accent-rose.png", "android": { "foregroundImage": "./assets/images/android-icon-foreground.png", "backgroundColor": "#f43f5e" } }
+        ]
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

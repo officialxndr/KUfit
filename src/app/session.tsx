@@ -14,9 +14,10 @@ import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useNavStore } from '@/stores/navStore';
 import { updateLiveActivity, setLiveActivityRest } from '@/lib/liveActivity';
+import { scheduleRestEndNotification, cancelRestEndNotification } from '@/lib/reminders';
 import { isPerSide } from '@/lib/load';
 import { toDisplay, toKg, UNIT_LABELS } from '@/lib/units';
-import { haptic } from '@/lib/haptics';
+import { haptic, playRestEndHaptic } from '@/lib/haptics';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { health } from '@/lib/health';
@@ -96,13 +97,28 @@ export default function SessionScreen() {
     return () => clearInterval(t);
   }, []);
 
+  // Refresh the Live Activity periodically so the (non-ticking) calorie estimate keeps advancing
+  // while the app is open. The elapsed/rest timers self-tick natively; only kcal needs this.
+  useEffect(() => {
+    if (!active) return;
+    const t = setInterval(() => updateLiveActivity(useSessionStore.getState()), 30000);
+    return () => clearInterval(t);
+  }, [active]);
+
+  // Drop any pending rest-over notification when leaving the workout (finish / discard / exit).
+  useEffect(() => () => { cancelRestEndNotification(); }, []);
+
   // Buzz once when a rest naturally counts down to zero (guarded by the rest's `endsAt` so
   // it fires once per rest, even though `restRemaining` is recomputed every render), and flip
   // the Live Activity back to the elapsed timer. Manual skip zeroes `endsAt`, so this won't fire.
   useEffect(() => {
     if (rest.endsAt > 0 && rest.total > 0 && restRemaining === 0 && restBuzzed.current !== rest.endsAt) {
       restBuzzed.current = rest.endsAt;
-      haptic.restOver();
+      // Only buzz in-app if it *just* ended (we're foreground). If it ended while backgrounded
+      // and we're only now seeing it on return, the rest notification already alerted — don't
+      // double-buzz. Either way, cancel the (now-redundant) notification.
+      if (Date.now() - rest.endsAt < 2500) playRestEndHaptic(useSettingsStore.getState().profile.restEndHaptic);
+      cancelRestEndNotification();
       setLiveActivityRest(0);
       updateLiveActivity(useSessionStore.getState());
     }
@@ -195,6 +211,18 @@ export default function SessionScreen() {
     // ticking natively on the Lock Screen / Dynamic Island even while the app is backgrounded).
     setLiveActivityRest(endsAt);
     updateLiveActivity(useSessionStore.getState());
+    // Background safety net: a local notification fires the buzz if the phone is locked when
+    // rest ends (JS is suspended + Vibration can't fire from the background). Suppressed in the
+    // foreground, where the in-app vibration handles it.
+    scheduleRestEndNotification(secs);
+  };
+
+  /** Skip/dismiss the current rest timer (and clear the Live Activity countdown). */
+  const skipRest = () => {
+    setRest({ exId: null, setId: null, endsAt: 0, total: 0 });
+    setLiveActivityRest(0);
+    updateLiveActivity(useSessionStore.getState());
+    cancelRestEndNotification();
   };
 
   const press = (key: string) => {
@@ -391,7 +419,13 @@ export default function SessionScreen() {
                     onPress={() => {
                       const nextDone = !st.done;
                       updateSet(ex.localId, st.localId, { done: nextDone });
-                      if (nextDone) { haptic.success(); if (restAfterSet(exercises, ex.localId, st.localId)) startRest(ex.localId, st.localId, st.restSeconds ?? (ex.restSeconds || 90)); }
+                      if (nextDone) {
+                        haptic.success();
+                        if (restAfterSet(exercises, ex.localId, st.localId)) startRest(ex.localId, st.localId, st.restSeconds ?? (ex.restSeconds || 90));
+                      } else if (rest.setId === st.localId) {
+                        // Un-checking the set that started the rest cancels its timer.
+                        skipRest();
+                      }
                     }}
                     style={[styles.check, st.done && { backgroundColor: colors.success, borderColor: colors.success }]}
                     hitSlop={6}
@@ -499,14 +533,7 @@ export default function SessionScreen() {
           <View style={styles.restBannerRow}>
             <Timer color={colors.primary} size={18} />
             <FsText variant="cardTitle" style={{ flex: 1, fontVariant: ['tabular-nums'] }}>Rest · {mmss(restRemaining)}</FsText>
-            <Pressable
-              onPress={() => {
-                setRest({ exId: null, setId: null, endsAt: 0, total: 0 });
-                setLiveActivityRest(0);
-                updateLiveActivity(useSessionStore.getState());
-              }}
-              hitSlop={8}
-            >
+            <Pressable onPress={skipRest} hitSlop={8}>
               <FsText variant="bodyMedium" style={{ color: colors.primary }}>Skip</FsText>
             </Pressable>
           </View>
@@ -524,6 +551,9 @@ export default function SessionScreen() {
                 <Timer color={colors.primary} size={15} />
                 <FsText variant="bodyMedium" style={{ color: colors.primary, flex: 1 }}>Rest</FsText>
                 <FsText variant="bodyMedium" style={{ color: colors.primary, fontVariant: ['tabular-nums'], fontWeight: '700' }}>{mmss(restRemaining)}</FsText>
+                <Pressable onPress={skipRest} hitSlop={8} style={{ marginLeft: space[3] }}>
+                  <FsText variant="bodyMedium" style={{ color: colors.muted }}>Skip</FsText>
+                </Pressable>
               </View>
               <View style={styles.restBarTrack}>
                 <View style={[styles.restBarFill, { width: `${restPct}%` }]} />

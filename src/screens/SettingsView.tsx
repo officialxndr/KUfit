@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, TextInput, StyleSheet, Pressable, Alert, Switch, Modal } from 'react-native';
+import { View, TextInput, StyleSheet, Pressable, Alert, Switch, Modal, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 
@@ -11,7 +11,8 @@ import { SwipeToConfirm } from '@/components/SwipeToConfirm';
 import { useDevStore } from '@/stores/devStore';
 import { useRefreshStore } from '@/stores/refreshStore';
 import { loadDemoData, clearLoggedData } from '@/lib/demoSeed';
-import { REST_END_HAPTICS } from '@/lib/haptics';
+import { REST_END_HAPTICS, fireDiagnosticHaptic, playRestEndHaptic } from '@/lib/haptics';
+import { applyAccentIcon, iconMatchesAccent } from '@/lib/appIcon';
 import { sendTestNotification } from '@/lib/reminders';
 import { writeAndShareBackup, importFromUri, wipeAllData } from '@/lib/backup';
 import { pickAvatar } from '@/lib/avatar';
@@ -345,6 +346,22 @@ export function SettingsView() {
             trackColor={{ true: colors.primary, false: colors.border }}
           />
         </View>
+        <View style={{ marginTop: space[3] }}>
+          <FsText variant="bodyMedium">Rest timer alert</FsText>
+          <FsText variant="caption" style={{ marginBottom: space[2] }}>
+            The ~3-second vibration when a rest timer finishes. Tap one to feel it.
+          </FsText>
+          <View style={styles.sourceRow}>
+            {REST_END_HAPTICS.map((h) => (
+              <Chip
+                key={h.key}
+                label={h.label}
+                selected={profile.restEndHaptic === h.key}
+                onPress={() => { setProfile({ restEndHaptic: h.key }); playRestEndHaptic(h.key); }}
+              />
+            ))}
+          </View>
+        </View>
       </Card>
 
       <Card hidden={!show(T.profile)} style={{ marginBottom: space[3] }}>
@@ -551,19 +568,26 @@ export function SettingsView() {
           <Button title="Clear logged data" variant="ghost" onPress={onClearDemo} disabled={seeding} style={{ marginTop: space[2] }} />
 
           <View style={styles.devDivider} />
-          <FsText variant="bodyMedium" style={{ marginBottom: space[1] }}>Rest-end haptics</FsText>
+          <FsText variant="bodyMedium" style={{ marginBottom: space[1] }}>Haptics</FsText>
           <FsText variant="caption" style={{ marginBottom: space[2] }}>
-            Tap each to feel it on a real device, then pick the cue for when a rest timer ends.
+            The rest-end vibration is chosen in Motion above. This checks the haptics engine.
           </FsText>
-          {REST_END_HAPTICS.map((h) => (
-            <Button
-              key={h.key}
-              title={h.label}
-              variant="ghost"
-              onPress={h.play}
-              style={{ marginTop: space[2] }}
-            />
-          ))}
+          <Button
+            title="Feel nothing? Diagnose haptics"
+            variant="ghost"
+            onPress={async () => {
+              try {
+                await fireDiagnosticHaptic();
+                Alert.alert(
+                  'Haptic sent',
+                  'If you felt nothing: check Settings → Sounds & Haptics → System Haptics is on, you’re not in Low Power Mode, and the app is in the foreground (iOS never plays haptics in the background). If it still fails, rebuild the app.'
+                );
+              } catch (e) {
+                Alert.alert('Haptics unavailable', `The native haptics module isn’t responding — rebuild the app (npx expo run:ios --device).\n\n${String(e)}`);
+              }
+            }}
+            style={{ marginTop: space[2] }}
+          />
 
           <View style={styles.devDivider} />
           <FsText variant="bodyMedium" style={{ marginBottom: space[1] }}>Notifications</FsText>
@@ -637,6 +661,7 @@ function Appearance({ hidden }: { hidden?: boolean }) {
   const setPreset = useThemeStore((s) => s.setPreset);
   const setAccent = useThemeStore((s) => s.setAccent);
   const [hex, setHex] = useState('');
+  const [, setIconBump] = useState(0); // re-render the "Match app icon" button after a swap
   const hexValid = HEX_RE.test(hex);
   const applyHex = () => { if (hexValid) setAccent(hex.startsWith('#') ? hex.toLowerCase() : `#${hex.toLowerCase()}`); };
 
@@ -686,6 +711,21 @@ function Appearance({ hidden }: { hidden?: boolean }) {
         />
         <Button title="Set" variant="ghost" onPress={applyHex} disabled={!hexValid} />
       </View>
+
+      {Platform.OS === 'ios' && (
+        <>
+          <Button
+            title={iconMatchesAccent(accent) ? 'App icon matches accent ✓' : 'Match app icon to accent'}
+            variant="ghost"
+            onPress={() => { applyAccentIcon(accent); setIconBump((n) => n + 1); }}
+            style={{ marginTop: space[3] }}
+          />
+          <FsText variant="caption" style={{ color: colors.muted, marginTop: space[1] }}>
+            Sets the iOS app icon background to your accent color. Preset accents only — a custom color
+            uses the default icon.
+          </FsText>
+        </>
+      )}
     </Card>
   );
 }

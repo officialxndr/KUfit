@@ -43,6 +43,18 @@ export function setLiveActivityRest(endsAtMs: number | null): void {
   currentRestEndsMs = endsAtMs && endsAtMs > Date.now() ? endsAtMs : 0;
 }
 
+/** Compact, glanceable duration — e.g. "1 hr 5 min", "23 min", "45 sec". Renders cleanly on the
+ *  Lock Screen / Always-On Display, where the system can't tick a live timer (it just freezes). */
+function fmtDuration(totalSeconds: number, withSeconds: boolean): string {
+  const s = Math.max(0, Math.round(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return m > 0 ? `${h} hr ${m} min` : `${h} hr`;
+  if (m > 0) return withSeconds && sec > 0 ? `${m} min ${sec} sec` : `${m} min`;
+  return `${sec} sec`;
+}
+
 function buildState(s: LiveActivitySession): Record<string, string | number> {
   const unit = useSettingsStore.getState().profile.unitSystem;
 
@@ -68,9 +80,12 @@ function buildState(s: LiveActivitySession): Record<string, string | number> {
   // Live calorie estimate (MET × bodyweight × elapsed) — the no-watch fallback the app
   // already uses on finish. Refreshes each push; the timer self-ticks between pushes.
   const startedAtMs = s.startedAt ? new Date(s.startedAt).getTime() : Date.now();
-  const elapsedMin = Math.max(0, (Date.now() - startedAtMs) / 60000);
+  const nowMs = Date.now();
+  const elapsedSec = Math.max(0, (nowMs - startedAtMs) / 1000);
   const bodyWeightKg = healthRepo.getLatestWeightEntry()?.weightKg ?? 75;
-  const kcal = Math.round(caloriesBurnedFromDuration(elapsedMin, bodyWeightKg));
+  const kcal = Math.round(caloriesBurnedFromDuration(elapsedSec / 60, bodyWeightKg));
+
+  const restEndsAtMs = currentRestEndsMs > nowMs ? currentRestEndsMs : 0;
 
   return {
     exerciseName: current ? current.exercise.name : 'Workout',
@@ -79,7 +94,10 @@ function buildState(s: LiveActivitySession): Record<string, string | number> {
     exerciseIndex: s.exercises.length ? idx + 1 : 0,
     totalExercises: s.exercises.length,
     startedAtMs,
-    restEndsAtMs: currentRestEndsMs > Date.now() ? currentRestEndsMs : 0,
+    restEndsAtMs,
+    // Pre-formatted unit strings for the Lock Screen / AOD (where a live timer can't tick).
+    elapsedText: fmtDuration(elapsedSec, false),
+    restText: restEndsAtMs ? fmtDuration((restEndsAtMs - nowMs) / 1000, true) : '',
     volumeText: volumeKg > 0 ? formatVolume(volumeKg, unit) : '',
     caloriesText: kcal > 0 ? `${kcal} kcal` : '',
   };

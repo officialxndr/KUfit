@@ -37,5 +37,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     saveThemeToDisk(preset, accent);
     set((s) => ({ accent, version: s.version + 1 }));
     syncWidget(); // recolor the iOS widget to match the new accent
+    // The app icon is NOT auto-changed (iOS shows an alert on every switch) — the user opts in
+    // via "Match app icon to accent" in Settings → Appearance (see lib/appIcon.ts).
   },
 }));

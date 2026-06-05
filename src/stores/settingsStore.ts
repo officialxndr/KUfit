@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   ActiveCalorieSource, ActivityLevel, GoalMode, GoalType, MacroTargetMode, Sex, UnitSystem,
 } from '@/types';
+import type { RestEndHaptic } from '@/lib/haptics';
 
 /** A user-tracked secondary nutrient goal (beyond calories/macros). */
 export interface NutrientGoal {
@@ -52,6 +53,8 @@ export interface Profile {
   showCoachingNudges: boolean;
   /** When false, skip the celebratory summary screen after finishing a workout. */
   showWorkoutSummary: boolean;
+  /** Vibration pattern played when a rest timer finishes. */
+  restEndHaptic: RestEndHaptic;
   /** Master switch for UI motion (also gated by the OS Reduce-Motion setting). */
   animationsEnabled: boolean;
   /** When false, celebration confetti is suppressed (other motion still plays). */
@@ -91,6 +94,7 @@ const DEFAULT_PROFILE: Profile = {
   activeCalorieSource: 'off',
   showCoachingNudges: true,
   showWorkoutSummary: true,
+  restEndHaptic: 'pulse',
   animationsEnabled: true,
   confettiEnabled: true,
   navyBodyFatEnabled: true,

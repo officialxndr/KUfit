@@ -26,14 +26,19 @@ struct WorkoutLiveActivityView: View {
             Spacer(minLength: 0)
             VStack(alignment: .trailing, spacing: 2) {
                 if let rest = st.restEndsAt, rest > Date() {
+                    // Rest: a real countdown — `timerInterval` ticks natively even on the Lock
+                    // Screen / Always-On Display (the system updates it without app pushes).
                     Text("REST").font(.system(size: 9, weight: .bold)).foregroundStyle(t.accent)
                     Text(timerInterval: Date()...rest, countsDown: true)
                         .font(.system(size: 22, weight: .bold, design: .rounded)).monospacedDigit()
-                        .multilineTextAlignment(.trailing).foregroundStyle(t.text).frame(maxWidth: 82)
+                        .multilineTextAlignment(.trailing).foregroundStyle(t.text).lineLimit(1).minimumScaleFactor(0.7)
                 } else {
-                    Text(st.startedAt, style: .timer)
-                        .font(.system(size: 22, weight: .bold, design: .rounded)).monospacedDigit()
-                        .multilineTextAlignment(.trailing).foregroundStyle(t.text).frame(maxWidth: 82)
+                    // Elapsed: a self-updating relative duration ("3 min", "1 hr 5 min"). `.relative`
+                    // both shows units AND ticks on the Lock Screen / AOD (system-updated ~once a min),
+                    // so it doesn't freeze when locked the way a pushed string does.
+                    Text(st.startedAt, style: .relative)
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .multilineTextAlignment(.trailing).foregroundStyle(t.text).lineLimit(1).minimumScaleFactor(0.5)
                 }
                 let sub = [st.caloriesText, st.volumeText].filter { !$0.isEmpty }.joined(separator: " · ")
                 if !sub.isEmpty {
@@ -72,9 +77,9 @@ struct WorkoutLiveActivity: Widget {
                             .font(.system(size: 18, weight: .bold, design: .rounded)).monospacedDigit()
                             .multilineTextAlignment(.trailing).frame(maxWidth: 72).foregroundStyle(t.accent)
                     } else {
-                        Text(st.startedAt, style: .timer)
-                            .font(.system(size: 18, weight: .bold, design: .rounded)).monospacedDigit()
-                            .multilineTextAlignment(.trailing).frame(maxWidth: 72)
+                        Text(st.startedAt, style: .relative)
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .multilineTextAlignment(.trailing).frame(maxWidth: 96).lineLimit(1).minimumScaleFactor(0.5)
                     }
                 }
                 DynamicIslandExpandedRegion(.bottom) {
@@ -94,7 +99,7 @@ struct WorkoutLiveActivity: Widget {
                     Text(timerInterval: Date()...rest, countsDown: true)
                         .monospacedDigit().frame(maxWidth: 44).foregroundStyle(t.accent)
                 } else {
-                    Text(st.startedAt, style: .timer).monospacedDigit().frame(maxWidth: 44)
+                    Text(timerInterval: st.startedAt...st.startedAt.addingTimeInterval(86400), countsDown: false).monospacedDigit().frame(maxWidth: 44)
                 }
             } minimal: {
                 Image(systemName: "dumbbell.fill").foregroundStyle(t.accent)
