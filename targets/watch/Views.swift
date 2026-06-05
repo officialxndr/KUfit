@@ -354,3 +354,46 @@ struct SummaryView: View {
         }
     }
 }
+
+// MARK: - Previews (Xcode canvas — iterate the UI live, no build/install)
+//
+// Open this file in Xcode (HaleWatch scheme) and use the canvas. These render with mock data,
+// so they don't need a device, WatchConnectivity, or HealthKit. Preview code is dev-only.
+
+#if DEBUG
+private extension Snapshot {
+    static func mockActive(rest: Bool = false, field: String = "weight") -> Snapshot {
+        let startMs = (Date().timeIntervalSince1970 - 600) * 1000
+        let restMs = rest ? (Date().timeIntervalSince1970 + 45) * 1000 : 0
+        let json = """
+        {"active":true,"workoutName":"Push Day","startedAtMs":\(startMs),"exerciseName":"Bench Press",
+        "exerciseIndex":2,"totalExercises":5,"setsDone":4,"totalSets":15,"volumeText":"4,500 lb",
+        "restEndsAtMs":\(restMs),"restTotal":60,"unitLabel":"lbs","currentField":"\(field)",
+        "currentSet":{"exId":"e1","setId":"s3","setNumber":3,"side":"","weight":135,"reps":8,"prevText":"135 × 8"},
+        "theme":{"accent":"#6366f1","bg":"#0a0a0a","surface":"#141414","surfaceHigh":"#1f1f1f","text":"#ffffff","muted":"#8a8a8a","border":"#2a2a2a"}}
+        """
+        return try! JSONDecoder().decode(Snapshot.self, from: Data(json.utf8))
+    }
+    static func mockIdle() -> Snapshot {
+        let json = """
+        {"active":false,"unitLabel":"lbs","nextTemplateId":"t1","nextWorkoutName":"Pull Day",
+        "templates":[{"id":"t1","name":"Pull Day","exerciseCount":6},{"id":"t2","name":"Leg Day","exerciseCount":5},{"id":"t3","name":"Push Day","exerciseCount":5}],
+        "theme":{"accent":"#6366f1","bg":"#0a0a0a","surface":"#141414","surfaceHigh":"#1f1f1f","text":"#ffffff","muted":"#8a8a8a","border":"#2a2a2a"}}
+        """
+        return try! JSONDecoder().decode(Snapshot.self, from: Data(json.utf8))
+    }
+}
+
+#Preview("Entry") {
+    ActiveWorkoutView(snapshot: .mockActive(), wc: WatchConnectivityManager(), workout: WorkoutManager()) { _ in }
+}
+#Preview("Rest") {
+    ActiveWorkoutView(snapshot: .mockActive(rest: true), wc: WatchConnectivityManager(), workout: WorkoutManager()) { _ in }
+}
+#Preview("Start menu") {
+    StartMenuView(snapshot: .mockIdle(), wc: WatchConnectivityManager(), palette: Palette(Snapshot.mockIdle().theme))
+}
+#Preview("Summary") {
+    SummaryView(summary: WorkoutSummary(durationText: "42:10", sets: 15, volumeText: "12,400 lb", kcal: 320), palette: Palette()) {}
+}
+#endif
