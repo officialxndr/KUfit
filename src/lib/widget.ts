@@ -160,7 +160,9 @@ function buildWorkout(profile: Profile) {
 }
 
 // ── Theme (so home widgets match the in-app appearance) ───────────────────────
-function buildTheme() {
+/** The live app theme (accent + surface colors) as flat values for native extensions.
+ *  Shared by the iOS widget snapshot here and the Apple Watch snapshot (`src/lib/watch.ts`). */
+export function buildTheme() {
   const { preset } = getActiveTheme();
   const dark = SURFACE_PRESETS[preset]?.dark ?? true;
   return {

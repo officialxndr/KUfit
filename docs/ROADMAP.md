@@ -20,6 +20,18 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       `sessionStore` starts/updates/ends it. SwiftUI in the widget extension (`targets/widget/LiveActivity.swift`),
       themed from the same snapshot. Lays groundwork (native module + shared `ActivityAttributes`) reusable by a
       future Apple Watch app. Needs `NSSupportsLiveActivities` + a dev/prod build (iOS 16.2+).
+- [x] **Apple Watch workout app** — a SwiftUI watchOS app (`targets/watch/`, built via `@bacons/apple-targets`
+      `type: 'watch'`) that's a rich **remote + display** for the phone's existing workout engine. Start a
+      workout from either device; on the watch see elapsed time + **HR-based live calories** (`HKWorkoutSession`)
+      and the **current set with a numpad** (a single **Next** walks weight → reps → done → rest), a **fullscreen
+      ring rest timer** that defills + dismisses to the next set, and a **finish → summary**. Idle, it shows a
+      **start menu** (default routine's next-up + your templates). The phone stays the brain: the watch sends
+      commands over **WatchConnectivity** (`modules/hale-watch/` native bridge + `src/lib/watch.ts`) that drive
+      the same `sessionStore`/`restStore` actions the phone UI calls, so PRs/volume/supersets/rest all reuse the
+      engine. The watch's HKWorkoutSession improves the phone's stored calories/HR for free (the existing
+      `finishActiveWorkout` reconciliation reads it from Health). Themed from the same snapshot (accent + surface).
+      Needs a paid team + a physical watch (App Groups/HealthKit can't be signed by a free team; workout features
+      don't run in the simulator).
 - [x] **iOS home & lock-screen widgets** — **four** WidgetKit/SwiftUI widgets users choose from: **Food**
       (calorie ring with remaining in the center + themed macro bars w/ numbers + weight/body-fat), **Workout**
       (next + last workout, this-week sessions/sets/volume), **Health** (weight, body-fat %/lean/fat mass,

@@ -5,6 +5,7 @@ import { loadFactor } from '@/lib/load';
 import { formatVolume } from '@/lib/units';
 import { caloriesBurnedFromDuration } from '@/lib/activities';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
+import { watchLiveCalories } from '@/lib/watch';
 import { useSettingsStore } from '@/stores/settingsStore';
 import type { LocalExercise } from '@/types';
 
@@ -83,7 +84,9 @@ function buildState(s: LiveActivitySession): Record<string, string | number> {
   const nowMs = Date.now();
   const elapsedSec = Math.max(0, (nowMs - startedAtMs) / 1000);
   const bodyWeightKg = healthRepo.getLatestWeightEntry()?.weightKg ?? 75;
-  const kcal = Math.round(caloriesBurnedFromDuration(elapsedSec / 60, bodyWeightKg));
+  // Prefer the Apple Watch's heart-rate-based active calories when a watch workout is running;
+  // fall back to the MET estimate (the no-watch default the app already uses on finish).
+  const kcal = watchLiveCalories() ?? Math.round(caloriesBurnedFromDuration(elapsedSec / 60, bodyWeightKg));
 
   const restEndsAtMs = currentRestEndsMs > nowMs ? currentRestEndsMs : 0;
 

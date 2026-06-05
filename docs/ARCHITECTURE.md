@@ -62,6 +62,12 @@ External network (Open Food Facts, ExerciseDB CDN) is called directly from the d
   orphan a superset (`removeExercise`, `ungroup`) run **`normalizeSupersets`** (see `lib/supersets.ts`).
   Per-set rest lives on `LocalSet.restSeconds` (in-memory only — not persisted/columned); the rest after
   a set is `set.restSeconds ?? exercise.restSeconds ?? 90`.
+- `restStore` — the active **rest countdown** (`endsAt`/`total`, a wall-clock epoch so it survives
+  backgrounding), lifted out of the session screen so it has one owner the phone **and** the Apple Watch can
+  read/drive. `startRest`/`skipRest` carry the side effects (feed the Live Activity countdown via
+  `setLiveActivityRest`, schedule the locked-phone rest-end notification, push a fresh watch snapshot);
+  `resetRest` is a pure clear for finish/discard teardown (it must not poke the Live Activity, which would
+  resurrect a just-ended one). `session.tsx` reads it for its in-app ring/banner + end buzz.
 - `templateDraftStore` — in-progress template being built; supports **editing** an existing template
   (`loadTemplate` + `editingId` → `WorkoutRepo.updateTemplate`), a `label`, and supersets (same
   `pendingSuperset`/`startSuperset`/`ungroup` pattern, persisted as `supersetGroup`). Order is set by
@@ -96,6 +102,25 @@ External network (Open Food Facts, ExerciseDB CDN) is called directly from the d
   snapshot and self-ticks the elapsed/rest timers via `Text(…style:.timer)` / `Text(timerInterval:)`.
   `WorkoutActivityAttributes` is duplicated in the module and the widget target (ActivityKit matches by type
   name) — keep both copies identical. Needs `NSSupportsLiveActivities` + a dev/prod build; iOS 16.2+.
+- **Apple Watch app** (`lib/watch.ts` + `modules/hale-watch/` + `targets/watch/`) — a SwiftUI watchOS app
+  that's a **remote + display** for the phone's workout engine (no engine on the watch). The transport is
+  **WatchConnectivity** — App Groups don't cross devices, so the widget's snapshot trick can't reach the watch.
+  Phone→watch: `lib/watch.ts` `buildSnapshot()` (same shape as `liveActivity.ts buildState()` — current
+  exercise/set, sets done/total, volume, rest end from `restStore`, the start-menu templates when idle, and the
+  same `buildTheme()` accent/surface colors as the widget) is JSON-pushed via the `HaleWatch` native module
+  (`updateApplicationContext` + a live `sendMessage` when reachable). Watch→phone: the watch sends commands
+  (`startEmpty`/`startTemplate`/`setValue`/`completeSet`/`skipRest`/`finish`/`discard`) + live HR/calorie
+  metrics, which `initWatchBridge()` routes onto the **same** `sessionStore`/`restStore` actions the phone UI
+  calls — so both devices stay in lockstep and all PR/volume/superset/rest logic is reused. `sessionStore`
+  pushes a fresh snapshot (`syncWatch`/`endWatch`) next to every Live Activity call; `themeStore` re-pushes on
+  theme change; `_layout.tsx` wires the bridge at launch. The watch runs an **`HKWorkoutSession`** for
+  heart-rate-based active calories (also keeps the app alive during rests) — pushed live for the Live Activity
+  calorie readout (`watchLiveCalories()`), and, because it's saved to HealthKit, picked up for free by the
+  phone's existing post-finish reconciliation (`finishActiveWorkout` → `getActiveEnergyBurned`). Finishing is
+  shared via `lib/finishWorkout.ts` (`finishActiveWorkout`, extracted from `session.tsx`). The watch's
+  fullscreen **ring rest timer** is driven by `restEndsAt` and self-ticks via `TimelineView` +
+  `Text(timerInterval:countsDown:)`. The Swift `Snapshot`/command shapes mirror the JS keys in `lib/watch.ts` —
+  keep them in sync. Needs a paid team + a physical watch (App Groups/HealthKit signing; no simulator).
 - **Pre-set templates** (`lib/presetTemplates.ts`, no store) — a static list of curated starter
   workouts that reference the bundled catalog by stable **`exerciseDbId`** (not localId). The
   `preset-templates` modal (opened from the Workout library card above Exercise Library) calls

@@ -4,6 +4,7 @@ import { epley1RM } from '@/lib/epley';
 import { normalizeSupersets } from '@/lib/supersets';
 import { appendRound, removeSetOrRound, expandToPairs, collapseToSingles, reorderLead } from '@/lib/unilateral';
 import { startLiveActivity, updateLiveActivity, endLiveActivity } from '@/lib/liveActivity';
+import { syncWatch, endWatch } from '@/lib/watch';
 import type { Exercise, LocalExercise, LocalSet, Side } from '@/types';
 
 /**
@@ -62,6 +63,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const sessionLocalId = workoutRepo.startSession(name);
     set({ active: true, sessionLocalId, name, startedAt: nowIso(), exercises: [], counter: 0, pendingSuperset: null });
     startLiveActivity(get());
+    syncWatch(get());
   },
 
   startFromTemplate: (templateLocalId, name) => {
@@ -69,6 +71,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const exercises = workoutRepo.buildLocalExercisesFromTemplate(templateLocalId);
     set({ active: true, sessionLocalId, name, startedAt: nowIso(), exercises, counter: 1000, pendingSuperset: null });
     startLiveActivity(get());
+    syncWatch(get());
   },
 
   addExercise: (exercise) => {
@@ -98,6 +101,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       };
     });
     updateLiveActivity(get());
+    syncWatch(get());
   },
 
   removeExercise: (localId) => {
@@ -105,6 +109,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       exercises: normalizeSupersets(s.exercises.filter((e) => e.localId !== localId)).map((e, i) => ({ ...e, order: i })),
     }));
     updateLiveActivity(get());
+    syncWatch(get());
   },
 
   startSuperset: (exLocalId) =>
@@ -139,6 +144,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       return { counter, exercises };
     });
     updateLiveActivity(get());
+    syncWatch(get());
   },
 
   updateSet: (exLocalId, setLocalId, patch) => {
@@ -150,7 +156,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       ),
     }));
     // Only completing/uncompleting a set changes the activity — skip weight/rep keystrokes.
-    if ('done' in patch) updateLiveActivity(get());
+    if ('done' in patch) { updateLiveActivity(get()); syncWatch(get()); }
   },
 
   removeSet: (exLocalId, setLocalId) => {
@@ -162,6 +168,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       ),
     }));
     updateLiveActivity(get());
+    syncWatch(get());
   },
 
   setNotes: (exLocalId, notes) =>
@@ -245,6 +252,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const id = sessionLocalId;
     set({ active: false, sessionLocalId: null, name: '', startedAt: null, exercises: [], counter: 0, pendingSuperset: null });
     endLiveActivity();
+    endWatch();
     return id;
   },
 
@@ -253,5 +261,6 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     if (sessionLocalId) workoutRepo.discardSession(sessionLocalId);
     set({ active: false, sessionLocalId: null, name: '', startedAt: null, exercises: [], counter: 0, pendingSuperset: null });
     endLiveActivity();
+    endWatch();
   },
 }));

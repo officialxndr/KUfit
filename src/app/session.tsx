@@ -11,26 +11,25 @@ import { KebabMenu } from '@/components/KebabMenu';
 import { AttachmentDropdown } from '@/components/AttachmentDropdown';
 import { PerArmDropdown } from '@/components/PerArmDropdown';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useRestStore } from '@/stores/restStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useNavStore } from '@/stores/navStore';
 import { updateLiveActivity, setLiveActivityRest } from '@/lib/liveActivity';
-import { scheduleRestEndNotification, cancelRestEndNotification } from '@/lib/reminders';
+import { watchLiveCalories } from '@/lib/watch';
+import { cancelRestEndNotification } from '@/lib/reminders';
+import { finishActiveWorkout } from '@/lib/finishWorkout';
 import { isPerSide } from '@/lib/load';
 import { toDisplay, toKg, UNIT_LABELS } from '@/lib/units';
 import { haptic, playRestEndHaptic } from '@/lib/haptics';
-import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { health } from '@/lib/health';
-import { useActiveCaloriesStore } from '@/stores/activeCaloriesStore';
 import { caloriesBurnedFromDuration } from '@/lib/activities';
-import { summarizeHeartRate, downsample } from '@/lib/heartRate';
 import { nextSetCell, restAfterSet, supersetRuns, supersetLabels } from '@/lib/supersets';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { LocalExercise, LocalSet } from '@/types';
 
 type Field = 'w' | 'r';
 interface Focus { ex: string; set: string; field: Field; }
-interface Rest { exId: string | null; setId: string | null; endsAt: number; total: number; }
 
 const mmss = (secs: number) => `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
 function elapsed(startedAt: string | null): string {
@@ -46,7 +45,7 @@ export default function SessionScreen() {
   const {
     active, name, startedAt, exercises,
     addSet, updateSet, removeSet, removeExercise, setNotes, setRestSeconds,
-    setExercisePerSide, setAttachment, setUnilateral, setLeadSide, startSuperset, ungroup, finish, discard,
+    setExercisePerSide, setAttachment, setUnilateral, setLeadSide, startSuperset, ungroup, discard,
   } = useSessionStore();
 
   const REST_PRESETS = [30, 60, 90, 120, 180];
@@ -58,11 +57,12 @@ export default function SessionScreen() {
   const [focus, setFocus] = useState<Focus | null>(null);
   const [pristine, setPristine] = useState(true);
   const focusCell = (next: Focus) => { setFocus(next); setPristine(true); };
-  const [rest, setRest] = useState<Rest>({ exId: null, setId: null, endsAt: 0, total: 0 });
-  // Remaining is derived from a wall-clock end time (not a decrementing counter), so it stays
-  // correct after the app is backgrounded — JS timers freeze, but `endsAt` doesn't. The 1s
-  // `force` re-render below keeps the displayed value ticking while the app is active.
-  const restRemaining = rest.endsAt > 0 ? Math.max(0, Math.ceil((rest.endsAt - Date.now()) / 1000)) : 0;
+  // Rest lives in a shared store (driven by either the phone or the Apple Watch — see
+  // src/stores/restStore.ts). Remaining is derived from a wall-clock end time (not a
+  // decrementing counter), so it stays correct after the app is backgrounded — JS timers
+  // freeze, but `endsAt` doesn't. The 1s `force` re-render below keeps it ticking while active.
+  const { endsAt: restEndsAt, total: restTotal, setId: restSetId, startRest, skipRest } = useRestStore();
+  const restRemaining = restEndsAt > 0 ? Math.max(0, Math.ceil((restEndsAt - Date.now()) / 1000)) : 0;
   const restBuzzed = useRef(0);
   const [notesEx, setNotesEx] = useState<{ id: string; text: string } | null>(null);
   const [loadEx, setLoadEx] = useState<{ id: string; perSide: boolean } | null>(null);
@@ -105,24 +105,25 @@ export default function SessionScreen() {
     return () => clearInterval(t);
   }, [active]);
 
-  // Drop any pending rest-over notification when leaving the workout (finish / discard / exit).
-  useEffect(() => () => { cancelRestEndNotification(); }, []);
+  // Clear the rest timer (and its pending notification) when leaving the workout
+  // (finish / discard / exit). resetRest is a pure clear — it won't resurrect the Live Activity.
+  useEffect(() => () => { useRestStore.getState().resetRest(); }, []);
 
   // Buzz once when a rest naturally counts down to zero (guarded by the rest's `endsAt` so
   // it fires once per rest, even though `restRemaining` is recomputed every render), and flip
   // the Live Activity back to the elapsed timer. Manual skip zeroes `endsAt`, so this won't fire.
   useEffect(() => {
-    if (rest.endsAt > 0 && rest.total > 0 && restRemaining === 0 && restBuzzed.current !== rest.endsAt) {
-      restBuzzed.current = rest.endsAt;
+    if (restEndsAt > 0 && restTotal > 0 && restRemaining === 0 && restBuzzed.current !== restEndsAt) {
+      restBuzzed.current = restEndsAt;
       // Only buzz in-app if it *just* ended (we're foreground). If it ended while backgrounded
       // and we're only now seeing it on return, the rest notification already alerted — don't
       // double-buzz. Either way, cancel the (now-redundant) notification.
-      if (Date.now() - rest.endsAt < 2500) playRestEndHaptic(useSettingsStore.getState().profile.restEndHaptic);
+      if (Date.now() - restEndsAt < 2500) playRestEndHaptic(useSettingsStore.getState().profile.restEndHaptic);
       cancelRestEndNotification();
       setLiveActivityRest(0);
       updateLiveActivity(useSessionStore.getState());
     }
-  }, [restRemaining, rest.endsAt, rest.total]);
+  }, [restRemaining, restEndsAt, restTotal]);
 
   // Live heart-rate readout — polls Health every few seconds while the session is
   // active. Returns null in Expo Go / without a watch, so the header simply hides it.
@@ -157,35 +158,8 @@ export default function SessionScreen() {
       return;
     }
     finishing.current = true;
-    const start = startedAt;
-    const endIso = new Date().toISOString();
-    const durationMin = start
-      ? Math.min(360, Math.max(1, Math.round((Date.now() - new Date(start).getTime()) / 60000)))
-      : 0;
-    const estimate = caloriesBurnedFromDuration(durationMin, bodyWeightKg);
-    const id = finish(estimate);
-    const calSource = useSettingsStore.getState().profile.activeCalorieSource;
-    // Refresh the daily active-calorie eat-back now that a workout landed.
-    useActiveCaloriesStore.getState().refresh(calSource);
-    // Reconcile with measured active energy (Apple Watch / Health Connect) once it returns.
-    if (id && start) {
-      health
-        .getActiveEnergyBurned(start, endIso)
-        .then((measured) => {
-          if (measured && measured > 0) workoutRepo.setSessionCalories(id, Math.round(measured));
-          useActiveCaloriesStore.getState().refresh(calSource);
-        })
-        .catch(() => {});
-      // Pull the watch's heart-rate samples for the workout window → store summary + series.
-      health
-        .getHeartRateSamples(start, endIso)
-        .then((bpms) => {
-          if (!bpms?.length) return;
-          const summary = summarizeHeartRate(bpms);
-          if (summary) workoutRepo.setSessionHeartRate(id, { ...summary, samples: downsample(bpms) });
-        })
-        .catch(() => {});
-    }
+    // Persist + reconcile calories/HR from Health (shared with the Apple Watch finish path).
+    const id = finishActiveWorkout();
     if (id && useSettingsStore.getState().profile.showWorkoutSummary) router.replace({ pathname: '/workout-summary', params: { id } });
     else backToWorkout('history');
   };
@@ -202,27 +176,6 @@ export default function SessionScreen() {
       // the library. (Navigating here too would double-replace → the "wipe back" flash.)
       { text: 'Discard', style: 'destructive', onPress: () => discard() },
     ]);
-  };
-
-  const startRest = (exId: string, setId: string, secs: number) => {
-    const endsAt = Date.now() + secs * 1000;
-    setRest({ exId, setId, endsAt, total: secs });
-    // Feed the same end time to the Live Activity so its countdown stays in sync (and keeps
-    // ticking natively on the Lock Screen / Dynamic Island even while the app is backgrounded).
-    setLiveActivityRest(endsAt);
-    updateLiveActivity(useSessionStore.getState());
-    // Background safety net: a local notification fires the buzz if the phone is locked when
-    // rest ends (JS is suspended + Vibration can't fire from the background). Suppressed in the
-    // foreground, where the in-app vibration handles it.
-    scheduleRestEndNotification(secs);
-  };
-
-  /** Skip/dismiss the current rest timer (and clear the Live Activity countdown). */
-  const skipRest = () => {
-    setRest({ exId: null, setId: null, endsAt: 0, total: 0 });
-    setLiveActivityRest(0);
-    updateLiveActivity(useSessionStore.getState());
-    cancelRestEndNotification();
   };
 
   const press = (key: string) => {
@@ -400,7 +353,7 @@ export default function SessionScreen() {
         const nextSet = ex.sets[i + 1];
         const wFocused = focus?.ex === ex.localId && focus?.set === st.localId && focus?.field === 'w';
         const rFocused = focus?.ex === ex.localId && focus?.set === st.localId && focus?.field === 'r';
-        const restHere = rest.setId === st.localId && restRemaining > 0;
+        const restHere = restSetId === st.localId && restRemaining > 0;
         return (
           <Fragment key={st.localId}>
             <Swipeable renderRightActions={() => renderSwipeActions(ex, st)} overshootRight={false}>
@@ -422,7 +375,7 @@ export default function SessionScreen() {
                       if (nextDone) {
                         haptic.success();
                         if (restAfterSet(exercises, ex.localId, st.localId)) startRest(ex.localId, st.localId, st.restSeconds ?? (ex.restSeconds || 90));
-                      } else if (rest.setId === st.localId) {
+                      } else if (restSetId === st.localId) {
                         // Un-checking the set that started the rest cancels its timer.
                         skipRest();
                       }
@@ -468,7 +421,7 @@ export default function SessionScreen() {
   );
 
   // Rest-timer fill: 100% at the start of the rest, depleting to 0% as it counts down.
-  const restPct = rest.total > 0 ? Math.max(0, Math.min(100, (restRemaining / rest.total) * 100)) : 0;
+  const restPct = restTotal > 0 ? Math.max(0, Math.min(100, (restRemaining / restTotal) * 100)) : 0;
 
   return (
     <GestureHandlerRootView style={styles.screen}>
@@ -480,7 +433,9 @@ export default function SessionScreen() {
             <FsText variant="caption" style={{ fontVariant: ['tabular-nums'] }}>{elapsed(startedAt)}</FsText>
             <Flame color={colors.muted} size={11} />
             <FsText variant="caption" style={{ fontVariant: ['tabular-nums'] }}>
-              {caloriesBurnedFromDuration(
+              {/* Prefer the Apple Watch's live HR-based calories when it's feeding them;
+                  fall back to the MET estimate otherwise. */}
+              {watchLiveCalories() ?? caloriesBurnedFromDuration(
                 startedAt ? (Date.now() - new Date(startedAt).getTime()) / 60000 : 0,
                 bodyWeightKg
               )} kcal

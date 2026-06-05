@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 import { applyTheme, saveThemeToDisk, getActiveTheme } from '@/theme/tokens';
 import { syncWidget } from '@/lib/widget';
+import { syncWatch } from '@/lib/watch';
 
 /**
  * Selected app theme (a surface **preset** + an **accent**). `version` bumps on
@@ -30,6 +31,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     saveThemeToDisk(preset, accent);
     set((s) => ({ preset, version: s.version + 1 }));
     syncWidget(); // recolor the iOS widget to match the new theme
+    syncWatch(); // and the Apple Watch app (theme rides in its snapshot)
   },
   setAccent: (accent) => {
     const { preset } = get();
@@ -37,6 +39,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     saveThemeToDisk(preset, accent);
     set((s) => ({ accent, version: s.version + 1 }));
     syncWidget(); // recolor the iOS widget to match the new accent
+    syncWatch(); // and the Apple Watch app
     // The app icon is NOT auto-changed (iOS shows an alert on every switch) — the user opts in
     // via "Match app icon to accent" in Settings → Appearance (see lib/appIcon.ts).
   },

@@ -11,6 +11,7 @@ import { seedBaseFoodsIfNeeded } from '@/lib/baseFoodsSeed';
 import { recoverTourPreview } from '@/lib/tourPreview';
 import { syncWidget } from '@/lib/widget';
 import { endLiveActivity } from '@/lib/liveActivity';
+import { initWatchBridge, syncWatch } from '@/lib/watch';
 import { configureNotifications, syncScheduledNotifications } from '@/lib/reminders';
 import { useRemindersStore } from '@/stores/remindersStore';
 import { useThemeStore } from '@/stores/themeStore';
@@ -50,8 +51,11 @@ export default function RootLayout() {
     // The active workout lives only in memory, so on a fresh launch there's never one in
     // progress — clear any Live Activity left ticking by a force-quit mid-workout.
     endLiveActivity();
+    // Wire the Apple Watch bridge (watch → phone commands) and push the current state so a
+    // freshly opened watch app is populated (active workout, or the start menu when idle).
+    initWatchBridge();
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'background' || state === 'active') syncWidget();
+      if (state === 'background' || state === 'active') { syncWidget(); syncWatch(); }
     });
     return () => sub.remove();
   }, []);

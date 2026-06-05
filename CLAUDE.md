@@ -88,6 +88,26 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   (`scheduleRestEndNotification` in `lib/reminders.ts`) — cancelled on skip/finish/unmount. The notification
   handler **suppresses it in the foreground** (where the in-app buzz fired); the buzz effect skips the in-app
   vibration if the rest ended >2.5s ago (i.e. while backgrounded — the notification already alerted).
+- **Rest timer state** lives in `stores/restStore.ts` (lifted out of `session.tsx` so the Apple Watch can drive
+  it too): `startRest`/`skipRest` own the side effects (Live Activity countdown, locked-phone notification,
+  watch push); `resetRest` is a **pure** clear for finish/discard teardown — never have finish call `skipRest`
+  (its `updateLiveActivity` would resurrect the just-ended activity). The session screen reads it for the in-app
+  ring + end buzz.
+- **Apple Watch app** (`targets/watch/` SwiftUI + `modules/hale-watch/` WatchConnectivity bridge +
+  `src/lib/watch.ts`): a **remote + display** for the phone's workout engine — the watch never reimplements it.
+  The phone is the brain: `lib/watch.ts` `buildSnapshot()` (JSON, pushed via the `HaleWatch` native module —
+  `updateApplicationContext` + live `sendMessage`) carries the current exercise/set, rest end (`restStore`),
+  templates (idle start menu), and the **same `buildTheme()` accent/surface** as the widget; the watch sends
+  commands back that `initWatchBridge()` routes onto the **same** `sessionStore`/`restStore` actions the phone
+  UI calls (so PR/volume/superset/rest logic is reused). `sessionStore` calls `syncWatch`/`endWatch` next to
+  every Live Activity call; `themeStore` re-pushes on theme change; `_layout.tsx` wires the bridge at launch.
+  The watch runs an **`HKWorkoutSession`** for HR-based live calories (kept for the Live Activity via
+  `watchLiveCalories()`; saved to Health, so the phone's existing `finishActiveWorkout` →
+  `getActiveEnergyBurned` reconciliation improves the stored number for free). Transport is **WatchConnectivity,
+  not App Groups** (those don't cross devices). The Swift `Snapshot`/command shapes in `targets/watch/` mirror
+  the JS keys in `lib/watch.ts` — **keep them in sync.** watchOS can't let the phone force the watch app
+  foreground: opening the watch app shows the active workout; starting from the **watch** is the reliable
+  foregrounding path. Needs a paid team + a physical watch (App Groups/HealthKit signing; no simulator).
 - **Per-accent app icon** (`lib/appIcon.ts` + `expo-alternate-app-icons` config plugin): the iOS app icon
   background follows the chosen accent. Preset accents (violet/sky/emerald/amber/rose) have pre-generated icons
   (white logo on the accent — `scripts/gen-accent-icons.mjs`, output `assets/icons/accent-*.png`, registered as
@@ -172,6 +192,15 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   ActivityKit code is iOS 16.2-gated. Live Activities **don't render in the simulator** — test on a device with
   a real workout (Lock Screen + Dynamic Island). The `WorkoutActivityAttributes.swift` copies in the module and
   `targets/widget/` must match exactly. `eas build` runs prebuild, so it ships automatically.
+- **Apple Watch app** (`modules/hale-watch/` local Expo module + `targets/watch/` `@bacons/apple-targets`
+  `type: 'watch'`): `expo prebuild` autolinks the `HaleWatch` pod (confirm in `ios/Podfile.lock`) and generates
+  the `HaleWatch.app` target (embedded via "Embed Watch Content"; companion bundle id tracks the dev/prod
+  variant → `…hale.dev.watch`). **Don't hand-edit the Xcode target** — edit the Swift in `targets/watch/` +
+  `expo-target.config.js`. The watch app needs a **paid team** (App Groups + HealthKit can't be signed free) and
+  a **physical watch** — WatchConnectivity + `HKWorkoutSession` don't work in the simulator. Sanity-check the
+  Swift without a device: `xcrun --sdk watchsimulator swiftc -typecheck -target arm64-apple-watchos11.0-simulator
+  -sdk "$(xcrun --sdk watchsimulator --show-sdk-path)" targets/watch/*.swift`. It ships with the default
+  (HealthKit) build, not `HEALTHKIT=0`. `eas build` runs prebuild, so it ships automatically.
 - **iOS widget** (`@bacons/apple-targets`): needs Xcode 16+ / a paid Apple team (App Groups can't be signed by a
   free team). `expo prebuild -p ios` regenerates the `HaleWidget` target from `targets/widget/` each time —
   **don't hand-edit the Xcode target**; edit `index.swift` / `expo-target.config.js`. EAS production builds run

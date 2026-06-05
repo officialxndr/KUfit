@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, TextInput, StyleSheet, Pressable, FlatList, ScrollView } from 'react-native';
+import { View, TextInput, StyleSheet, Pressable, FlatList, ScrollView, Alert } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -53,11 +53,27 @@ export default function ExercisesScreen() {
     router.back();
   };
 
+  // Guard against an accidental exit that would drop an in-progress selection.
+  const onExit = () => {
+    if (isPicking && selected.length > 0) {
+      Alert.alert(
+        'Discard selection?',
+        `You've selected ${selected.length} exercise${selected.length === 1 ? '' : 's'}. Leave without adding ${selected.length === 1 ? 'it' : 'them'}?`,
+        [
+          { text: 'Keep selecting', style: 'cancel' },
+          { text: 'Discard', style: 'destructive', onPress: () => router.back() },
+        ]
+      );
+      return;
+    }
+    router.back();
+  };
+
   return (
     <SafeAreaView style={styles.screen} edges={[]}>
       <View style={styles.header}>
         <FsText variant="h2">{isPicking ? 'Add exercises' : 'Exercise Library'}</FsText>
-        <Pressable onPress={() => router.back()} hitSlop={10}>
+        <Pressable onPress={onExit} hitSlop={10}>
           <X color={colors.text} size={24} />
         </Pressable>
       </View>
@@ -100,6 +116,7 @@ export default function ExercisesScreen() {
         extraData={selected}
         contentContainerStyle={{ paddingHorizontal: space[4], paddingBottom: 24 }}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         ListEmptyComponent={
           <View style={{ marginTop: space[4], gap: space[3], alignItems: 'flex-start' }}>
             <FsText variant="caption">{mine ? "You haven't created any exercises yet." : 'No exercises found.'}</FsText>
