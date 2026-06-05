@@ -100,6 +100,16 @@ For features that need native modules beyond Expo Go (camera, file system), use 
 npx expo run:ios          # builds + installs a dev client on a simulator/device
 ```
 
+### Iterating on the Apple Watch app (don't rebuild every time)
+- **UI / layout** (`targets/watch/Views.swift`) — use **Xcode SwiftUI Previews**: open the file in Xcode with
+  the **HaleWatch** scheme, show the canvas (Editor → Canvas / ⌥⌘↩), Resume. It renders the `#Preview` blocks
+  (Entry / Rest / Start menu / Summary) on a **simulated** watch and updates live as you edit — no device, no
+  build/install. (Previews never run on the physical watch; they use a watchOS simulator runtime.)
+- **What the watch displays / logic** (`src/lib/watch.ts`, `src/app/session.tsx`) — that's **JS**, so just
+  edit + reload the iPhone app and **Metro hot-reloads** it; the watch picks up the new snapshot, no rebuild.
+- **The real connected flow / HealthKit** — only this needs a full build+install (a paired iPhone+watch
+  **simulator** is faster + more reliable than the physical-watch link).
+
 ## Verifying without a device
 ```bash
 npx tsc --noEmit                                   # types

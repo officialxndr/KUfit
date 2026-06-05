@@ -222,6 +222,14 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   CoreDevice: `xcrun devicectl device install app --device <watch-udid> <HaleDev.app>/Watch/HaleWatch.app` (the
   watch↔Mac link is flaky — retry in a loop). The phone↔watch link itself uses **IdentityServices**; a "socket
   open timed out" in the device logs means restart both devices + toggle Bluetooth.
+  **Fast iteration (avoid the slow build+install):** the watch UI is native Swift, so don't rebuild for layout
+  tweaks — use **SwiftUI Previews**. `targets/watch/Views.swift` has `#Preview` blocks (Entry / Rest / Start
+  menu / Summary) with mock `Snapshot` data; open it in Xcode (scheme **HaleWatch**), show the canvas
+  (Editor → Canvas / ⌥⌘↩), Resume, and it renders on a **simulated** watch live as you edit (no device, no
+  WatchConnectivity/HealthKit). Anything **data/phone-side** (what the snapshot carries — `lib/watch.ts`,
+  `session.tsx`) is **JS → Metro hot-reload**: edit + reload the iPhone app and the watch picks up the new
+  snapshot, no rebuild. Only do a full build+install to test the real connected flow / HealthKit on hardware
+  (the watch **simulator** paired with an iPhone sim is faster + more reliable than the physical link).
 - **iOS widget** (`@bacons/apple-targets`): needs Xcode 16+ / a paid Apple team (App Groups can't be signed by a
   free team). `expo prebuild -p ios` regenerates the `HaleWidget` target from `targets/widget/` each time —
   **don't hand-edit the Xcode target**; edit `index.swift` / `expo-target.config.js`. EAS production builds run
