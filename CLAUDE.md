@@ -108,6 +108,14 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   the JS keys in `lib/watch.ts` — **keep them in sync.** watchOS can't let the phone force the watch app
   foreground: opening the watch app shows the active workout; starting from the **watch** is the reliable
   foregrounding path. Needs a paid team + a physical watch (App Groups/HealthKit signing; no simulator).
+  **Watch UI** (`targets/watch/Views.swift`): the set-entry screen is **steppers + Digital Crown** (no keypad)
+  — big value with **−/+** that step **weight by 5, reps by 1**, snapped to clean whole numbers (`snapped()`);
+  one **Next/Done** button; **Finish (✓) / Discard (✗) live in the nav toolbar** (stay visible during rest).
+  The **rest screen** is the screen *content* (not an overlay, so the toolbar stays): a ring with the countdown
+  centered, a **Next set** button below it, **solid black** background. The watch **mirrors the phone's focused
+  cell**: `session.tsx` calls `setWatchFocus()` on focus change → the snapshot's `currentSet`/`currentField`
+  follow the tapped cell (else the watch uses its own first-unfinished logic). The watch's live HR-based
+  calories also show in the **phone** session header (`watchLiveCalories()`).
 - **Per-accent app icon** (`lib/appIcon.ts` + `expo-alternate-app-icons` config plugin): the iOS app icon
   background follows the chosen accent. Preset accents (violet/sky/emerald/amber/rose) have pre-generated icons
   (white logo on the accent — `scripts/gen-accent-icons.mjs`, output `assets/icons/accent-*.png`, registered as
@@ -201,6 +209,19 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   Swift without a device: `xcrun --sdk watchsimulator swiftc -typecheck -target arm64-apple-watchos11.0-simulator
   -sdk "$(xcrun --sdk watchsimulator --show-sdk-path)" targets/watch/*.swift`. It ships with the default
   (HealthKit) build, not `HEALTHKIT=0`. `eas build` runs prebuild, so it ships automatically.
+  **GOTCHA — the bridge module's podspec must live in `modules/hale-watch/ios/`** (like `hale-live-activity`),
+  NOT the module root. If it's at the root the pod still links, but Expo autolinking **won't register
+  `HaleWatchModule` in `ExpoModulesProvider.swift`** → its `OnCreate` never runs → the phone's `WCSession` never
+  activates → the watch shows "open on iPhone" forever (the watch sends, the phone never answers). Verify after
+  prebuild: `grep HaleWatch "ios/Pods/Target Support Files/Pods-HaleDev/ExpoModulesProvider.swift"` should show
+  both `import HaleWatch` and `HaleWatchModule.self`.
+  **GOTCHA — installing a watchOS app on an Apple Watch SE (1st gen) / older watch**: its max is **watchOS 10.x**,
+  so the watch target's `deploymentTarget` is **10.0** (apple-targets defaults to 11.0, which drops it). Xcode 26
+  also can't *prepare* a watchOS-10 device for dev (DDI fetch 400s / control-channel timeouts), so a dev install
+  via the iPhone Watch app fails — instead install the embedded watch app **directly** once the watch is a
+  CoreDevice: `xcrun devicectl device install app --device <watch-udid> <HaleDev.app>/Watch/HaleWatch.app` (the
+  watch↔Mac link is flaky — retry in a loop). The phone↔watch link itself uses **IdentityServices**; a "socket
+  open timed out" in the device logs means restart both devices + toggle Bluetooth.
 - **iOS widget** (`@bacons/apple-targets`): needs Xcode 16+ / a paid Apple team (App Groups can't be signed by a
   free team). `expo prebuild -p ios` regenerates the `HaleWidget` target from `targets/widget/` each time —
   **don't hand-edit the Xcode target**; edit `index.swift` / `expo-target.config.js`. EAS production builds run

@@ -117,10 +117,18 @@ External network (Open Food Facts, ExerciseDB CDN) is called directly from the d
   heart-rate-based active calories (also keeps the app alive during rests) — pushed live for the Live Activity
   calorie readout (`watchLiveCalories()`), and, because it's saved to HealthKit, picked up for free by the
   phone's existing post-finish reconciliation (`finishActiveWorkout` → `getActiveEnergyBurned`). Finishing is
-  shared via `lib/finishWorkout.ts` (`finishActiveWorkout`, extracted from `session.tsx`). The watch's
-  fullscreen **ring rest timer** is driven by `restEndsAt` and self-ticks via `TimelineView` +
-  `Text(timerInterval:countsDown:)`. The Swift `Snapshot`/command shapes mirror the JS keys in `lib/watch.ts` —
-  keep them in sync. Needs a paid team + a physical watch (App Groups/HealthKit signing; no simulator).
+  shared via `lib/finishWorkout.ts` (`finishActiveWorkout`, extracted from `session.tsx`). The set-entry UI is
+  **steppers + Digital Crown** (no keypad): −/+ step weight by 5, reps by 1, `snapped()` to clean whole numbers;
+  Finish/Discard sit in the nav toolbar. The **rest screen** is screen content (toolbar stays visible): a ring
+  with the countdown centered (`TimelineView` + `Text(timerInterval:countsDown:)`), a Next-set button below, a
+  black background. The watch **mirrors the phone's focused cell** — `session.tsx` calls `setWatchFocus()` on
+  focus change, and `buildSnapshot` resolves the snapshot's `currentSet`/`currentField` to the focused cell
+  (falling back to the first-unfinished set when nothing is focused). The Swift `Snapshot`/command shapes mirror
+  the JS keys in `lib/watch.ts` — keep them in sync. **The `hale-watch` podspec must live in `modules/hale-watch/
+  ios/`** or the module won't register in `ExpoModulesProvider` (WCSession never activates — see CLAUDE.md).
+  Needs a paid team + a physical watch (App Groups/HealthKit signing; no simulator). Older watches (SE 1st-gen,
+  watchOS ≤10) need the watch deployment target at 10.0 + a direct `devicectl` install (Xcode 26 can't prepare
+  a watchOS-10 device).
 - **Pre-set templates** (`lib/presetTemplates.ts`, no store) — a static list of curated starter
   workouts that reference the bundled catalog by stable **`exerciseDbId`** (not localId). The
   `preset-templates` modal (opened from the Workout library card above Exercise Library) calls

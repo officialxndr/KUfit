@@ -129,8 +129,9 @@ struct ActiveWorkoutView: View {
                 Button("Cancel", role: .cancel) {}
             }
         }
-        .onChange(of: snapshot.currentSet?.setId) { _, _ in resetEntry() }
-        .onAppear { resetEntry() }
+        .onChange(of: snapshot.currentSet?.setId) { _, _ in syncFromSnapshot() }
+        .onChange(of: snapshot.currentField) { _, _ in syncFromSnapshot() }
+        .onAppear { syncFromSnapshot() }
         .onReceive(metricsTimer) { _ in
             if workout.running { wc.liveMetrics(kcal: workout.activeCalories, bpm: workout.heartRate) }
         }
@@ -241,9 +242,11 @@ struct ActiveWorkoutView: View {
         max(0, (v / stepAmount).rounded() * stepAmount)
     }
 
-    private func resetEntry() {
-        field = .weight
-        value = snapped(Double(snapshot.currentSet?.weight ?? 0))
+    /// Adopt the field the phone is focused on (or weight by default) + load that field's value.
+    private func syncFromSnapshot() {
+        field = (snapshot.currentField == "reps") ? .reps : .weight
+        guard let cs = snapshot.currentSet else { value = 0; return }
+        value = snapped(Double(field == .weight ? cs.weight : cs.reps))
     }
 
     private func step(_ dir: Int) {

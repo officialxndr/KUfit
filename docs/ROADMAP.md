@@ -23,15 +23,23 @@ Honest status of the rebuild. **Update this when features land or plans change.*
 - [x] **Apple Watch workout app** — a SwiftUI watchOS app (`targets/watch/`, built via `@bacons/apple-targets`
       `type: 'watch'`) that's a rich **remote + display** for the phone's existing workout engine. Start a
       workout from either device; on the watch see elapsed time + **HR-based live calories** (`HKWorkoutSession`)
-      and the **current set with a numpad** (a single **Next** walks weight → reps → done → rest), a **fullscreen
-      ring rest timer** that defills + dismisses to the next set, and a **finish → summary**. Idle, it shows a
+      and the **current set** entered with **−/+ steppers + the Digital Crown** (weight by 5, reps by 1, snapped
+      to clean numbers; a single **Next** walks weight → reps → done → rest), a **rest screen** (ring + countdown
+      centered, Next-set button below, Finish/Discard kept in the toolbar), and a **finish → summary**. The watch
+      **mirrors the phone's focused cell** (tap a set/field on the phone → the watch follows). Idle, it shows a
       **start menu** (default routine's next-up + your templates). The phone stays the brain: the watch sends
       commands over **WatchConnectivity** (`modules/hale-watch/` native bridge + `src/lib/watch.ts`) that drive
       the same `sessionStore`/`restStore` actions the phone UI calls, so PRs/volume/supersets/rest all reuse the
       engine. The watch's HKWorkoutSession improves the phone's stored calories/HR for free (the existing
-      `finishActiveWorkout` reconciliation reads it from Health). Themed from the same snapshot (accent + surface).
-      Needs a paid team + a physical watch (App Groups/HealthKit can't be signed by a free team; workout features
-      don't run in the simulator).
+      `finishActiveWorkout` reconciliation reads it from Health) and its live kcal shows in the phone session
+      header too. Themed from the same snapshot (accent + surface). Needs a paid team + a physical watch (App
+      Groups/HealthKit can't be signed by a free team; workout features don't run in the simulator). **Build
+      gotcha:** the `hale-watch` podspec must sit in `modules/hale-watch/ios/` or the WCSession module won't
+      register; older watches (SE 1st-gen / watchOS ≤10) need the deploy target at 10.0 + a direct `devicectl`
+      install.
+- [x] **Exercise picker polish** — selecting exercises for a workout/template now **confirms before exiting**
+      if you've made a selection (no accidental loss on a misclick), and the list **dismisses the keyboard on
+      scroll** (`keyboardDismissMode="on-drag"`). `src/app/exercises.tsx`.
 - [x] **iOS home & lock-screen widgets** — **four** WidgetKit/SwiftUI widgets users choose from: **Food**
       (calorie ring with remaining in the center + themed macro bars w/ numbers + weight/body-fat), **Workout**
       (next + last workout, this-week sessions/sets/volume), **Health** (weight, body-fat %/lean/fat mass,

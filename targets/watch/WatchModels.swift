@@ -48,6 +48,8 @@ struct Snapshot: Decodable, Equatable {
     let restTotal: Double?
     let unitLabel: String?
     let currentSet: CurrentSet?
+    /// Which field the phone wants the watch on: "weight" or "reps".
+    let currentField: String?
 
     // Idle start menu
     let templates: [TemplateItem]?

@@ -61,6 +61,22 @@ export function watchLiveCalories(): number | null {
   return null;
 }
 
+// ── Phone focus → watch ────────────────────────────────────────────────────────
+interface WatchFocus {
+  exId: string;
+  setId: string;
+  field: 'weight' | 'reps';
+}
+/** The cell the phone session screen is focused on; mirrored onto the watch so the watch
+ *  follows whatever you tap on the phone. Null = the watch uses its own "next set" logic. */
+let currentFocus: WatchFocus | null = null;
+
+/** Called from `session.tsx` when the focused cell changes (or clears). */
+export function setWatchFocus(focus: WatchFocus | null): void {
+  currentFocus = focus;
+  syncWatch();
+}
+
 // ── Snapshot ──────────────────────────────────────────────────────────────────
 /** The "current" exercise + set the watch should be entering: the first not-done set of the
  *  first exercise that still has one (else the last). Matches `liveActivity.ts`'s notion of
@@ -118,7 +134,27 @@ function buildSnapshot(s: WatchSession): Record<string, unknown> {
     }
   }
 
-  const { idx, ex, set } = currentCell(s);
+  // The set the watch shows + edits: the phone's focused cell when it has one (so the watch
+  // mirrors whatever you tap on the phone), otherwise the first unfinished set.
+  let idx = -1;
+  let ex: LocalExercise | null = null;
+  let set: LocalSet | null = null;
+  let currentField: 'weight' | 'reps' = 'weight';
+  const f = currentFocus;
+  if (f) {
+    idx = s.exercises.findIndex((e) => e.localId === f.exId);
+    ex = idx >= 0 ? s.exercises[idx] : null;
+    set = ex?.sets.find((st) => st.localId === f.setId) ?? null;
+    if (ex && set) currentField = f.field;
+  }
+  if (!ex || !set) {
+    const cc = currentCell(s);
+    idx = cc.idx;
+    ex = cc.ex;
+    set = cc.set;
+    currentField = 'weight';
+  }
+
   let currentSet: Record<string, unknown> | null = null;
   if (ex && set) {
     const prev = prevFor(ex, set);
@@ -152,6 +188,7 @@ function buildSnapshot(s: WatchSession): Record<string, unknown> {
     restTotal,
     unitLabel,
     currentSet,
+    currentField,
     theme,
   };
 }
@@ -169,6 +206,7 @@ export function syncWatch(s?: WatchSession): void {
 
 /** Tell the watch the workout ended — pushes the (idle) start-menu snapshot. */
 export function endWatch(): void {
+  currentFocus = null;
   syncWatch({ active: false, name: '', startedAt: null, exercises: [] });
 }
 

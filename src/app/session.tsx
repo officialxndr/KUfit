@@ -15,7 +15,7 @@ import { useRestStore } from '@/stores/restStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useNavStore } from '@/stores/navStore';
 import { updateLiveActivity, setLiveActivityRest } from '@/lib/liveActivity';
-import { watchLiveCalories } from '@/lib/watch';
+import { watchLiveCalories, setWatchFocus } from '@/lib/watch';
 import { cancelRestEndNotification } from '@/lib/reminders';
 import { finishActiveWorkout } from '@/lib/finishWorkout';
 import { isPerSide } from '@/lib/load';
@@ -108,6 +108,12 @@ export default function SessionScreen() {
   // Clear the rest timer (and its pending notification) when leaving the workout
   // (finish / discard / exit). resetRest is a pure clear — it won't resurrect the Live Activity.
   useEffect(() => () => { useRestStore.getState().resetRest(); }, []);
+
+  // Mirror the focused cell onto the Apple Watch so the watch follows what you tap on the phone
+  // (its current set + weight/reps field). Cleared when no cell is focused.
+  useEffect(() => {
+    setWatchFocus(focus ? { exId: focus.ex, setId: focus.set, field: focus.field === 'w' ? 'weight' : 'reps' } : null);
+  }, [focus?.ex, focus?.set, focus?.field]);
 
   // Buzz once when a rest naturally counts down to zero (guarded by the rest's `endsAt` so
   // it fires once per rest, even though `restRemaining` is recomputed every render), and flip
