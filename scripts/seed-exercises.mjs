@@ -31,6 +31,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pipeline } from 'node:stream/promises';
 import { debake } from './lib-debake.mjs';
+import { curate } from './lib-curate.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -223,9 +224,10 @@ async function main() {
   console.log('Fetching exercises from oss.exercisedb.dev …');
   const all = await fetchAll();
   console.log(`Got ${all.length} exercises.`);
-  const { list: cleaned, changed } = debake(all);
-  cleaned.sort((a, b) => a.name.localeCompare(b.name));
+  const { list: debaked, changed } = debake(all);
   console.log(`De-baked ${changed} attachment-bearing names.`);
+  const { list: cleaned, report } = curate(debaked);
+  console.log(`Curated: ${report.input} → ${report.output} (dropped ${report.droppedEquip + report.droppedName}, renamed ${report.renamed}, deduped ${report.deduped}).`);
   await writeFile(CATALOG, JSON.stringify(cleaned, null, 2));
   console.log(`Wrote ${CATALOG}`);
 

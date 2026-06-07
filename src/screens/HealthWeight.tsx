@@ -5,6 +5,7 @@ import { TrendingDown, TrendingUp, Maximize2, Minimize2 } from 'lucide-react-nat
 import Svg, { Path, Line, Circle, Text as SvgText } from 'react-native-svg';
 
 import { Card, FsText, Button, SectionHeader, Badge } from '@/components/ui';
+import { MilestoneProgressCard } from '@/components/MilestoneProgressCard';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { ActivitySuggestions } from '@/components/ActivitySuggestions';
 import { GoalWarning } from '@/components/GoalWarning';
@@ -97,6 +98,9 @@ export function HealthWeight() {
           })}
         </View>
       </Card>
+
+      {/* Milestone progress toward goal */}
+      <MilestoneProgressCard />
 
       {/* Log weight → popup */}
       <Button title="＋ Log Weight" onPress={() => router.push('/log-weight')} style={{ marginBottom: space[3] }} />

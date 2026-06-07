@@ -3,6 +3,25 @@
 Honest status of the rebuild. **Update this when features land or plans change.**
 
 ## Done
+- [x] **Exercise catalog cleanup (curation pass)** — generalized/de-noised the raw ExerciseDB set (~1500 →
+      ~1270) via a new `scripts/lib-curate.mjs`: drops gimmick families (stability/medicine/BOSU ball, ab
+      wheel, cardio machines), reclassifies mislabeled equipment (the "Sled" facet is the leg-press machine;
+      "Lever"→Machine), strips cosmetic/surface tags from names ("…on Exercise Ball", "(male)", "- X
+      Variation", "V. 2", parentheticals, mojibake) under a *Balanced* policy that keeps real variations
+      (incline/decline, grips, hammer, sumo, RDL…), and de-dupes the collapsed names keeping the GIF-bearing
+      row. Backfilled 22 missing common staples into `extra.json` (e.g. dumbbell sumo squat, goblet/front
+      squats, walking lunges, kettlebell deadlift/RDL/clean-and-press, pistol/cossack/wall-sit, cable
+      pull-through) so `scripts/coverage-check.mjs` reports 0 gaps across 160 staple movements. Wired into
+      `seed-exercises.mjs` for future regens; `SEED_VERSION` bumped so it reaches existing installs (renames
+      upsert in place; dropped rows are pruned).
+- [x] **Milestone progress card** — a weight-journey card with a filling bar from **starting weight → goal**,
+      milestone ticks, and a projected-date **ladder** (every 5 lb/2.5 kg or 10 lb/5 kg via an in-app toggle).
+      Pure math in `lib/milestones.ts` (`computeMilestones`); the card (`components/MilestoneProgressCard.tsx`)
+      reuses `computeStats().weeklyChange` for the rate so dates match the existing Goal ETA. The starting
+      anchor is configurable (`milestoneStartBasis`: goal-phase start / earliest log / peak / custom — default
+      phase; persisted on `profile` with `milestoneInterval`/`milestoneStartKg`). Shown **compact on the
+      Dashboard** (tap → Weight tab) and **full on Health → Weight**; degrades gracefully with no goal /
+      <2 weigh-ins / goal reached / wrong-direction trend.
 - [x] **Full exercise catalog (1,500 + GIFs)** — fixed the seed to walk the source's `after`
       cursor (the working param; `cursor`/`offset`/`page` are ignored), pulling all ~1500 with GIFs
       (was ~440). Cleanup pass normalizes names, infers categories (Strength/Stretching/Cardio),

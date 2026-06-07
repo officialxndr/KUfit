@@ -1178,5 +1178,436 @@
       "Jump back to the start.",
       "Repeat at a steady rhythm."
     ]
+  },
+  {
+    "exerciseDbId": "hale-barbell-box-squat",
+    "name": "Barbell Box Squat",
+    "muscleGroup": "Upper legs",
+    "equipment": "Barbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Quads"
+    ],
+    "musclesSecondary": [
+      "Glutes",
+      "Hamstrings"
+    ],
+    "instructions": [
+      "Set a box behind you so squatting to it puts your thighs at or just below parallel; rack the bar on your upper back.",
+      "Brace and sit back under control until you settle briefly on the box without fully relaxing.",
+      "Drive through your whole foot to stand back up, keeping your chest up.",
+      "Repeat for the desired number of repetitions."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-barbell-stiff-leg-deadlift",
+    "name": "Barbell Stiff-Leg Deadlift",
+    "muscleGroup": "Upper legs",
+    "equipment": "Barbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Hamstrings"
+    ],
+    "musclesSecondary": [
+      "Glutes",
+      "Spine"
+    ],
+    "instructions": [
+      "Hold the bar at your thighs with a shoulder-width grip and only a slight bend in the knees.",
+      "Hinge at the hips and lower the bar along your legs until you feel a strong hamstring stretch.",
+      "Drive your hips forward to return to standing, squeezing your glutes at the top.",
+      "Repeat for the desired number of repetitions."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-barbell-push-press",
+    "name": "Barbell Push Press",
+    "muscleGroup": "Shoulders",
+    "equipment": "Barbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Delts"
+    ],
+    "musclesSecondary": [
+      "Triceps",
+      "Quads"
+    ],
+    "instructions": [
+      "Hold the bar at your front shoulders in a rack position, feet hip-width.",
+      "Dip slightly by bending the knees, then explosively drive up through your legs.",
+      "Use that leg drive to press the bar overhead to lockout, then lower it back to the shoulders.",
+      "Repeat for the desired number of repetitions."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-barbell-t-bar-row",
+    "name": "Barbell T-Bar Row",
+    "muscleGroup": "Back",
+    "equipment": "Barbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Upper back"
+    ],
+    "musclesSecondary": [
+      "Lats",
+      "Biceps"
+    ],
+    "instructions": [
+      "Straddle a landmine (or loaded barbell end) and hold the handle with both hands, hinging to about 45°.",
+      "Keep a flat back and pull the weight toward your lower chest, driving the elbows back.",
+      "Squeeze the shoulder blades together, then lower under control to a full stretch.",
+      "Repeat for the desired number of repetitions."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-barbell-walking-lunge",
+    "name": "Barbell Walking Lunge",
+    "muscleGroup": "Upper legs",
+    "equipment": "Barbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Quads"
+    ],
+    "musclesSecondary": [
+      "Glutes",
+      "Hamstrings"
+    ],
+    "instructions": [
+      "Rack the bar across your upper back and step forward into a lunge, lowering the back knee toward the floor.",
+      "Drive through the front heel to bring the back leg through into the next step.",
+      "Continue alternating legs for the desired distance or reps, keeping your torso upright."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-barbell-hang-clean",
+    "name": "Barbell Hang Clean",
+    "muscleGroup": "Upper legs",
+    "equipment": "Barbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Quads"
+    ],
+    "musclesSecondary": [
+      "Traps",
+      "Glutes"
+    ],
+    "instructions": [
+      "Hold the bar at your thighs (the hang position) with a shoulder-width grip, knees slightly bent.",
+      "Explosively extend the hips and knees, shrug, and pull yourself under the bar.",
+      "Catch the bar on your front shoulders in a quarter squat, then stand tall.",
+      "Lower to the hang and repeat for the desired number of repetitions."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-dumbbell-sumo-squat",
+    "name": "Dumbbell Sumo Squat",
+    "muscleGroup": "Upper legs",
+    "equipment": "Dumbbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Quads"
+    ],
+    "musclesSecondary": [
+      "Glutes",
+      "Adductors"
+    ],
+    "instructions": [
+      "Stand with a wide stance and toes turned slightly out, holding one dumbbell vertically against your chest or hanging between your legs.",
+      "Sit back and down, keeping your chest up and knees tracking over your toes, until your thighs are about parallel.",
+      "Drive through your heels to stand, squeezing your glutes at the top.",
+      "Repeat for the desired number of repetitions."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-dumbbell-front-squat",
+    "name": "Dumbbell Front Squat",
+    "muscleGroup": "Upper legs",
+    "equipment": "Dumbbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Quads"
+    ],
+    "musclesSecondary": [
+      "Glutes",
+      "Hamstrings"
+    ],
+    "instructions": [
+      "Hold a dumbbell in each hand resting on your front shoulders, elbows up.",
+      "Brace your core and squat down until your thighs reach about parallel, keeping your torso upright.",
+      "Drive through your whole foot to return to standing.",
+      "Repeat for the desired number of repetitions."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-dumbbell-floor-press",
+    "name": "Dumbbell Floor Press",
+    "muscleGroup": "Chest",
+    "equipment": "Dumbbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Pectorals"
+    ],
+    "musclesSecondary": [
+      "Triceps",
+      "Delts"
+    ],
+    "instructions": [
+      "Lie on the floor holding a dumbbell in each hand, upper arms resting on the ground at roughly 45°.",
+      "Press the dumbbells up until your arms are extended over your chest.",
+      "Lower under control until your triceps touch the floor, pause, then press again.",
+      "Repeat for the desired number of repetitions."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-dumbbell-walking-lunge",
+    "name": "Dumbbell Walking Lunge",
+    "muscleGroup": "Upper legs",
+    "equipment": "Dumbbell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Quads"
+    ],
+    "musclesSecondary": [
+      "Glutes",
+      "Hamstrings"
+    ],
+    "instructions": [
+      "Hold a dumbbell in each hand at your sides and step forward into a lunge, lowering the back knee toward the floor.",
+      "Drive through the front heel to bring the back leg through into the next step.",
+      "Continue alternating legs for the desired distance or reps."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-kettlebell-sumo-squat",
+    "name": "Kettlebell Sumo Squat",
+    "muscleGroup": "Upper legs",
+    "equipment": "Kettlebell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Quads"
+    ],
+    "musclesSecondary": [
+      "Glutes",
+      "Adductors"
+    ],
+    "instructions": [
+      "Stand with a wide stance, toes turned slightly out, holding a kettlebell by the horns at your chest or hanging between your legs.",
+      "Sit back and down until your thighs are about parallel, chest up.",
+      "Drive through your heels to stand and squeeze your glutes.",
+      "Repeat for the desired number of repetitions."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-kettlebell-deadlift",
+    "name": "Kettlebell Deadlift",
+    "muscleGroup": "Upper legs",
+    "equipment": "Kettlebell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Hamstrings"
+    ],
+    "musclesSecondary": [
+      "Glutes",
+      "Spine"
+    ],
+    "instructions": [
+      "Stand over a kettlebell placed between your feet, hip-width stance.",
+      "Hinge at the hips with a flat back and grip the handle with both hands.",
+      "Drive through your heels and extend your hips to stand tall, then hinge to lower it back down.",
+      "Repeat for the desired number of repetitions."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-kettlebell-romanian-deadlift",
+    "name": "Kettlebell Romanian Deadlift",
+    "muscleGroup": "Upper legs",
+    "equipment": "Kettlebell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Hamstrings"
+    ],
+    "musclesSecondary": [
+      "Glutes"
+    ],
+    "instructions": [
+      "Hold a kettlebell in front of your thighs with a slight knee bend.",
+      "Hinge at the hips and lower the bell along your legs until you feel a hamstring stretch.",
+      "Drive your hips forward to stand, squeezing your glutes at the top.",
+      "Repeat for the desired number of repetitions."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-kettlebell-clean-and-press",
+    "name": "Kettlebell Clean and Press",
+    "muscleGroup": "Shoulders",
+    "equipment": "Kettlebell",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Delts"
+    ],
+    "musclesSecondary": [
+      "Traps",
+      "Triceps",
+      "Quads"
+    ],
+    "instructions": [
+      "Clean the kettlebell from between your legs to the rack position at your shoulder in one smooth pull.",
+      "Brace, then press the bell overhead to lockout.",
+      "Lower it back to the rack and down between your legs; repeat, then switch sides."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-pistol-squat",
+    "name": "Pistol Squat",
+    "muscleGroup": "Upper legs",
+    "equipment": "Bodyweight",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Quads"
+    ],
+    "musclesSecondary": [
+      "Glutes",
+      "Hamstrings"
+    ],
+    "instructions": [
+      "Stand on one leg with the other extended out in front of you, arms forward for balance.",
+      "Sit back and down on the standing leg as low as you can control, keeping the free leg off the floor.",
+      "Drive through the standing heel to return to standing.",
+      "Repeat for reps, then switch legs."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-cossack-squat",
+    "name": "Cossack Squat",
+    "muscleGroup": "Upper legs",
+    "equipment": "Bodyweight",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Adductors"
+    ],
+    "musclesSecondary": [
+      "Quads",
+      "Glutes"
+    ],
+    "instructions": [
+      "Stand with a very wide stance, feet pointing slightly out.",
+      "Shift your weight onto one leg and squat down over it, keeping the other leg straight with the toes up.",
+      "Push back up to center, then repeat to the other side."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-wall-sit",
+    "name": "Wall Sit",
+    "muscleGroup": "Upper legs",
+    "equipment": "Bodyweight",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Quads"
+    ],
+    "musclesSecondary": [
+      "Glutes"
+    ],
+    "instructions": [
+      "Lean your back flat against a wall and walk your feet out, sliding down until your thighs are parallel to the floor.",
+      "Keep your knees over your ankles and hold the position, breathing steadily.",
+      "Hold for the desired time."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-single-leg-romanian-deadlift",
+    "name": "Single-Leg Romanian Deadlift",
+    "muscleGroup": "Upper legs",
+    "equipment": "Bodyweight",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Hamstrings"
+    ],
+    "musclesSecondary": [
+      "Glutes",
+      "Spine"
+    ],
+    "instructions": [
+      "Stand on one leg with a slight knee bend, arms hanging in front.",
+      "Hinge at the hip and lower your torso while the free leg extends straight behind you, keeping hips square.",
+      "Return to standing by squeezing the glute of the standing leg.",
+      "Repeat for reps, then switch legs."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-bicycle-crunch",
+    "name": "Bicycle Crunch",
+    "muscleGroup": "Waist",
+    "equipment": "Bodyweight",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Abs"
+    ],
+    "musclesSecondary": [
+      "Hip flexors"
+    ],
+    "instructions": [
+      "Lie on your back with hands lightly behind your head and legs raised, knees bent.",
+      "Bring one elbow toward the opposite knee while extending the other leg.",
+      "Alternate sides in a smooth pedaling motion, twisting through your core.",
+      "Repeat for the desired number of repetitions."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-v-up",
+    "name": "V-Up",
+    "muscleGroup": "Waist",
+    "equipment": "Bodyweight",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Abs"
+    ],
+    "musclesSecondary": [
+      "Hip flexors"
+    ],
+    "instructions": [
+      "Lie flat on your back with arms extended overhead and legs straight.",
+      "Simultaneously lift your torso and legs, reaching your hands toward your feet to form a V.",
+      "Lower under control without letting your shoulders or heels touch down.",
+      "Repeat for the desired number of repetitions."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-cable-pull-through",
+    "name": "Cable Pull-Through",
+    "muscleGroup": "Upper legs",
+    "equipment": "Cable",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Glutes"
+    ],
+    "musclesSecondary": [
+      "Hamstrings"
+    ],
+    "instructions": [
+      "Set a rope on a low pulley, face away, and straddle the cable holding the rope between your legs.",
+      "Step forward to load the stack, then hinge at the hips with a flat back, letting the rope travel between your legs.",
+      "Drive your hips forward to stand tall, squeezing your glutes hard at the top.",
+      "Repeat for the desired number of repetitions."
+    ]
+  },
+  {
+    "exerciseDbId": "hale-cable-close-grip-lat-pulldown",
+    "name": "Cable Close-Grip Lat Pulldown",
+    "muscleGroup": "Back",
+    "equipment": "Cable",
+    "category": "STRENGTH",
+    "musclesPrimary": [
+      "Lats"
+    ],
+    "musclesSecondary": [
+      "Biceps",
+      "Upper back"
+    ],
+    "instructions": [
+      "Attach a close-grip (V) handle to the high pulley and sit with your thighs anchored under the pads.",
+      "Grip the handle with palms facing and lean back slightly, chest up.",
+      "Pull the handle to your upper chest, driving the elbows down and back, then return under control to a full stretch.",
+      "Repeat for the desired number of repetitions."
+    ]
   }
 ]

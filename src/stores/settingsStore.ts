@@ -68,6 +68,13 @@ export interface Profile {
   nutrientGoals: NutrientGoal[];
   /** Per-site body-measurement goals, keyed by site, value in cm. */
   measurementGoals: Record<string, number>;
+  // ── Milestone progress card (Dashboard + Health → Weight) ──
+  /** Milestone spacing: 'small' = 5 lb / 2.5 kg, 'large' = 10 lb / 5 kg. */
+  milestoneInterval: 'small' | 'large';
+  /** What anchors the left ("starting weight") end of the milestone bar. */
+  milestoneStartBasis: 'phase' | 'earliest' | 'peak' | 'custom';
+  /** User-set starting weight in kg, used only when milestoneStartBasis === 'custom'. */
+  milestoneStartKg: number | null;
 }
 
 const DEFAULT_PROFILE: Profile = {
@@ -101,6 +108,9 @@ const DEFAULT_PROFILE: Profile = {
   weeklySessionTarget: null,
   nutrientGoals: [],
   measurementGoals: {},
+  milestoneInterval: 'large',
+  milestoneStartBasis: 'phase',
+  milestoneStartKg: null,
 };
 
 interface SettingsState {

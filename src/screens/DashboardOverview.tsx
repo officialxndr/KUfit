@@ -6,6 +6,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, w
 
 import { Card, FsText } from '@/components/ui';
 import { CalorieMacroCard } from '@/components/CalorieMacroCard';
+import { MilestoneProgressCard } from '@/components/MilestoneProgressCard';
 import { GoalWarning } from '@/components/GoalWarning';
 import { ReminderBanner } from '@/components/ReminderBanner';
 import { DonationBanner } from '@/components/DonationBanner';
@@ -284,6 +285,9 @@ export function DashboardOverview() {
           </View>
         </Card>
       </PressableScale>
+
+      {/* Milestone progress toward goal (tap → Weight tab) */}
+      <MilestoneProgressCard compact />
 
       <GoalWarning message={safetyWarning} />
 

@@ -266,9 +266,15 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
   stay per-hand. Overridable per exercise on the detail screen (`WorkoutRepo.setExercisePerSide`).
 - **Exercise catalog & seed** — `scripts/seed-exercises.mjs` builds `assets/exercises/catalog.json` from
   oss.exercisedb.dev by walking the list endpoint's **`after=<nextCursor>`** cursor (the only working
-  pager — `cursor`/`offset`/`page`/`limit` are ignored), pulling all ~1500 with GIFs. A cleanup pass
-  normalizes names, infers category, tidies equipment, and **de-bakes** attachment names via shared
-  `scripts/lib-debake.mjs` (only when the cleaned name stays unique). `lib/exerciseSeed.ts` imports the
+  pager — `cursor`/`offset`/`page`/`limit` are ignored), pulling all ~1500 with GIFs. Two cleanup passes
+  normalize the raw set: it **de-bakes** attachment names via shared `scripts/lib-debake.mjs` (only when the
+  cleaned name stays unique), then **curates** via `scripts/lib-curate.mjs` (`curate()`) down to ~1270 —
+  dropping gimmick families (stability/medicine/BOSU ball, ab wheel, cardio machines), reclassifying
+  mislabeled equipment (Sled→Machine leg-press, Lever→Machine), stripping cosmetic/surface tags + mojibake
+  from names ("…on Exercise Ball", "(male)", "- X Variation", "V. 2", parentheticals) under a *Balanced*
+  policy that keeps real variations, then de-duping the collapsed names (keeping the GIF-bearing row). Re-run
+  on the committed catalog with `node scripts/curate-exercises.mjs --write` (idempotent; dry-run without
+  `--write`); `scripts/coverage-check.mjs` flags any missing common staple. `lib/exerciseSeed.ts` imports the
   catalog on launch (concatenated with a hand-curated `assets/exercises/extra.json` — non-API machines and
   popular staples ExerciseDB lacks, with stable `hale-*` ids so they're never clobbered when the script
   regenerates `catalog.json`, and upsert/prune alongside it); it reseeds when empty, duplicate-bloated, stale,
@@ -567,6 +573,16 @@ intentionally **not** bottom sheets and keep their `animationType="fade"` modals
   "Goal Pace Unrealistic" instead of quoting an absurd number. NB: in `HealthRepo.computeStats`,
   `requiredWeeklyRate` is signed `(current − goal)` and `weeklyChange` is `avg7 − avg14`, so the gap is
   `requiredWeeklyRate + weeklyChange` (a **sum** — the desired weeklyChange is `−requiredWeeklyRate`).
+  `milestones.ts` (`computeMilestones({start,current,goal,weeklyRate,step})` → bar `progress`, `direction`,
+  and a list of milestone `markers` with `fraction` + projected `etaDate`; **unit-agnostic** — pass display
+  values so the round milestone numbers come out in lb/kg, and ETAs/positions are ratios so the unit cancels;
+  returns `etaDate: null` for already-reached or wrong-direction/zero-trend points). Consumed by
+  `components/MilestoneProgressCard.tsx` (a clean filling start→goal bar with a **milestone timeline below it**
+  — tick + weight label per marker, end markers clamped to the edges — plus a projected-date ladder; shown
+  **compact on `DashboardOverview`** → taps to the Weight tab, and **full on `HealthWeight`**).
+  The rate is `computeStats().weeklyChange` (so dates match Goal ETA); the left anchor + 5/10 step are
+  configurable via `profile.milestoneStartBasis` (`phase`→active-phase start / `earliest` / `peak` / `custom`
+  + `milestoneStartKg`) and `profile.milestoneInterval` (`small`=5 lb/2.5 kg, `large`=10 lb/5 kg).
   `heartRate.ts` (pure HR helpers for workouts: `summarizeHeartRate` → avg/min/max, `downsample` for
   storage/charting, `maxHeartRate(age) = 220 − age`, and `zoneBreakdown` for the 5-zone time-in-zone
   bars). Consumed by `components/HeartRatePanel.tsx` (stats + `LineChart` + zone bars) on the workout

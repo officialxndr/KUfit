@@ -11,7 +11,7 @@ import extra from '@/assets/exercises/extra.json';
  * even though the row count is the same (renamed/de-baked exercises, new metadata). The
  * count-based `stale` check only catches growth, so this forces an in-place re-upsert.
  */
-const SEED_VERSION = '2026-06-05-extra-exercises-v2';
+const SEED_VERSION = '2026-06-06-curated-catalog-v1';
 
 interface CatalogEntry {
   exerciseDbId: string;
