@@ -6,6 +6,13 @@ import type {
 } from '@/types';
 import type { RestEndHaptic } from '@/lib/haptics';
 
+/** Which engine reads nutrition labels.
+ *  'off'    = built-in on-device OCR (no AI).
+ *  'device' = on-device Gemma vision model (private, offline).
+ *  Future:  'gemini' (cloud API key) | 'server' (self-hosted OpenAI-compatible endpoint).
+ *  Adding a provider = a new value here + a case in `scanLabel` (lib/nutritionVision). */
+export type AiProvider = 'off' | 'device';
+
 /** A user-tracked secondary nutrient goal (beyond calories/macros). */
 export interface NutrientGoal {
   /** A NUTRIENT_DEFS key (e.g. "potassium") or a core key: fiber/sugar/sodium/saturatedFat. */
@@ -62,6 +69,14 @@ export interface Profile {
   /** When false, don't auto-estimate body fat from tape measurements (U.S. Navy
    *  formula); only a body-fat % you enter yourself (or a DEXA baseline) is shown. */
   navyBodyFatEnabled: boolean;
+  /** Chosen on-device AI label-scanning model id (a `lib/llm/models` id), or null = none.
+   *  The model *files* live on disk (see `lib/llm/modelManager`); this only records the pick. */
+  aiModelId: string | null;
+  /** Which engine reads nutrition labels (off / on-device / future API providers). */
+  aiProvider: AiProvider;
+  /** When true, the on-device vision model reasons before answering — more accurate on
+   *  dense labels, but noticeably slower per scan. Off = fastest. */
+  aiThinking: boolean;
   // Training goals (Workout section)
   weeklySessionTarget: number | null;
   // Custom secondary nutrient goals (Nutrition section)
@@ -105,6 +120,9 @@ const DEFAULT_PROFILE: Profile = {
   animationsEnabled: true,
   confettiEnabled: true,
   navyBodyFatEnabled: true,
+  aiModelId: null,
+  aiProvider: 'off',
+  aiThinking: true,
   weeklySessionTarget: null,
   nutrientGoals: [],
   measurementGoals: {},
@@ -144,6 +162,11 @@ export const useSettingsStore = create<SettingsState>()(
         const legacy = p.profile as { countActiveCalories?: boolean } | undefined;
         if (legacy?.countActiveCalories && (p.profile as Partial<Profile>)?.activeCalorieSource == null) {
           profile.activeCalorieSource = 'inapp';
+        }
+        // Migrate the old on-device AI on/off boolean to the provider enum.
+        const aiLegacy = p.profile as { aiVisionEnabled?: boolean; aiProvider?: AiProvider } | undefined;
+        if (aiLegacy && aiLegacy.aiProvider == null) {
+          profile.aiProvider = aiLegacy.aiVisionEnabled === false ? 'off' : (profile.aiModelId ? 'device' : 'off');
         }
         return { ...current, ...p, profile };
       },

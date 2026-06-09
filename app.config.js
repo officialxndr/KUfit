@@ -20,6 +20,17 @@
 module.exports = ({ config }) => {
   const healthKitEnabled = process.env.HEALTHKIT !== '0';
 
+  // On-device AI build switch. `AI=0` strips the llama.rn config plugin here (no C++20 /
+  // entitlement injection) and `react-native.config.js` drops its autolinking (no llama.cpp
+  // in the binary). The JS reads `extra.aiEnabled` (lib/aiConfig) to hide all AI UI. Default on.
+  const aiEnabled = process.env.AI !== '0';
+  if (!aiEnabled) {
+    config.plugins = (config.plugins || []).filter((p) => {
+      const name = Array.isArray(p) ? p[0] : p;
+      return name !== 'llama.rn';
+    });
+  }
+
   if (!healthKitEnabled) {
     config.plugins = (config.plugins || []).filter((p) => {
       const name = Array.isArray(p) ? p[0] : p;
@@ -46,9 +57,28 @@ module.exports = ({ config }) => {
     if (config.android) config.android.package = `${config.android.package}.${tag}`;
   }
 
+  // On-device AI (llama.rn) needs the increased-memory-limit + extended-virtual-addressing
+  // entitlements to load the multi-GB Gemma vision model without an iOS jetsam kill. These are
+  // OPT-IN, because (unlike most capabilities) Xcode's automatic signing can't self-provision
+  // them — the App ID must have "Increased Memory Limit" + "Extended Virtual Addressing" enabled
+  // in the Apple Developer portal first, or signing fails. So:
+  //   • normal dev builds (no flag) ship WITHOUT them → `expo run:ios` signs with the plain team
+  //     profile (the AI model just won't have the headroom to load — fine for everything else);
+  //   • set AI_MEM=1 once you've enabled the two capabilities on the .dev App ID to test the model;
+  //   • production (TestFlight) always gets them — enable the capabilities on the prod App ID too.
+  // Free Apple IDs can't sign these at all, so they're gated on the paid-team build (healthKitEnabled).
+  const aiMem = aiEnabled && healthKitEnabled && (process.env.AI_MEM === '1' || variant === 'production');
+  if (aiMem && config.ios) {
+    config.ios.entitlements = {
+      ...(config.ios.entitlements || {}),
+      'com.apple.developer.kernel.increased-memory-limit': true,
+      'com.apple.developer.kernel.extended-virtual-addressing': true,
+    };
+  }
+
   // Surface the flags to JS (Constants.expoConfig.extra.*) in case a screen wants to
   // hide Health UI in the stripped build or show a "Dev"/"Preview" badge.
-  config.extra = { ...(config.extra || {}), healthKitEnabled, appVariant: variant };
+  config.extra = { ...(config.extra || {}), healthKitEnabled, appVariant: variant, aiMem, aiEnabled };
 
   return config;
 };

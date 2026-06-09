@@ -69,7 +69,22 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   handshake/tare).
 - **Nutrition-label OCR**: `src/lib/nutritionOcr.ts` — on-device ML Kit text recognition
   (`@react-native-ml-kit/text-recognition`); `parseNutritionText` is the pure parser. Drives the
-  "Scan nutrition label" action in `custom-food.tsx`. Needs a dev build (native; no Expo Go).
+  "Scan nutrition label" action in `custom-food.tsx`. Needs a dev build (native; no Expo Go). Now the
+  **fallback** under the on-device AI path below (used when AI is off / no model / a vision scan fails).
+- **On-device AI label scanning** (`src/lib/llm/` + `src/lib/nutritionVision.ts`): feeds the label photo
+  **directly to Gemma 4 E2B vision** (no OCR) via **`llama.rn`** (llama.cpp) and returns structured
+  `ParsedNutrition` (same shape as OCR, so `applyParsed` is reused). `llm/gemma.ts` wraps llama.rn
+  (`initLlama`+`initMultimodal`, schema-constrained JSON via `response_format`, **load+`release()` per
+  scan** to bound the ~2.5–4 GB RAM; **reasoning kept on** via `reasoning_format:'auto'`+`thinking_budget_tokens`,
+  toggleable). `llm/models.ts` is the model catalog (Q4/Q3 GGUF + shared `mmproj`), `llm/modelManager.ts`
+  downloads/deletes them (`expo-file-system` + a tiny progress store) — files live on disk under
+  `Documents/ai-models`, **never bundled** (~2 GB first-run download). `nutritionVision.scanLabel`
+  **dispatches on a provider** (`profile.aiProvider`: `'off' | 'device'`, extensible to future API providers
+  — Gemini key / self-hosted server — by adding an `else if` + enum value + chip; `docs/AI-Food-Scanning.md`).
+  Runtime config is in the profile: `aiProvider`, `aiModelId`, `aiThinking`. **Build-time** kill switch is
+  `AI=0` (strips `llama.rn` + entitlements; see native-builds section). Model loading needs the memory
+  entitlements + a paid team + an 8 GB-class iPhone. Settings → "AI label scanning"; onboarding has a
+  model-choice step. Attribution (Gemma + llama.cpp) is in Settings → About & credits — keep it.
 - **Reminders/notifications**: `remindersStore` + `src/lib/reminders.ts` (schedules `expo-notifications`)
   + pure `src/lib/reminderStatus.ts` (Dashboard banner due-logic). Managed in `src/app/reminders.tsx`
   (Settings → Notifications & reminders). Notifications need a dev build; banners work in Expo Go.
@@ -273,6 +288,19 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   the simulator until you background the app once.
 - **Nutrition-label OCR** (`@react-native-ml-kit/text-recognition`) links via `expo prebuild` (no Expo Go);
   best tested on a physical device with a real label. The flow alerts gracefully when the module is absent.
+- **On-device AI (`llama.rn`)**: a native module — needs `expo prebuild` + a dev/prod build (no Expo Go) and
+  a **physical 8 GB-class iPhone** (the model needs the RAM; the simulator has no Metal). `llama.rn`'s Expo
+  plugin (in `app.json`) forces **C++20** on the pods (required to compile llama.cpp) and, on the production
+  profile, adds the **`increased-memory-limit` + `extended-virtual-addressing`** entitlements that let the
+  ~2 GB model load without a jetsam kill. Those entitlements **can't be signed by a free Apple team** and
+  **Xcode automatic signing won't self-provision them** — enable both capabilities on the App ID in the
+  Apple Developer portal first, or signing fails ("profile does not support … capability"). For local
+  paid-team dev testing, `app.config.js` adds them when **`AI_MEM=1`** (off by default so normal dev builds
+  sign cleanly); production always gets them. **Build-time off switch: `AI=0`** — `react-native.config.js`
+  drops `llama.rn` from autolinking (no llama.cpp compiled in) and `app.config.js` strips its plugin +
+  entitlements; the JS reads `extra.aiEnabled` (`lib/aiConfig.ts` → `AI_ENABLED`) to hide all AI UI and skip
+  the device path (the `llama.rn` import is safe when unlinked — its TurboModule spec uses `.get()`, not
+  `getEnforcing`). The model files are a **runtime download** (Settings / onboarding), never bundled.
 - **Local notifications** (`expo-notifications`) need a dev build; scheduling is a no-op in Expo Go.
   Android 13+ `POST_NOTIFICATIONS` comes from the module's own manifest (no config plugin needed). Prebuild
   auto-applies the bundled `expo-notifications` plugin, which adds the `aps-environment` **Push

@@ -421,6 +421,17 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       `@react-native-ml-kit/text-recognition`, no cloud/LLM cost). `lib/nutritionOcr.ts` =
       `recognizeNutritionLabel(uri)` + a pure, testable `parseNutritionText` heuristic; always lands on the
       editable form (never auto-saves). Needs a dev build + physical device.
+- [x] **On-device AI label scanning (Gemma 4 E2B vision)** — an opt-in upgrade that feeds the label **photo
+      directly to a local Gemma 4 E2B vision model** (no OCR) via `llama.rn` (llama.cpp) and returns the same
+      `ParsedNutrition` shape (so the form-fill path is reused). `src/lib/llm/` = `gemma.ts` (llama.rn wrapper:
+      `initMultimodal` + schema-constrained JSON, load+release per scan, reasoning toggle), `models.ts` (Q4/Q3
+      GGUF + shared `mmproj` catalog), `modelManager.ts` (download/delete + progress store); `nutritionVision.ts`
+      `scanLabel` dispatches on `profile.aiProvider`. Fully **offline + private** (nothing leaves the phone),
+      with the ML Kit OCR path kept as the graceful fallback. **Runtime toggle** (Settings → AI label scanning:
+      Off / On-device, + a Deep-reasoning switch) and **build-time off switch** (`AI=0` strips `llama.rn` +
+      entitlements). Model is a **~2 GB first-run download** (onboarding model-choice step or Settings), never
+      bundled; needs the memory entitlements + a paid team + an **8 GB-class iPhone**. Provider enum is built to
+      extend to API providers (Gemini key / self-hosted server) — see `docs/AI-Food-Scanning.md`.
 - [x] **Reminders system** — per-reminder **schedule** (daily / weekly / custom weekdays + time) for
       **measure body, log weight, log food, workout**. Each fires a **local notification**
       (`expo-notifications`, `lib/reminders.ts`) and surfaces a **dismissible Dashboard banner**
@@ -560,10 +571,15 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       app, an **Expo config plugin** + dev/EAS build (no Expo Go), and **deep links** into the app for
       each action. Scoped as its own native track — keeps the JS feature work runnable in Expo Go.
 - [ ] Richer trend visuals (gifted-charts), recipe edit, food Recipes "New" entry polish.
-- [ ] **Better nutrition-label OCR engine** — the parser is now %DV/unit/added-sugars aware (see Done), but
-      the engine is still Google ML Kit. If labels stay inconsistent, swap iOS to **Apple Vision** via
-      `expo-text-extractor` (native dep + dev build; modest gain per research), and/or use ML Kit's per-line
-      bounding boxes to pair labels↔values by position for multi-column labels.
+- [ ] **Better nutrition-label OCR engine** — largely superseded by **on-device AI label scanning** (see
+      Done), which reads the photo directly with Gemma vision. The ML Kit OCR path remains the fallback; if it
+      still matters for low-RAM devices, swapping iOS OCR to **Apple Vision** via `expo-text-extractor` or
+      pairing labels↔values via ML Kit bounding boxes are still open (modest gain).
+- [ ] **AI scanning — API providers** — the `aiProvider` enum + `scanLabel` dispatch are built to extend
+      beyond `'device'`: add `'gemini'` (paste an API key) and `'server'` (a self-hosted OpenAI-compatible /
+      local model endpoint) as new cases returning the same `ParsedNutrition`, plus a settings chip + secret
+      storage. Design notes in `docs/AI-Food-Scanning.md` (the cloud OpenRouter/Gemini sketch predates the
+      on-device build; reconcile under the same provider toggle).
 - [ ] **OpenFoodFacts contribution** — let users submit/edit foods to the OFF open database. ToS allows it:
       register the app (API-usage form) + authenticate writes via the user's OFF login (session or creds;
       moving to OAuth/Keycloak); submitted data is **ODbL-licensed** (public). Add a submit/edit form + login,

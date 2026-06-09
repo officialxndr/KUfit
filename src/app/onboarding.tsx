@@ -2,9 +2,13 @@ import { useState } from 'react';
 import { View, TextInput, StyleSheet, Pressable, ScrollView, Switch, Alert, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Dumbbell, ChevronLeft, Sparkles, ShieldCheck, Check, UserCircle, Camera, Heart } from 'lucide-react-native';
+import * as Device from 'expo-device';
+import { Dumbbell, ChevronLeft, Sparkles, ShieldCheck, Check, UserCircle, Camera, Heart, Download } from 'lucide-react-native';
 
 import { FsText, Button, Chip } from '@/components/ui';
+import { MODELS, getModel } from '@/lib/llm/models';
+import { downloadModel, cancelDownload, isModelReady, useModelDownload } from '@/lib/llm/modelManager';
+import { AI_ENABLED, DEVICE_AI_SUPPORT } from '@/lib/aiConfig';
 import { DateField } from '@/components/DateField';
 import { HeightField } from '@/components/HeightField';
 import { Confetti } from '@/components/anim/Confetti';
@@ -37,7 +41,10 @@ const PRIVACY_POINTS: [string, string][] = [
   ['Free forever', 'No subscriptions, no paywalls, nothing locked away. Optional donations only.'],
   ['Only food lookups go out', 'Searching a food sends just the name/barcode to Open Food Facts — never your personal info.'],
 ];
-const STEPS = 7;
+// The on-device-AI step only exists in a build that includes AI (AI=1, the default).
+const STEPS = AI_ENABLED ? 8 : 7;
+const DONATE_STEP = AI_ENABLED ? 7 : 6;
+const RAM_GB = Device.totalMemory ? Device.totalMemory / 1e9 : null;
 
 export default function Onboarding() {
   const router = useRouter();
@@ -59,6 +66,8 @@ export default function Onboarding() {
   const [useNavy, setUseNavy] = useState(true);
   const [activeCal, setActiveCal] = useState<ActiveCalorieSource>('off');
   const [showConfetti, setShowConfetti] = useState(false);
+  const [aiModel, setAiModel] = useState<string | null>(null);
+  const dl = useModelDownload();
 
   const next = () => { haptic.tap(); setStep((s) => Math.min(s + 1, STEPS - 1)); };
   const back = () => { haptic.tap(); setStep((s) => Math.max(s - 1, 0)); };
@@ -104,6 +113,8 @@ export default function Onboarding() {
       confettiEnabled: confetti,
       navyBodyFatEnabled: useNavy,
       activeCalorieSource: activeCal,
+      aiModelId: aiModel,
+      aiProvider: aiModel ? 'device' : 'off',
     });
     completeOnboarding();
     haptic.success();
@@ -290,7 +301,98 @@ export default function Onboarding() {
           </>
         )}
 
-        {step === 6 && (
+        {AI_ENABLED && step === 6 && (
+          <>
+            <View style={styles.brand}><Sparkles color={colors.primary} size={36} /></View>
+            <FsText variant="display" style={{ textAlign: 'center' }}>On-device AI scanning</FsText>
+            <FsText variant="bodyMedium" style={{ textAlign: 'center', color: colors.muted, marginBottom: space[3] }}>
+              Optional. Download a small AI model that reads Nutrition Facts labels by looking at the
+              photo — fully on your phone, offline, and more accurate than basic text scanning. Skip it
+              and the built-in scanner is used instead.
+            </FsText>
+            <FsText variant="caption" style={{ textAlign: 'center', color: colors.muted, marginBottom: space[6] }}>
+              {DEVICE_AI_SUPPORT}
+            </FsText>
+
+            {MODELS.map((m) => {
+              const selected = aiModel === m.id;
+              const ready = isModelReady(m);
+              const lowRam = RAM_GB != null && RAM_GB + 0.5 < m.minRamGB;
+              return (
+                <Pressable
+                  key={m.id}
+                  onPress={() => setAiModel(selected ? null : m.id)}
+                  style={[styles.option, selected && styles.optionOn, { marginBottom: space[2] }]}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <FsText variant="bodyMedium">{m.label}</FsText>
+                    <FsText variant="caption" style={{ color: ready ? colors.success : colors.muted }}>
+                      {ready ? 'Downloaded' : m.sizeLabel}
+                    </FsText>
+                  </View>
+                  <FsText variant="caption">{m.description}</FsText>
+                  {selected && lowRam && (
+                    <FsText variant="caption" style={{ color: colors.warning, marginTop: 4 }}>
+                      Your device has about {RAM_GB!.toFixed(0)} GB RAM — this works best on {m.minRamGB} GB
+                      phones and may run slowly or fail to load.
+                    </FsText>
+                  )}
+                </Pressable>
+              );
+            })}
+
+            <Pressable
+              onPress={() => setAiModel(null)}
+              style={[styles.option, aiModel === null && styles.optionOn, { marginBottom: space[3] }]}
+            >
+              <FsText variant="bodyMedium">Skip for now</FsText>
+              <FsText variant="caption">Use the built-in on-device scanner. You can add AI later in Settings.</FsText>
+            </Pressable>
+
+            {aiModel && (() => {
+              const def = getModel(aiModel);
+              if (!def) return null;
+              if (isModelReady(def)) {
+                return (
+                  <FsText variant="caption" style={{ color: colors.success, textAlign: 'center' }}>
+                    Model downloaded — you're all set.
+                  </FsText>
+                );
+              }
+              if (dl.modelId === aiModel) {
+                return (
+                  <View>
+                    <View style={styles.progressTrack}>
+                      <View style={[styles.progressFill, { width: `${Math.round(dl.progress * 100)}%` }]} />
+                    </View>
+                    <FsText variant="caption" style={{ textAlign: 'center', marginTop: 6 }}>
+                      Downloading… {Math.round(dl.progress * 100)}%
+                    </FsText>
+                    <Button title="Cancel download" variant="ghost" onPress={() => cancelDownload()} />
+                  </View>
+                );
+              }
+              return (
+                <View>
+                  <Button title={`Download now (${def.sizeLabel})`} onPress={() => { haptic.tap(); downloadModel(def); }} />
+                  <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                    <Download color={colors.muted} size={14} />
+                    <FsText variant="caption" style={{ color: colors.muted, textAlign: 'center' }}>
+                      Large download — Wi-Fi recommended. Keeps going in the background; you can continue.
+                    </FsText>
+                  </View>
+                </View>
+              );
+            })()}
+            {dl.error && (
+              <FsText variant="caption" style={{ color: colors.danger, textAlign: 'center', marginTop: space[2] }}>
+                Download failed — you can try again from Settings.
+              </FsText>
+            )}
+          </>
+        )}
+
+        {step === DONATE_STEP && (
           <>
             <View style={styles.brand}><Heart color={colors.primary} size={36} /></View>
             <FsText variant="display" style={{ textAlign: 'center' }}>One last thing</FsText>
@@ -370,4 +472,6 @@ const styles = themedStyles(() => StyleSheet.create({
   avatarRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], marginBottom: space[4] },
   avatarImg: { width: 56, height: 56, borderRadius: radius.full },
   avatarPlaceholder: { backgroundColor: colors.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
+  progressTrack: { height: 8, borderRadius: 4, backgroundColor: colors.surfaceHigh, overflow: 'hidden' },
+  progressFill: { height: 8, borderRadius: 4, backgroundColor: colors.primary },
 }));

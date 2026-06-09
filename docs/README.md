@@ -193,6 +193,23 @@ Free-provisioning caveats: needs a Mac + Xcode; the app expires after ~7 days (j
 features are inert in this build (`lib/health.ts` no-ops). Build the default (no flag) once you have a
 paid account to get HealthKit back. **Bluetooth needs a physical device** either way.
 
+**On-device AI build flags (`AI` / `AI_MEM`).** On-device AI label scanning (`llama.rn` + Gemma) is a
+heavy native dependency, so it has its own switches (independent of `HEALTHKIT`):
+```bash
+# Ship the AI feature (default). The model needs the increased-memory-limit + extended-virtual-addressing
+# entitlements to load — enable BOTH capabilities on the App ID in the Apple Developer portal first
+# (automatic signing won't self-provision them), then build with AI_MEM=1 for a local paid-team device test:
+AI_MEM=1 npx expo prebuild -p ios --clean
+AI_MEM=1 npx expo run:ios --device        # production EAS builds add the entitlements automatically
+
+# Strip the whole AI feature from a build (no llama.cpp compiled in, smaller app, simpler signing):
+AI=0 npx expo prebuild -p ios --clean
+AI=0 npx expo run:ios --device            # react-native.config.js drops llama.rn autolinking; UI hides itself
+```
+Needs an **8 GB-class iPhone** (the model needs the RAM; the simulator has no Metal). The model itself is a
+**~2 GB runtime download** (onboarding / Settings), never in the binary. `AI=0` is the build-time off switch;
+Settings → "AI label scanning" → Off is the in-app runtime toggle (and the seam for future API providers).
+
 ## Optional integrations
 - **iOS widget** (`@bacons/apple-targets`): the home/lock-screen widget target lives in `targets/widget/`
   (`index.swift` + `expo-target.config.js`) and is generated into the Xcode project by `expo prebuild`, so
@@ -217,3 +234,8 @@ paid account to get HealthKit back. **Bluetooth needs a physical device** either
   which feed the U.S. Navy body-fat estimate. Implemented in `lib/renphoTape.ts` (`react-native-ble-plx`,
   reverse-engineered protocol). Requires a **dev build + a physical device** (no Bluetooth on
   emulators/simulators); no paid Apple account needed for Bluetooth itself.
+- **On-device AI label scanning (`llama.rn` + Gemma 4 E2B)**: Custom Food → "Scan nutrition label" feeds the
+  photo straight to a **local Gemma vision model** (Settings → "AI label scanning" → On-device; or pick a
+  model in onboarding). Fully offline/private; the ML Kit OCR is the fallback. The model is a **~2 GB
+  first-run download** (not bundled) and needs a **paid team + an 8 GB-class iPhone** + the memory entitlements
+  (see below). `lib/llm/` + `lib/nutritionVision.ts`. **Turn it off entirely at build time with `AI=0`.**

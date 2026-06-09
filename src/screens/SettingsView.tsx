@@ -27,6 +27,12 @@ import { useNavStore } from '@/stores/navStore';
 import { testServerConnection } from '@/lib/sync';
 import { health, healthPlatformLabel } from '@/lib/health';
 import { downloadAllMedia } from '@/lib/exerciseMedia';
+import * as Device from 'expo-device';
+import { MODELS, getModel } from '@/lib/llm/models';
+import {
+  downloadModel, cancelDownload, deleteModel, isModelReady, modelDiskBytes, useModelDownload,
+} from '@/lib/llm/modelManager';
+import { AI_ENABLED, DEVICE_AI_SUPPORT } from '@/lib/aiConfig';
 import { colors, radius, space, themedStyles, SURFACE_PRESETS, ACCENT_PRESETS } from '@/theme/tokens';
 import { useThemeStore } from '@/stores/themeStore';
 import type { ActiveCalorieSource, Sex, UnitSystem } from '@/types';
@@ -53,6 +59,7 @@ const T = {
   motion: 'motion animation animations confetti celebration reduce transitions',
   notifications: 'notifications reminders alerts schedule notify food weight measurement',
   devices: 'devices bluetooth scale kitchen food weigh grams renpho etekcity connect tare',
+  aiscan: 'ai scanning nutrition label gemma model on device offline vision llm download local private scan',
   server: 'server backup sync self hosted url token connection',
   developer: 'developer dev demo data sample seed debug haptic haptics vibration rest test notification notifications push',
   about: 'about credits attribution acknowledgements licenses exercise food data source exercisedb ascendapi open food facts odbl legal',
@@ -543,6 +550,8 @@ export function SettingsView() {
         <Button title="Connect &amp; test scale" variant="ghost" onPress={() => router.push('/scale')} />
       </Card>
 
+      <AiScanCard hidden={!show(T.aiscan)} />
+
       <Card hidden={!show(T.server)} style={{ marginBottom: space[3] }}>
         <SectionHeader title="Server backup &amp; sync" />
         <FsText variant="caption" style={{ marginBottom: space[3] }}>
@@ -626,6 +635,17 @@ export function SettingsView() {
         </FsText>
         <Pressable onPress={openOpenFoodFacts} style={styles.creditRow}>
           <FsText variant="bodyMedium" style={{ color: colors.primary, fontWeight: '600' }}>Open Food Facts</FsText>
+          <ExternalLink color={colors.primary} size={16} />
+        </Pressable>
+        <FsText variant="caption" style={{ marginTop: space[4], marginBottom: space[2] }}>
+          On-device AI label scanning uses Google's Gemma models, run locally with llama.cpp (via llama.rn).
+        </FsText>
+        <Pressable onPress={() => WebBrowser.openBrowserAsync('https://ai.google.dev/gemma').catch(() => {})} style={styles.creditRow}>
+          <FsText variant="bodyMedium" style={{ color: colors.primary, fontWeight: '600' }}>Gemma · Google</FsText>
+          <ExternalLink color={colors.primary} size={16} />
+        </Pressable>
+        <Pressable onPress={() => WebBrowser.openBrowserAsync('https://github.com/ggml-org/llama.cpp').catch(() => {})} style={styles.creditRow}>
+          <FsText variant="bodyMedium" style={{ color: colors.primary, fontWeight: '600' }}>llama.cpp</FsText>
           <ExternalLink color={colors.primary} size={16} />
         </Pressable>
       </Card>
@@ -741,6 +761,121 @@ function Appearance({ hidden }: { hidden?: boolean }) {
   );
 }
 
+/** AI label scanning — choose provider, and (on-device) download/manage the Gemma model. */
+function AiScanCard({ hidden }: { hidden?: boolean }) {
+  const profile = useSettingsStore((s) => s.profile);
+  const setProfile = useSettingsStore((s) => s.setProfile);
+  const dl = useModelDownload();
+  const [, bump] = useState(0); // re-render after a delete (no store change to react to)
+  if (!AI_ENABLED) return null; // on-device AI was stripped from this build (AI=0)
+  const ramGB = Device.totalMemory ? Device.totalMemory / 1e9 : null;
+  const selected = getModel(profile.aiModelId);
+  const provider = profile.aiProvider;
+
+  return (
+    <Card hidden={hidden} style={{ marginBottom: space[3] }}>
+      <SectionHeader title="AI label scanning" />
+      <FsText variant="caption" style={{ marginBottom: space[3] }}>
+        Read Nutrition Facts labels with AI instead of basic text scanning. On-device reads the photo
+        fully on your phone — nothing leaves the device. Needs a dev/native build.
+      </FsText>
+
+      <View style={styles.sourceRow}>
+        <Chip label="Off" selected={provider === 'off'} onPress={() => setProfile({ aiProvider: 'off' })} />
+        <Chip label="On-device" selected={provider === 'device'} onPress={() => setProfile({ aiProvider: 'device' })} />
+      </View>
+
+      {provider === 'device' && (
+        <>
+          <FsText variant="caption" style={{ color: colors.muted, marginTop: space[3], marginBottom: space[1] }}>
+            {DEVICE_AI_SUPPORT}{ramGB != null ? ` This device: ~${ramGB.toFixed(0)} GB.` : ''}
+          </FsText>
+
+      {MODELS.map((m) => {
+        const isSel = profile.aiModelId === m.id;
+        const ready = isModelReady(m);
+        const downloading = dl.modelId === m.id;
+        const lowRam = ramGB != null && ramGB + 0.5 < m.minRamGB;
+        return (
+          <Pressable
+            key={m.id}
+            onPress={() => setProfile({ aiModelId: m.id })}
+            style={[styles.modelRow, isSel && styles.modelRowOn]}
+          >
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <FsText variant="bodyMedium">{m.label}</FsText>
+              <FsText variant="caption" style={{ color: ready ? colors.success : colors.muted }}>
+                {ready ? `${(modelDiskBytes(m) / 1e9).toFixed(1)} GB · downloaded` : m.sizeLabel}
+              </FsText>
+            </View>
+            <FsText variant="caption">{m.description}</FsText>
+            {isSel && lowRam && (
+              <FsText variant="caption" style={{ color: colors.warning, marginTop: 4 }}>
+                About {ramGB!.toFixed(0)} GB RAM detected — this works best on {m.minRamGB} GB phones and
+                may run slowly or fail to load.
+              </FsText>
+            )}
+            {isSel && downloading && (
+              <View style={{ marginTop: 8 }}>
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${Math.round(dl.progress * 100)}%` }]} />
+                </View>
+                <FsText variant="caption" style={{ marginTop: 4 }}>Downloading… {Math.round(dl.progress * 100)}%</FsText>
+              </View>
+            )}
+          </Pressable>
+        );
+      })}
+
+      {selected && (() => {
+        const ready = isModelReady(selected);
+        const downloading = dl.modelId === selected.id;
+        if (downloading) {
+          return <Button title="Cancel download" variant="ghost" onPress={() => cancelDownload()} style={{ marginTop: space[2] }} />;
+        }
+        if (ready) {
+          return (
+            <>
+              <View style={styles.toggleRow}>
+                <View style={{ flex: 1, marginRight: space[3] }}>
+                  <FsText variant="bodyMedium">Deep reasoning</FsText>
+                  <FsText variant="caption">The model thinks before answering — more accurate on dense labels, but slower per scan. Off = fastest.</FsText>
+                </View>
+                <Switch
+                  value={profile.aiThinking}
+                  onValueChange={(v) => setProfile({ aiThinking: v })}
+                  trackColor={{ true: colors.primary, false: colors.border }}
+                />
+              </View>
+              <Button
+                title="Delete model (free up space)"
+                variant="ghost"
+                onPress={() => { deleteModel(selected); bump((n) => n + 1); }}
+                style={{ marginTop: space[2] }}
+              />
+            </>
+          );
+        }
+        return (
+          <>
+            <Button title={`Download (${selected.sizeLabel})`} onPress={() => downloadModel(selected)} style={{ marginTop: space[2] }} />
+            <FsText variant="caption" style={{ color: colors.muted, marginTop: 6 }}>
+              Large download — Wi-Fi recommended. It keeps going in the background.
+            </FsText>
+          </>
+        );
+      })()}
+          {dl.error && (
+            <FsText variant="caption" style={{ color: colors.danger, marginTop: space[2] }}>
+              Download failed — check your connection and try again.
+            </FsText>
+          )}
+        </>
+      )}
+    </Card>
+  );
+}
+
 const styles = themedStyles(() => StyleSheet.create({
   searchRow: {
     flexDirection: 'row', alignItems: 'center', gap: space[2],
@@ -783,4 +918,11 @@ const styles = themedStyles(() => StyleSheet.create({
     paddingHorizontal: 14,
   },
   input: { flex: 1, color: colors.text, paddingVertical: 12, fontSize: 14 },
+  modelRow: {
+    padding: space[3], borderRadius: radius.md, backgroundColor: colors.surfaceHigh,
+    borderWidth: 1, borderColor: 'transparent', marginBottom: space[2],
+  },
+  modelRowOn: { borderColor: colors.primary },
+  progressTrack: { height: 8, borderRadius: 4, backgroundColor: colors.bg, overflow: 'hidden' },
+  progressFill: { height: 8, borderRadius: 4, backgroundColor: colors.primary },
 }));

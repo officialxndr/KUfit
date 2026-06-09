@@ -349,6 +349,34 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
   style) that pulls the standard U.S. label fields (serving, calories, protein, carbs, fat, sat fat, fiber,
   sugar, sodium-as-mg). Every field optional — the screen prefills an editable form and never auto-saves.
   Needs a dev build + physical device (native module; absent in Expo Go, where the flow alerts gracefully).
+  Now also the **fallback** for the on-device AI path below.
+- `lib/llm/` + `lib/nutritionVision.ts` + `lib/aiConfig.ts` — **on-device AI label scanning**: feeds the
+  label **photo straight to Gemma 4 E2B vision** (no OCR) via **`llama.rn`** (llama.cpp) and returns the same
+  `ParsedNutrition` shape, so `custom-food`'s `applyParsed` is reused unchanged.
+  - `llm/gemma.ts` — the llama.rn wrapper. `describeImageJson()` does `initLlama` + `initMultimodal(mmproj)`,
+    sends one user turn (text + `image_url`; **Gemma has no `system` role** — instructions go in the user
+    turn), constrains output with `response_format: json_schema` (→ GBNF grammar), and **loads + `release()`s
+    the context per scan** to bound the ~2.5–4 GB resident RAM. **Reasoning is on** (`reasoning_format:'auto'`
+    + `thinking_budget_tokens`, returns `content` with the think block stripped) but **toggleable** — off ⇒
+    `enable_thinking:false` + smaller `n_predict`, much faster.
+  - `llm/models.ts` — model catalog (`MODELS`): Gemma 4 E2B **Q4 "Balanced" / Q3 "Smaller"**, each = main GGUF
+    + a shared `mmproj` projector, with `sizeLabel`/`minRamGB`. `llm/modelManager.ts` — download (legacy
+    `createDownloadResumable` for progress + cancel), delete, `isModelReady`, and a tiny non-persisted
+    `useModelDownload` Zustand store both onboarding + Settings subscribe to. Files live under
+    `Documents/ai-models` — **never bundled** (~2 GB first-run download). `llm/nutritionSchema.ts` is the
+    JSON schema + prompt hint.
+  - `nutritionVision.ts` — `scanLabel(uri, cfg)` **dispatches on `cfg.provider`** (`profile.aiProvider`:
+    `'off' | 'device'`). Device path: resize (`expo-image-manipulator`) → `describeImageJson` →
+    **`parseVisionJson`** (pure, testable: strips fences, JSON-parses, **range-validates** each field, drops
+    out-of-range). Any failure / empty / not-ready → falls back to OCR; `ScanResult.aiError` surfaces *why* so
+    a silent fallback is visible (the prompt itself is a synonym map — Total Sugars→sugar, EU Salt→sodium×400,
+    "Serving size" vs "Servings per container", prefer the gram weight). **Extensible**: an API provider
+    (Gemini key / self-hosted server) is a new `else if` + enum value + settings chip, same `ParsedNutrition`.
+  - `lib/aiConfig.ts` — **`AI_ENABLED`** (build-time flag, from `extra.aiEnabled`) + `DEVICE_AI_SUPPORT`
+    device-guidance text. `AI=0` builds strip `llama.rn` (autolinking via `react-native.config.js`, plugin +
+    entitlements via `app.config.js`) and `AI_ENABLED` hides every AI surface; `AI_MEM=1` adds the memory
+    entitlements for local paid-team testing (see README + CLAUDE.md). Settings → "AI label scanning"; the
+    profile carries `aiProvider` / `aiModelId` / `aiThinking` (with a migration from the old `aiVisionEnabled`).
 - `lib/reminders.ts` + `lib/reminderStatus.ts` — the **reminders system** (driven by `remindersStore`).
   `reminders.ts` orchestrates `expo-notifications`: `configureNotifications()` (handler, called once at
   module load in `_layout.tsx`), `ensurePermission()`, and **`syncScheduledNotifications(reminders)`** which

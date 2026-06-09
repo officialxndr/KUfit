@@ -9,7 +9,9 @@ import { FsText, Card, Button, SectionHeader } from '@/components/ui';
 import { ScaleWeighBar } from '@/components/ScaleWeighBar';
 import { useScale } from '@/lib/scales/useScale';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
-import { recognizeNutritionLabel, type ParsedNutrition } from '@/lib/nutritionOcr';
+import { type ParsedNutrition } from '@/lib/nutritionOcr';
+import { scanLabel, readyVisionModel } from '@/lib/nutritionVision';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { MealType } from '@/types';
 
@@ -50,6 +52,24 @@ export default function CustomFood() {
   const [reading, setReading] = useState(false);
   const cameraRef = useRef<CameraView>(null);
 
+  // On-device AI vision scanning: enabled + a downloaded model → read the photo directly
+  // with Gemma; otherwise fall back to on-device OCR (handled inside scanLabel).
+  const aiModelId = useSettingsStore((s) => s.profile.aiModelId);
+  const aiProvider = useSettingsStore((s) => s.profile.aiProvider);
+  const aiThinking = useSettingsStore((s) => s.profile.aiThinking);
+  const visionReady = aiProvider === 'device' && readyVisionModel(aiModelId) != null;
+  // After a scan: which engine actually read the label (AI vs OCR) + any AI failure reason.
+  const [scanNote, setScanNote] = useState<{ ok: boolean; text: string } | null>(null);
+  // Processing overlay — the LLM runs after the camera closes, so show a blocking
+  // indicator with an elapsed counter (on-device inference can take 15–40s).
+  const [processing, setProcessing] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!processing) { setElapsed(0); return; }
+    const t = setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [processing]);
+
   // Empty optional fields stay null (unknown) rather than collapsing to 0.
   const optional = (v: string) => (v.trim() === '' ? null : Number(v) || 0);
 
@@ -84,8 +104,19 @@ export default function CustomFood() {
       const shot = await cameraRef.current?.takePictureAsync({ quality: 1, skipProcessing: true });
       setScanning(false);
       if (!shot?.uri) { Alert.alert('Scan failed', 'Could not capture the photo. Try again.'); return; }
-      const parsed = await recognizeNutritionLabel(shot.uri);
-      const found = applyParsed(parsed);
+      setProcessing(true);
+      const res = await scanLabel(shot.uri, { provider: aiProvider, modelId: aiModelId, thinking: aiThinking });
+      const found = applyParsed(res.parsed);
+      if (res.usedAi) {
+        setScanNote({ ok: true, text: '✓ Read by on-device AI — the photo stayed on your phone.' });
+      } else if (visionReady && res.aiError) {
+        // We expected AI (model downloaded + enabled) but it fell back — show why,
+        // and surface the full reason in an alert so it's easy to read/screenshot.
+        setScanNote({ ok: false, text: `AI scan unavailable — used the basic scanner instead.\n${res.aiError}` });
+        Alert.alert('AI scan failed', `Used the basic scanner instead.\n\nReason:\n${res.aiError}`);
+      } else {
+        setScanNote(null);
+      }
       if (!found) {
         Alert.alert('Nothing found', "Couldn't read nutrition info from that photo. Fill the fields in manually, or try again with the label flat and well lit.");
       }
@@ -94,6 +125,7 @@ export default function CustomFood() {
       Alert.alert('Scan failed', 'Label scanning needs a dev build with the camera + text-recognition module. Enter values manually for now.');
     } finally {
       setReading(false);
+      setProcessing(false);
     }
   };
 
@@ -140,7 +172,9 @@ export default function CustomFood() {
           </Pressable>
           <View style={{ flex: 1 }} />
           <FsText variant="bodyMedium" style={{ color: '#fff', textAlign: 'center', marginBottom: space[4] }}>
-            Fill the frame with the Nutrition Facts panel, hold steady, then tap to capture.
+            {reading
+              ? (visionReady ? 'Reading the label with on-device AI — this can take a few seconds…' : 'Reading the label…')
+              : 'Fill the frame with the Nutrition Facts panel, hold steady, then tap to capture.'}
           </FsText>
           <Pressable onPress={captureLabel} disabled={reading} style={styles.shutter} hitSlop={10}>
             {reading ? <ActivityIndicator color="#000" /> : <Circle color="#000" size={34} fill="#000" />}
@@ -162,9 +196,22 @@ export default function CustomFood() {
           <ScanText color={colors.primary} size={20} />
           <View style={{ flex: 1 }}>
             <FsText variant="bodyMedium" style={{ color: colors.primary }}>Scan nutrition label</FsText>
-            <FsText variant="caption">Auto-fill the nutrition fields from a photo (on-device).</FsText>
+            <FsText variant="caption">
+              {visionReady
+                ? 'Read by on-device AI — the photo never leaves your phone.'
+                : 'Auto-fill the nutrition fields from a photo (on-device).'}
+            </FsText>
           </View>
         </Pressable>
+
+        {scanNote && (
+          <FsText
+            variant="caption"
+            style={{ color: scanNote.ok ? colors.success : colors.warning, marginTop: -space[2], marginBottom: space[3] }}
+          >
+            {scanNote.text}
+          </FsText>
+        )}
 
         <Card style={{ marginBottom: space[3] }}>
           <SectionHeader title="Details" />
@@ -218,6 +265,21 @@ export default function CustomFood() {
           ) : null}
         </View>
       </ScrollView>
+
+      {processing && (
+        <View style={styles.processingOverlay}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <FsText variant="h2" style={{ color: '#fff', marginTop: space[3] }}>Reading label…</FsText>
+          <FsText variant="bodyMedium" style={{ color: '#fff', textAlign: 'center', marginTop: space[2] }}>
+            {visionReady
+              ? 'On-device AI is reading the label — nothing leaves your phone.'
+              : 'Scanning the label…'}
+          </FsText>
+          {visionReady && (
+            <FsText variant="caption" style={{ color: colors.muted, marginTop: space[2] }}>{elapsed}s</FsText>
+          )}
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -260,6 +322,11 @@ const styles = themedStyles(() => StyleSheet.create({
   },
   weighToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: space[2] },
   scanOverlay: { flex: 1, padding: space[4], alignItems: 'center' },
+  processingOverlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.82)',
+    alignItems: 'center', justifyContent: 'center', padding: space[6],
+  },
   shutter: {
     width: 72, height: 72, borderRadius: 36, backgroundColor: '#fff',
     alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: 'rgba(255,255,255,0.4)',

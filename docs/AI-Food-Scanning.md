@@ -1,7 +1,13 @@
 # AI-powered food scanning (design proposal)
 
-> **Status: proposed, not yet built.** This is a design reference captured from a planning
-> discussion. No code exists for it yet. See `docs/ROADMAP.md` for tracking.
+> **Status update (cloud providers still proposed).** An **on-device** AI path has since shipped —
+> Gemma 4 E2B vision via `llama.rn`, fully offline (`src/lib/llm/` + `src/lib/nutritionVision.ts`); see
+> `docs/ARCHITECTURE.md` + ROADMAP. That introduced the **`profile.aiProvider` enum + `scanLabel` dispatch**
+> (`'off' | 'device'`). The **cloud providers below (OpenRouter / Gemini) are the next plug-ins into that
+> same seam** — each becomes a new `aiProvider` value + a `scanLabel` case returning the existing
+> `ParsedNutrition`, plus a settings chip + `expo-secure-store` secret. The auth/prompt/validation notes
+> here still apply; only the dispatch wiring is now in place. (A self-hosted / local OpenAI-compatible
+> endpoint is a third candidate provider.)
 
 ## Context
 Hale's current label scanning (`src/lib/nutritionOcr.ts`) uses **on-device ML Kit OCR** + a

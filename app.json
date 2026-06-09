@@ -95,6 +95,7 @@
           "bluetoothAlwaysPermission": "Hale connects to compatible Bluetooth devices — a smart tape measure for body measurements and a kitchen scale to weigh foods."
         }
       ],
+      "llama.rn",
       "@bacons/apple-targets",
       [
         "expo-alternate-app-icons",
