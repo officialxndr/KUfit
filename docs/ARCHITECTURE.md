@@ -209,13 +209,26 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
 ## Helper libs added
 - `lib/haptics.ts` — crash-safe expo-haptics wrappers (`tap`/`light`/`medium`/`success`/`warning`),
   used on set-complete, nav taps, the FAB, and finishing a workout.
-- `lib/baseFoodsSeed.ts` (+ `assets/foods/base-ingredients.json`) — seeds ~95 common whole foods
+- `lib/baseFoodsSeed.ts` (+ `assets/foods/base-ingredients.json`) — seeds ~218 common whole foods
   (source `'BASE'`, synthetic `base:<slug>` barcode) so staples are searchable offline via
-  `foodSearch`. Seeded in `_layout.tsx` startup alongside the exercise seed. The JSON is enriched to
-  OFF parity (extended micronutrients, NOVA, computed Nutri-Score, allergens) by
-  `scripts/enrich-base-ingredients.py`; the seed converts micros → `FoodDetails` and **upserts in
-  place** (`foodRepo.upsertBaseFood`) gated by `BASE_FOODS_VERSION` vs `app_meta`, so bumping the
-  data refreshes existing rows without orphaning logged references.
+  `foodSearch`. Seeded in `_layout.tsx` startup alongside the exercise seed. The macros + extended
+  micronutrients are pulled from **USDA FoodData Central** (lab-analyzed Foundation/SR Legacy records)
+  by `scripts/fetch-base-foods.mjs`, which stamps each food with its `fdcId` and records a
+  `scripts/base-foods-fdc.json` lockfile (slug → fdcId/description) so the values are **verifiable**
+  (independently spot-checked against the FDC Foundation bulk download by `scripts/verify-base-foods.py`);
+  NOVA group + fruit/veg % are curated in the script (FDC has no such classification) and the
+  Nutri-Score is computed from the fetched values. Foods also carry curated USDA **household `portions`**
+  (Small/Medium/Large + cup/tbsp/tsp/slice/piece/3-oz gram weights from each record's `foodPortions`) →
+  tap-to-fill chips in `FoodQuantitySheet`; **allergen** tags (`ALLERGEN_GROUPS`) and derived **diet
+  labels** (`dietLabels` → vegan/vegetarian/gluten-free) give base foods the same badges scanned products
+  get. The seed converts micros + portions + allergens + labels → `FoodDetails` and **upserts in place**
+  (`foodRepo.upsertBaseFood`) gated by
+  `BASE_FOODS_VERSION` vs `app_meta`, so bumping the data refreshes existing rows without orphaning
+  logged references. (FDC gotchas the script handles: µg nutrient units — `.toUpperCase()` maps the
+  micro sign U+00B5 to Greek Mu, so it normalizes both mu codepoints; older Foundation `fdcId`s that
+  transiently 404 on the `/food/{id}` detail endpoint → retried, or pinned to SR-Legacy equivalents; and
+  a search 400 when a query mixes commas with `/`.) **See `docs/BASE_FOODS.md` for the full add-a-food
+  checklist + labeling rules.**
 - `lib/sync.ts` — optional server backup **seam**: `testServerConnection(url)` pings `/health`;
   `syncNow()` is a documented stub (full push/pull pending the `apps/api` contract).
 - `lib/health.ts` — **cross-platform health seam** (`HealthService` interface + `healthPlatformLabel`).
@@ -313,6 +326,20 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
     conversion (an earlier `×2.54` on `'I'` double-converted every reading by 2.54×). Display conversion to
     the user's units happens at the view edge as usual.
   - Needs a **dev build + a physical device** (no Bluetooth on emulators/simulators).
+- `lib/scales/` — **pluggable Bluetooth kitchen-scale layer** (same `react-native-ble-plx` pattern as the
+  tape). A `ScaleAdapter` (`types.ts`) is mostly declarative — match rule + notify UUIDs + a `parse(bytes)`
+  → **grams-normalized** `ScaleReading` (so the rest of the app never sees a scale's g/oz/ml display unit) +
+  optional `init`/`tare`. `registry.ts` lists adapters; `esn00.ts` is the **Renpho ES-SNG01 / Etekcity ESN00**
+  (VeSync) driver — service `0x1910`, notify `0x2c12`; the `0xD0` measurement frame is `[sign][weight BE16]
+  [unit][stable]`, grams = weight ÷ 10, and the **unit byte converts oz/ml→grams** (so it adapts to whatever
+  the scale is set to). `useScale({ simulate })` mirrors `useRenphoTape` (scan → match → connect → live grams,
+  auto-reconnect) and adds **software tare** (offset fallback when no BLE tare) + a **`simulate`** mode (mock
+  pour-and-settle weight, works in Expo Go). The live grams drive the amount in `FoodQuantitySheet`
+  (`ScaleWeighBar` strip → macros update live) + custom-food's serving size; **Settings → Bluetooth scale**
+  (`app/scale.tsx`) is a connect/test screen with a **raw-frame inspector** to confirm a new scale's layout.
+  Add a scale = one adapter file + a `registry` entry. *(The ESN00 frame header/checksum + the `0xC1` tare
+  command aren't confirmed yet — `parse` signature-scans for the `0xD0` type and software-tare covers it
+  until the inspector confirms the real frames on hardware.)*
 - `lib/activities.ts` — MET table plus `caloriesBurnedFromDuration(min, kg, met=STRENGTH_MET)`, the
   no-watch fallback estimate for workout calories.
 - `lib/nutritionOcr.ts` — **on-device Nutrition Facts OCR** for the Custom Food "Scan label" flow.
@@ -375,6 +402,17 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
 - `components/FoodDetails.tsx` — `FoodBadgeRow` (diet/allergen badges + Nutri/NOVA/Eco score chips)
   and `FoodDetailSections` (expandable per-serving nutrient list + ingredients/additives), driven by
   a `FoodDetails` blob and scaled by the chosen servings.
+- **Logging shortcuts** (all in `FoodRepo` + `FoodToday`/`add-food`): a `food_log` row is a food item,
+  a recipe, **or** a **quick-add** custom entry (nullable `food_logs.custom*` columns — a bare
+  calorie + optional macros with no food, for restaurant meals; reached from the Food FAB / add-food →
+  `app/quick-add.tsx`). Every totals query coalesces `fi.<macro>` → `customCalories`/etc. **Copy
+  meal/day** (`copyMeal`/`copyDay`) re-logs a chosen source day's items into today (meal-section kebab /
+  date-header kebab → pick the day on the calendar). **Saved meals** (`saved_meals` +
+  `saved_meal_items`) bundle a meal's items under a name (meal kebab → "Save as meal") and **fan out**
+  into individual editable logs when re-added from add-food (`addSavedMeal`) — distinct from a recipe,
+  which logs as one combined entry. Saved meals are editable in `app/saved-meal.tsx` (add-food row kebab →
+  "Edit meal"): rename, per-item servings steppers, remove items (`renameSavedMeal`/`updateSavedMealItem`/
+  `removeSavedMealItem`).
 - `components/TapeMeasureView.tsx` — the **Renpho tape** measuring UI (swapped in from `measurements.tsx`
   via a mode toggle). Back button, a live **connection indicator** (dot/label from `useRenphoTape().status`),
   a big bold **live reading** (2 decimals) in the user's unit, body-part selector chips (selected = indigo;

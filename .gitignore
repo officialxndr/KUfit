@@ -59,3 +59,6 @@ targets/*/Assets.xcassets/
 
 # marketing screenshots (regenerate via scripts/resize-screenshots.mjs)
 screenshots/
+
+# FDC API key (local only)
+.fdc-key

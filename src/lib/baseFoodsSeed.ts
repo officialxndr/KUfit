@@ -6,12 +6,13 @@ import type { FoodDetails, NutrimentEntry } from '@/types';
 
 // Bump whenever assets/foods/base-ingredients.json changes so existing installs
 // re-seed (update-in-place) instead of keeping stale rows.
-const BASE_FOODS_VERSION = '2';
+const BASE_FOODS_VERSION = '5';
 
 interface BaseFood {
   slug: string;
   name: string;
   category: string;
+  fdcId?: number; // USDA FoodData Central id the values were pulled from (traceability)
   calories: number;
   protein: number;
   carbs: number;
@@ -24,21 +25,52 @@ interface BaseFood {
   fruitVegPct: number;
   nutriScore: string | null;
   micros: Record<string, number>;
+  portions?: { label: string; grams: number }[];
 }
 
-// Obvious allergens by slug → OFF-style tags, so base foods get the same
-// "Contains gluten / nuts / milk" badges as scanned products.
-const ALLERGENS: Record<string, string[]> = {
-  egg: ['en:eggs'], 'egg-white': ['en:eggs'],
-  'milk-2': ['en:milk'], 'skim-milk': ['en:milk'], 'greek-yogurt': ['en:milk'],
-  'cottage-cheese': ['en:milk'], 'cheddar-cheese': ['en:milk'], mozzarella: ['en:milk'], butter: ['en:milk'],
-  almonds: ['en:nuts'], walnuts: ['en:nuts'], cashews: ['en:nuts'], 'peanut-butter': ['en:peanuts'],
-  tofu: ['en:soybeans'], edamame: ['en:soybeans'],
-  salmon: ['en:fish'], cod: ['en:fish'], 'tuna-canned': ['en:fish'], tilapia: ['en:fish'], sardines: ['en:fish'],
-  shrimp: ['en:crustaceans'],
-  'whole-wheat-bread': ['en:gluten'], 'white-bread': ['en:gluten'], 'flour-tortilla': ['en:gluten'],
-  couscous: ['en:gluten'], bagel: ['en:gluten'], pasta: ['en:gluten'],
+// Allergens by tag → slugs (inverted below), so base foods get the same
+// "Contains gluten / nuts / milk" badges as scanned products. A food can carry
+// several (e.g. soy sauce = soybeans + gluten). Coconut is an FDA tree nut.
+const ALLERGEN_GROUPS: Record<string, string[]> = {
+  'en:milk': [
+    'milk-2', 'skim-milk', 'whole-milk', 'milk-1', 'greek-yogurt', 'whole-greek-yogurt', 'plain-yogurt',
+    'cottage-cheese', 'cheddar-cheese', 'mozzarella', 'butter', 'heavy-cream', 'sour-cream', 'cream-cheese',
+    'ricotta', 'feta', 'parmesan', 'swiss-cheese', 'provolone', 'american-cheese', 'milk-chocolate', 'ranch',
+  ],
+  'en:eggs': ['egg', 'egg-white', 'mayonnaise', 'ranch'],
+  'en:nuts': ['almonds', 'walnuts', 'cashews', 'pistachios', 'pecans', 'hazelnuts', 'almond-butter',
+    'almond-milk', 'coconut', 'coconut-milk'],
+  'en:peanuts': ['peanut-butter', 'peanuts'],
+  'en:soybeans': ['tofu', 'edamame', 'tempeh', 'soy-milk', 'soy-sauce'],
+  'en:sesame-seeds': ['tahini'],
+  'en:fish': ['salmon', 'cod', 'tuna-canned', 'tilapia', 'sardines', 'tuna-steak', 'halibut', 'mahi-mahi',
+    'trout', 'canned-salmon', 'smoked-salmon', 'anchovies'],
+  'en:crustaceans': ['shrimp', 'crab', 'lobster'],
+  'en:molluscs': ['scallops', 'mussels', 'calamari'],
+  'en:gluten': ['whole-wheat-bread', 'white-bread', 'flour-tortilla', 'couscous', 'bagel', 'pasta',
+    'sourdough-bread', 'rye-bread', 'multigrain-bread', 'english-muffin', 'pita', 'naan', 'pancake', 'waffle',
+    'crackers', 'cornbread', 'barley', 'farro', 'granola', 'soy-sauce'],
 };
+const ALLERGENS: Record<string, string[]> = {};
+for (const [tag, slugs] of Object.entries(ALLERGEN_GROUPS))
+  for (const s of slugs) (ALLERGENS[s] ??= []).push(tag);
+
+// Naturally gluten-free staples worth a positive badge (the grains/starches people check).
+const GLUTEN_FREE = new Set(['white-rice', 'brown-rice', 'quinoa', 'oats', 'rice-cakes', 'popcorn']);
+
+/** Derive OFF-style diet labels (vegan / vegetarian / gluten-free) from category + allergens,
+ *  so base foods show the same positive diet badges scanned products get. */
+function dietLabels(f: BaseFood, allergens: string[] | null): string[] {
+  const a = new Set(allergens ?? []);
+  const labels: string[] = [];
+  const animal = f.category === 'Meat' || f.category === 'Fish';
+  if (!animal) {
+    labels.push('en:vegetarian');
+    if (!a.has('en:milk') && !a.has('en:eggs') && f.slug !== 'honey') labels.push('en:vegan');
+  }
+  if (GLUTEN_FREE.has(f.slug)) labels.push('en:gluten-free');
+  return labels;
+}
 
 /** Build a FoodDetails blob from a base food's micros + score/nova + allergens. */
 function buildDetails(f: BaseFood): FoodDetails | null {
@@ -50,6 +82,7 @@ function buildDetails(f: BaseFood): FoodDetails | null {
     nutriments.push({ key, value: displayVal / def.factor });
   }
   const allergens = ALLERGENS[f.slug] ?? null;
+  const labels = dietLabels(f, allergens);
   const details: FoodDetails = {
     nutriments,
     nutriScore: f.nutriScore ?? null,
@@ -59,9 +92,10 @@ function buildDetails(f: BaseFood): FoodDetails | null {
     ingredientsText: null,
     allergens,
     additives: null,
-    labels: null,
+    labels: labels.length ? labels : null,
+    portions: f.portions?.length ? f.portions : null,
   };
-  const hasAny = nutriments.length || details.nutriScore || details.novaGroup || allergens;
+  const hasAny = nutriments.length || details.nutriScore || details.novaGroup || allergens || labels.length || f.portions?.length;
   return hasAny ? details : null;
 }
 
@@ -76,7 +110,7 @@ function buildDetails(f: BaseFood): FoodDetails | null {
  * in place, so bumping BASE_FOODS_VERSION refreshes existing installs.
  */
 export function seedBaseFoodsIfNeeded() {
-  const foods = baseFoods as BaseFood[];
+  const foods = baseFoods as unknown as BaseFood[];
   if (foods.length === 0) return;
   if (getMeta('baseFoodsVersion') === BASE_FOODS_VERSION) return;
 

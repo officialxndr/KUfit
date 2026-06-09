@@ -3,12 +3,14 @@ import {
   View, TextInput, StyleSheet, Pressable, Modal, ScrollView, Dimensions,
   Platform, Animated, PanResponder, Keyboard,
 } from 'react-native';
-import { ChevronDown, Star } from 'lucide-react-native';
+import { ChevronDown, Star, Scale as ScaleIcon } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FsText, Button } from '@/components/ui';
 import { MacroBars } from '@/components/MacroBar';
 import { FoodBadgeRow, FoodDetailSections } from '@/components/FoodDetails';
+import { ScaleWeighBar } from '@/components/ScaleWeighBar';
+import { useScale } from '@/lib/scales/useScale';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { resolveTargets } from '@/lib/targets';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -105,6 +107,13 @@ export function FoodQuantitySheet({
   const [unitMenuOpen, setUnitMenuOpen] = useState(false);
   const [kbHeight, setKbHeight] = useState(0);
 
+  // Live weighing (Bluetooth scale): while on, the scale's grams drive the amount field,
+  // so the macro + day-projection display below updates as you add/remove food. `sim`
+  // runs the simulator (no hardware / works in Expo Go).
+  const [weighing, setWeighing] = useState(false);
+  const [sim, setSim] = useState(false);
+  const scale = useScale({ simulate: sim });
+
   // Track keyboard height so the sheet can shrink to stay fully on-screen while
   // typing. The KeyboardAvoidingView lifts the sheet above the keyboard; without
   // also capping the height, a tall sheet (lots of food details) gets pushed off
@@ -158,6 +167,23 @@ export function FoodQuantitySheet({
       Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 3, speed: 14 }).start();
     }
   }, [food, initialServings, baselineQty, translateY]);
+
+  // Don't carry weigh mode across foods (or into a closed sheet).
+  useEffect(() => { setWeighing(false); setSim(false); }, [food]);
+
+  // Connect/disconnect the scale with weigh mode (restart when toggling the simulator).
+  useEffect(() => {
+    if (!weighing) return;
+    scale.start();
+    return () => scale.stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weighing, sim]);
+
+  // Live grams drive the amount field → the macro + projection summary below updates live.
+  useEffect(() => {
+    if (weighing && scale.reading) { setUnit('g'); setAmount(String(scale.reading.grams)); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weighing, scale.reading]);
 
   const animateClose = () => {
     Animated.timing(translateY, { toValue: SCREEN_H, duration: 220, useNativeDriver: true })
@@ -293,7 +319,46 @@ export function FoodQuantitySheet({
                     ) : (
                       <FsText variant="caption" style={{ flex: 1 }}>serving{qty !== 1 ? 's' : ''}</FsText>
                     )}
+                    {availableUnits.includes('g') && (
+                      <Pressable
+                        style={[styles.scaleBtn, weighing && styles.scaleBtnOn]}
+                        onPress={() => setWeighing((w) => !w)}
+                        accessibilityLabel="Weigh on Bluetooth scale"
+                      >
+                        <ScaleIcon color={weighing ? colors.white : colors.primary} size={18} />
+                      </Pressable>
+                    )}
                   </View>
+
+                  {/* Live weigh bar — Bluetooth scale drives the grams above (macros update live). */}
+                  {weighing && (
+                    <View style={{ marginBottom: space[3] }}>
+                      <ScaleWeighBar scale={scale} onSimulate={() => setSim(true)} onClose={() => { setWeighing(false); setSim(false); }} />
+                    </View>
+                  )}
+
+                  {/* Quick portions — USDA household sizes (discrete base foods). Tap to fill grams. */}
+                  {food.details?.portions?.length && availableUnits.includes('g') ? (
+                    <View style={styles.portionWrap}>
+                      <FsText variant="overline" style={{ marginBottom: space[2] }}>Quick portions</FsText>
+                      <View style={styles.portionRow}>
+                        {food.details.portions.map((p) => {
+                          const active = unit === 'g' && Number(amount) === p.grams;
+                          return (
+                            <Pressable
+                              key={p.label}
+                              style={[styles.portionChip, active && styles.portionChipActive]}
+                              onPress={() => { setUnitMenuOpen(false); setUnit('g'); setAmount(String(p.grams)); }}
+                            >
+                              <FsText variant="caption" style={{ color: active ? '#fff' : colors.text }}>
+                                {p.label} {p.grams}g
+                              </FsText>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  ) : null}
 
                   {/* Nutrition summary */}
                   <View style={styles.summary}>
@@ -411,9 +476,21 @@ const styles = themedStyles(() => StyleSheet.create({
   },
   actions: { paddingTop: space[2] },
   qtyRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], marginBottom: space[3] },
+  portionWrap: { marginBottom: space[3] },
+  portionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
+  portionChip: {
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.full,
+    backgroundColor: colors.surfaceHigh, borderWidth: 1, borderColor: colors.border,
+  },
+  portionChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   qtyField: {
     backgroundColor: colors.surfaceHigh, borderRadius: radius.md, width: 80, paddingHorizontal: 8,
   },
+  scaleBtn: {
+    width: 44, height: 44, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.surfaceHigh, borderWidth: 1, borderColor: colors.border,
+  },
+  scaleBtnOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   barHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space[1] },
   track: { height: 8, borderRadius: radius.full, backgroundColor: colors.surfaceHigh, overflow: 'hidden' },
   input: { flex: 1, color: colors.text, paddingVertical: 12, fontSize: 14 },

@@ -107,6 +107,7 @@ export const FAB_ACTIONS: Partial<Record<SectionKey, FabAction[]>> = {
   food: [
     { key: 'search-food', label: 'Search food', icon: Search },
     { key: 'scan-barcode', label: 'Scan barcode', icon: ScanLine },
+    { key: 'quick-add', label: 'Quick add calories', icon: Flame },
   ],
   workout: [
     { key: 'start-routine', label: 'Start routine', icon: Repeat },

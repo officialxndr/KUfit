@@ -1,6 +1,6 @@
 import * as Crypto from 'expo-crypto';
 import { db } from '@/lib/db';
-import type { FoodDetails, FoodItem, FoodLog, MealType, Recipe, RecipeIngredient } from '@/types';
+import type { CustomLog, FoodDetails, FoodItem, FoodLog, MealType, Recipe, RecipeIngredient, SavedMeal, SavedMealItem } from '@/types';
 
 /** Safely parse a stored `detailsJson` blob back into FoodDetails (null on absent/bad data). */
 function parseDetails(raw: unknown): FoodDetails | null {
@@ -72,12 +72,24 @@ function mapFoodLog(row: any): FoodLog {
       }
     : null;
 
+  // Quick-add row: no food item / recipe, just a name + calories (+ optional macros).
+  const custom = !foodItem && row.customName != null
+    ? {
+        name: row.customName,
+        calories: row.customCalories ?? 0,
+        protein: row.customProtein ?? 0,
+        carbs: row.customCarbs ?? 0,
+        fat: row.customFat ?? 0,
+      }
+    : null;
+
   return {
     id: row.localId,
     date: row.date,
     meal: row.meal as MealType,
     foodItem,
     recipe: null, // recipes loaded separately when needed
+    custom,
     servingQty: row.servingQty,
     createdAt: row.updatedAt ?? new Date().toISOString(),
   };
@@ -106,6 +118,7 @@ export class FoodRepo {
     const rows = db.getAllSync(
       `SELECT
          fl.localId, fl.date, fl.meal, fl.servingQty, fl.updatedAt, fl.recipeLocalId,
+         fl.customName, fl.customCalories, fl.customProtein, fl.customCarbs, fl.customFat,
          fi.localId   AS fi_localId,
          fi.barcode   AS fi_barcode,
          fi.name      AS fi_name,
@@ -147,12 +160,16 @@ export class FoodRepo {
     foodItemLocalId?: string;
     recipeLocalId?: string;
     servingQty: number;
+    /** Quick-add: a bare name + calories (+ optional macros) with no food item / recipe. */
+    custom?: { name: string; calories: number; protein?: number; carbs?: number; fat?: number };
   }): void {
     const localId = Crypto.randomUUID();
+    const c = payload.custom;
     db.runSync(
       `INSERT INTO food_logs
-         (localId, date, meal, foodItemLocalId, recipeLocalId, servingQty, syncStatus, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)`,
+         (localId, date, meal, foodItemLocalId, recipeLocalId, servingQty,
+          customName, customCalories, customProtein, customCarbs, customFat, syncStatus, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
       [
         localId,
         payload.date,
@@ -160,6 +177,11 @@ export class FoodRepo {
         payload.foodItemLocalId ?? null,
         payload.recipeLocalId ?? null,
         payload.servingQty,
+        c?.name ?? null,
+        c?.calories ?? null,
+        c?.protein ?? null,
+        c?.carbs ?? null,
+        c?.fat ?? null,
         new Date().toISOString(),
       ]
     );
@@ -190,6 +212,148 @@ export class FoodRepo {
   /** Hard-wipe every food log (used by the demo-data tool). Leaves the food library intact. */
   clearAllLogs(): void {
     db.runSync(`DELETE FROM food_logs`);
+  }
+
+  // ── Copy meal / day (A1) ──────────────────────────────────────────────────────
+  // Re-log a source day's items into another day via addLog (so food/recipe/quick-add
+  // rows all carry over). Returns how many items were copied.
+  private _copyLogs(where: string, params: any[], toDate: string, forceMeal: string | null): number {
+    const rows = db.getAllSync(
+      `SELECT meal, foodItemLocalId, recipeLocalId, servingQty,
+              customName, customCalories, customProtein, customCarbs, customFat
+       FROM food_logs WHERE ${where} AND deleted = 0 ORDER BY rowid`,
+      params
+    ) as any[];
+    for (const r of rows) {
+      this.addLog({
+        date: toDate,
+        meal: forceMeal ?? r.meal,
+        foodItemLocalId: r.foodItemLocalId ?? undefined,
+        recipeLocalId: r.recipeLocalId ?? undefined,
+        servingQty: r.servingQty,
+        custom: r.customName != null
+          ? { name: r.customName, calories: r.customCalories ?? 0, protein: r.customProtein ?? 0, carbs: r.customCarbs ?? 0, fat: r.customFat ?? 0 }
+          : undefined,
+      });
+    }
+    return rows.length;
+  }
+
+  copyMeal(fromDate: string, toDate: string, meal: string): number {
+    return this._copyLogs(`date = ? AND meal = ?`, [fromDate, meal], toDate, meal);
+  }
+
+  copyDay(fromDate: string, toDate: string): number {
+    return this._copyLogs(`date = ?`, [fromDate], toDate, null);
+  }
+
+  // ── Saved meals (A5) ──────────────────────────────────────────────────────────
+  saveMeal(name: string, items: { foodItemLocalId?: string | null; recipeLocalId?: string | null; servingQty: number; custom?: CustomLog | null }[]): string {
+    const id = Crypto.randomUUID();
+    const now = new Date().toISOString();
+    db.runSync(`INSERT INTO saved_meals (localId, name, syncStatus, updatedAt) VALUES (?, ?, 'pending', ?)`, [id, name, now]);
+    for (const it of items) {
+      db.runSync(
+        `INSERT INTO saved_meal_items
+           (localId, savedMealLocalId, foodItemLocalId, recipeLocalId, servingQty,
+            customName, customCalories, customProtein, customCarbs, customFat)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [Crypto.randomUUID(), id, it.foodItemLocalId ?? null, it.recipeLocalId ?? null, it.servingQty,
+         it.custom?.name ?? null, it.custom?.calories ?? null, it.custom?.protein ?? null, it.custom?.carbs ?? null, it.custom?.fat ?? null]
+      );
+    }
+    return id;
+  }
+
+  /** Save a logged day's meal as a reusable saved meal ("Save these as a meal"). */
+  saveMealFromLogs(name: string, date: string, meal: string): string | null {
+    const rows = db.getAllSync(
+      `SELECT foodItemLocalId, recipeLocalId, servingQty, customName, customCalories, customProtein, customCarbs, customFat
+       FROM food_logs WHERE date = ? AND meal = ? AND deleted = 0 ORDER BY rowid`,
+      [date, meal]
+    ) as any[];
+    if (!rows.length) return null;
+    return this.saveMeal(name, rows.map((r) => ({
+      foodItemLocalId: r.foodItemLocalId, recipeLocalId: r.recipeLocalId, servingQty: r.servingQty,
+      custom: r.customName != null ? { name: r.customName, calories: r.customCalories ?? 0, protein: r.customProtein ?? 0, carbs: r.customCarbs ?? 0, fat: r.customFat ?? 0 } : null,
+    })));
+  }
+
+  getSavedMeals(): SavedMeal[] {
+    const meals = db.getAllSync(`SELECT localId, name FROM saved_meals WHERE deleted = 0 ORDER BY name`) as any[];
+    if (!meals.length) return [];
+    const items = db.getAllSync(
+      `SELECT smi.savedMealLocalId, smi.servingQty, smi.recipeLocalId, smi.customCalories, fi.calories AS fi_cal
+       FROM saved_meal_items smi LEFT JOIN food_items fi ON smi.foodItemLocalId = fi.localId`
+    ) as any[];
+    const recipeNutri: Map<string, DayNutrients> = items.some((i) => i.recipeLocalId) ? this.getRecipeNutritionMap() : new Map();
+    const agg = new Map<string, { count: number; cal: number }>();
+    for (const it of items) {
+      const a = agg.get(it.savedMealLocalId) ?? { count: 0, cal: 0 };
+      a.count += 1;
+      const per = it.fi_cal ?? it.customCalories ?? (it.recipeLocalId ? recipeNutri.get(it.recipeLocalId)?.calories ?? 0 : 0);
+      a.cal += per * it.servingQty;
+      agg.set(it.savedMealLocalId, a);
+    }
+    return meals.map((m) => ({ id: m.localId, name: m.name, itemCount: agg.get(m.localId)?.count ?? 0, calories: agg.get(m.localId)?.cal ?? 0 }));
+  }
+
+  /** Re-log every item of a saved meal into a day's meal (fans out into editable logs). */
+  addSavedMeal(savedMealId: string, date: string, meal: string): void {
+    const items = db.getAllSync(`SELECT * FROM saved_meal_items WHERE savedMealLocalId = ?`, [savedMealId]) as any[];
+    for (const it of items) {
+      this.addLog({
+        date, meal,
+        foodItemLocalId: it.foodItemLocalId ?? undefined,
+        recipeLocalId: it.recipeLocalId ?? undefined,
+        servingQty: it.servingQty,
+        custom: it.customName != null
+          ? { name: it.customName, calories: it.customCalories ?? 0, protein: it.customProtein ?? 0, carbs: it.customCarbs ?? 0, fat: it.customFat ?? 0 }
+          : undefined,
+      });
+    }
+  }
+
+  deleteSavedMeal(id: string): void {
+    db.runSync(`UPDATE saved_meals SET deleted = 1, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`, [new Date().toISOString(), id]);
+  }
+
+  // ── Saved-meal editor ─────────────────────────────────────────────────────────
+  getSavedMeal(id: string): { id: string; name: string } | null {
+    const row = db.getFirstSync(`SELECT localId, name FROM saved_meals WHERE localId = ? AND deleted = 0`, [id]) as any;
+    return row ? { id: row.localId, name: row.name } : null;
+  }
+
+  /** Resolve a saved meal's items to display rows (name + per-serving calories + servings). */
+  getSavedMealItems(savedMealId: string): SavedMealItem[] {
+    const rows = db.getAllSync(
+      `SELECT smi.localId, smi.servingQty, smi.recipeLocalId, smi.customName, smi.customCalories,
+              fi.name AS fi_name, fi.calories AS fi_cal
+       FROM saved_meal_items smi LEFT JOIN food_items fi ON smi.foodItemLocalId = fi.localId
+       WHERE smi.savedMealLocalId = ? ORDER BY smi.rowid`,
+      [savedMealId]
+    ) as any[];
+    const hasRecipe = rows.some((r) => r.recipeLocalId);
+    const recipeMap = hasRecipe ? new Map(this.getRecipes().map((r) => [r.id, r])) : new Map<string, Recipe>();
+    const recipeNutri: Map<string, DayNutrients> = hasRecipe ? this.getRecipeNutritionMap() : new Map();
+    return rows.map((r) => {
+      if (r.fi_name != null) return { id: r.localId, name: r.fi_name, calories: r.fi_cal ?? 0, servingQty: r.servingQty };
+      if (r.customName != null) return { id: r.localId, name: r.customName, calories: r.customCalories ?? 0, servingQty: r.servingQty };
+      if (r.recipeLocalId) return { id: r.localId, name: recipeMap.get(r.recipeLocalId)?.name ?? 'Recipe', calories: recipeNutri.get(r.recipeLocalId)?.calories ?? 0, servingQty: r.servingQty };
+      return { id: r.localId, name: 'Item', calories: 0, servingQty: r.servingQty };
+    });
+  }
+
+  renameSavedMeal(id: string, name: string): void {
+    db.runSync(`UPDATE saved_meals SET name = ?, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`, [name, new Date().toISOString(), id]);
+  }
+
+  updateSavedMealItem(itemId: string, servingQty: number): void {
+    db.runSync(`UPDATE saved_meal_items SET servingQty = ? WHERE localId = ?`, [servingQty, itemId]);
+  }
+
+  removeSavedMealItem(itemId: string): void {
+    db.runSync(`DELETE FROM saved_meal_items WHERE localId = ?`, [itemId]);
   }
 
   // ── Favorites ─────────────────────────────────────────────────────────────
@@ -401,10 +565,11 @@ export class FoodRepo {
     // getDayTotals / getRangeNutrition so every calorie surface agrees.
     const rows = db.getAllSync(
       `SELECT fl.date,
-              COALESCE(SUM(fi.calories * fl.servingQty), 0) AS calories
+              COALESCE(SUM(COALESCE(fi.calories, fl.customCalories, 0) * fl.servingQty), 0) AS calories
        FROM food_logs fl
        LEFT JOIN food_items fi ON fl.foodItemLocalId = fi.localId
-       WHERE fl.date >= ? AND fl.date <= ? AND fl.deleted = 0 AND fl.foodItemLocalId IS NOT NULL
+       WHERE fl.date >= ? AND fl.date <= ? AND fl.deleted = 0
+             AND (fl.foodItemLocalId IS NOT NULL OR fl.customCalories IS NOT NULL)
        GROUP BY fl.date`,
       [from, to]
     ) as { date: string; calories: number }[];
@@ -441,17 +606,18 @@ export class FoodRepo {
     const empty = (): Acc => ({ cal: 0, pro: 0, carb: 0, fat: 0, fib: 0, sug: 0, sod: 0, sat: 0 });
     const rows = db.getAllSync(
       `SELECT fl.date,
-              COALESCE(SUM(fi.calories * fl.servingQty), 0) AS cal,
-              COALESCE(SUM(fi.protein  * fl.servingQty), 0) AS pro,
-              COALESCE(SUM(fi.carbs    * fl.servingQty), 0) AS carb,
-              COALESCE(SUM(fi.fat      * fl.servingQty), 0) AS fat,
+              COALESCE(SUM(COALESCE(fi.calories, fl.customCalories, 0) * fl.servingQty), 0) AS cal,
+              COALESCE(SUM(COALESCE(fi.protein,  fl.customProtein,  0) * fl.servingQty), 0) AS pro,
+              COALESCE(SUM(COALESCE(fi.carbs,    fl.customCarbs,    0) * fl.servingQty), 0) AS carb,
+              COALESCE(SUM(COALESCE(fi.fat,      fl.customFat,      0) * fl.servingQty), 0) AS fat,
               COALESCE(SUM(fi.fiber    * fl.servingQty), 0) AS fib,
               COALESCE(SUM(fi.sugar    * fl.servingQty), 0) AS sug,
               COALESCE(SUM(fi.sodium   * fl.servingQty), 0) AS sod,
               COALESCE(SUM(fi.saturatedFat * fl.servingQty), 0) AS sat
        FROM food_logs fl
        LEFT JOIN food_items fi ON fl.foodItemLocalId = fi.localId
-       WHERE fl.date >= ? AND fl.date <= ? AND fl.deleted = 0 AND fl.foodItemLocalId IS NOT NULL
+       WHERE fl.date >= ? AND fl.date <= ? AND fl.deleted = 0
+             AND (fl.foodItemLocalId IS NOT NULL OR fl.customCalories IS NOT NULL)
        GROUP BY fl.date`,
       [from, to]
     ) as any[];
@@ -490,10 +656,10 @@ export class FoodRepo {
   getDayTotals(date: string): DayNutrients {
     const row = db.getFirstSync(
       `SELECT
-         COALESCE(SUM(fi.calories * fl.servingQty), 0) AS calories,
-         COALESCE(SUM(fi.protein  * fl.servingQty), 0) AS protein,
-         COALESCE(SUM(fi.carbs    * fl.servingQty), 0) AS carbs,
-         COALESCE(SUM(fi.fat      * fl.servingQty), 0) AS fat,
+         COALESCE(SUM(COALESCE(fi.calories, fl.customCalories, 0) * fl.servingQty), 0) AS calories,
+         COALESCE(SUM(COALESCE(fi.protein,  fl.customProtein,  0) * fl.servingQty), 0) AS protein,
+         COALESCE(SUM(COALESCE(fi.carbs,    fl.customCarbs,    0) * fl.servingQty), 0) AS carbs,
+         COALESCE(SUM(COALESCE(fi.fat,      fl.customFat,      0) * fl.servingQty), 0) AS fat,
          COALESCE(SUM(fi.fiber    * fl.servingQty), 0) AS fiber,
          COALESCE(SUM(fi.sugar    * fl.servingQty), 0) AS sugar,
          COALESCE(SUM(fi.sodium   * fl.servingQty), 0) AS sodium,

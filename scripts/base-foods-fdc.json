@@ -1,0 +1,1092 @@
+{
+  "apple": {
+    "fdcId": 1750340,
+    "description": "Apples, fuji, with skin, raw",
+    "dataType": "Foundation"
+  },
+  "banana": {
+    "fdcId": 173944,
+    "description": "Bananas, raw",
+    "dataType": "SR Legacy"
+  },
+  "orange": {
+    "fdcId": 169097,
+    "description": "Oranges, raw, all commercial varieties",
+    "dataType": "SR Legacy"
+  },
+  "strawberries": {
+    "fdcId": 167762,
+    "description": "Strawberries, raw",
+    "dataType": "SR Legacy"
+  },
+  "blueberries": {
+    "fdcId": 171711,
+    "description": "Blueberries, raw",
+    "dataType": "SR Legacy"
+  },
+  "raspberries": {
+    "fdcId": 167755,
+    "description": "Raspberries, raw",
+    "dataType": "SR Legacy"
+  },
+  "blackberries": {
+    "fdcId": 173946,
+    "description": "Blackberries, raw",
+    "dataType": "SR Legacy"
+  },
+  "grapes": {
+    "fdcId": 174683,
+    "description": "Grapes, red or green (European type, such as Thompson seedless), raw",
+    "dataType": "SR Legacy"
+  },
+  "watermelon": {
+    "fdcId": 167765,
+    "description": "Watermelon, raw",
+    "dataType": "SR Legacy"
+  },
+  "cantaloupe": {
+    "fdcId": 169092,
+    "description": "Melons, cantaloupe, raw",
+    "dataType": "SR Legacy"
+  },
+  "pineapple": {
+    "fdcId": 169124,
+    "description": "Pineapple, raw, all varieties",
+    "dataType": "SR Legacy"
+  },
+  "mango": {
+    "fdcId": 169910,
+    "description": "Mangos, raw",
+    "dataType": "SR Legacy"
+  },
+  "peach": {
+    "fdcId": 169928,
+    "description": "Peaches, yellow, raw",
+    "dataType": "SR Legacy"
+  },
+  "pear": {
+    "fdcId": 169118,
+    "description": "Pears, raw",
+    "dataType": "SR Legacy"
+  },
+  "plum": {
+    "fdcId": 169949,
+    "description": "Plums, raw",
+    "dataType": "SR Legacy"
+  },
+  "cherries": {
+    "fdcId": 171719,
+    "description": "Cherries, sweet, raw",
+    "dataType": "SR Legacy"
+  },
+  "kiwi": {
+    "fdcId": 327046,
+    "description": "Kiwifruit, green, raw",
+    "dataType": "Foundation"
+  },
+  "pomegranate": {
+    "fdcId": 169134,
+    "description": "Pomegranates, raw",
+    "dataType": "SR Legacy"
+  },
+  "avocado": {
+    "fdcId": 171705,
+    "description": "Avocados, raw, all commercial varieties",
+    "dataType": "SR Legacy"
+  },
+  "grapefruit": {
+    "fdcId": 173033,
+    "description": "Grapefruit, raw, pink and red and white, all areas",
+    "dataType": "SR Legacy"
+  },
+  "lemon": {
+    "fdcId": 167746,
+    "description": "Lemons, raw, without peel",
+    "dataType": "SR Legacy"
+  },
+  "broccoli": {
+    "fdcId": 170379,
+    "description": "Broccoli, raw",
+    "dataType": "SR Legacy"
+  },
+  "spinach": {
+    "fdcId": 168462,
+    "description": "Spinach, raw",
+    "dataType": "SR Legacy"
+  },
+  "kale": {
+    "fdcId": 168421,
+    "description": "Kale, raw",
+    "dataType": "SR Legacy"
+  },
+  "lettuce": {
+    "fdcId": 169247,
+    "description": "Lettuce, cos or romaine, raw",
+    "dataType": "SR Legacy"
+  },
+  "carrot": {
+    "fdcId": 170393,
+    "description": "Carrots, raw",
+    "dataType": "SR Legacy"
+  },
+  "sweet-potato": {
+    "fdcId": 168483,
+    "description": "Sweet potato, cooked, baked in skin, flesh, without salt",
+    "dataType": "SR Legacy"
+  },
+  "potato": {
+    "fdcId": 170440,
+    "description": "Potatoes, boiled, cooked without skin, flesh, without salt",
+    "dataType": "SR Legacy"
+  },
+  "tomato": {
+    "fdcId": 170457,
+    "description": "Tomatoes, red, ripe, raw, year round average",
+    "dataType": "SR Legacy"
+  },
+  "cucumber": {
+    "fdcId": 168409,
+    "description": "Cucumber, with peel, raw",
+    "dataType": "SR Legacy"
+  },
+  "bell-pepper": {
+    "fdcId": 170108,
+    "description": "Peppers, sweet, red, raw",
+    "dataType": "SR Legacy"
+  },
+  "onion": {
+    "fdcId": 170000,
+    "description": "Onions, raw",
+    "dataType": "SR Legacy"
+  },
+  "garlic": {
+    "fdcId": 1104647,
+    "description": "Garlic, raw",
+    "dataType": "Foundation"
+  },
+  "zucchini": {
+    "fdcId": 169291,
+    "description": "Squash, summer, zucchini, includes skin, raw",
+    "dataType": "SR Legacy"
+  },
+  "cauliflower": {
+    "fdcId": 2685573,
+    "description": "Cauliflower, raw",
+    "dataType": "Foundation"
+  },
+  "green-beans": {
+    "fdcId": 2346400,
+    "description": "Beans, snap, green, raw",
+    "dataType": "Foundation"
+  },
+  "asparagus": {
+    "fdcId": 168389,
+    "description": "Asparagus, raw",
+    "dataType": "SR Legacy"
+  },
+  "mushroom": {
+    "fdcId": 169251,
+    "description": "Mushrooms, white, raw",
+    "dataType": "SR Legacy"
+  },
+  "celery": {
+    "fdcId": 169988,
+    "description": "Celery, raw",
+    "dataType": "SR Legacy"
+  },
+  "corn": {
+    "fdcId": 169998,
+    "description": "Corn, sweet, yellow, raw",
+    "dataType": "SR Legacy"
+  },
+  "peas": {
+    "fdcId": 170419,
+    "description": "Peas, green, raw",
+    "dataType": "SR Legacy"
+  },
+  "brussels-sprouts": {
+    "fdcId": 2685575,
+    "description": "Brussels sprouts, raw",
+    "dataType": "Foundation"
+  },
+  "cabbage": {
+    "fdcId": 169975,
+    "description": "Cabbage, raw",
+    "dataType": "SR Legacy"
+  },
+  "chicken-breast": {
+    "fdcId": 171477,
+    "description": "Chicken, broilers or fryers, breast, meat only, cooked, roasted",
+    "dataType": "SR Legacy"
+  },
+  "chicken-thigh": {
+    "fdcId": 172388,
+    "description": "Chicken, broilers or fryers, thigh, meat only, cooked, roasted",
+    "dataType": "SR Legacy"
+  },
+  "pork-chop": {
+    "fdcId": 168240,
+    "description": "Pork, fresh, loin, center loin (chops), bone-in, separable lean only, cooked, broiled",
+    "dataType": "SR Legacy"
+  },
+  "pork-tenderloin": {
+    "fdcId": 168250,
+    "description": "Pork, fresh, loin, tenderloin, separable lean only, cooked, roasted",
+    "dataType": "SR Legacy"
+  },
+  "bacon": {
+    "fdcId": 168322,
+    "description": "Pork, cured, bacon, pre-sliced, cooked, pan-fried",
+    "dataType": "SR Legacy"
+  },
+  "ham": {
+    "fdcId": 173864,
+    "description": "Ham, sliced, regular (approximately 11% fat)",
+    "dataType": "SR Legacy"
+  },
+  "ground-turkey": {
+    "fdcId": 171506,
+    "description": "Turkey, Ground, cooked",
+    "dataType": "SR Legacy"
+  },
+  "turkey-breast": {
+    "fdcId": 171496,
+    "description": "Turkey, whole, breast, meat only, cooked, roasted",
+    "dataType": "SR Legacy"
+  },
+  "salmon": {
+    "fdcId": 175168,
+    "description": "Fish, salmon, Atlantic, farmed, cooked, dry heat",
+    "dataType": "SR Legacy"
+  },
+  "cod": {
+    "fdcId": 171956,
+    "description": "Fish, cod, Atlantic, cooked, dry heat",
+    "dataType": "SR Legacy"
+  },
+  "tuna-canned": {
+    "fdcId": 173709,
+    "description": "Fish, tuna, light, canned in water, drained solids (Includes foods for USDA's Food Distribution Program)",
+    "dataType": "SR Legacy"
+  },
+  "tilapia": {
+    "fdcId": 175177,
+    "description": "Fish, tilapia, cooked, dry heat",
+    "dataType": "SR Legacy"
+  },
+  "shrimp": {
+    "fdcId": 175180,
+    "description": "Crustaceans, shrimp, cooked",
+    "dataType": "SR Legacy"
+  },
+  "sardines": {
+    "fdcId": 175139,
+    "description": "Fish, sardine, Atlantic, canned in oil, drained solids with bone",
+    "dataType": "SR Legacy"
+  },
+  "white-rice": {
+    "fdcId": 168878,
+    "description": "Rice, white, long-grain, regular, enriched, cooked",
+    "dataType": "SR Legacy"
+  },
+  "brown-rice": {
+    "fdcId": 169704,
+    "description": "Rice, brown, long-grain, cooked (Includes foods for USDA's Food Distribution Program)",
+    "dataType": "SR Legacy"
+  },
+  "quinoa": {
+    "fdcId": 168917,
+    "description": "Quinoa, cooked",
+    "dataType": "SR Legacy"
+  },
+  "oats": {
+    "fdcId": 2346396,
+    "description": "Oats, whole grain, rolled, old fashioned",
+    "dataType": "Foundation"
+  },
+  "pasta": {
+    "fdcId": 169737,
+    "description": "Pasta, cooked, enriched, without added salt",
+    "dataType": "SR Legacy"
+  },
+  "whole-wheat-bread": {
+    "fdcId": 172688,
+    "description": "Bread, whole-wheat, commercially prepared",
+    "dataType": "SR Legacy"
+  },
+  "white-bread": {
+    "fdcId": 174924,
+    "description": "Bread, white, commercially prepared (includes soft bread crumbs)",
+    "dataType": "SR Legacy"
+  },
+  "flour-tortilla": {
+    "fdcId": 175037,
+    "description": "Tortillas, ready-to-bake or -fry, flour, refrigerated",
+    "dataType": "SR Legacy"
+  },
+  "couscous": {
+    "fdcId": 169700,
+    "description": "Couscous, cooked",
+    "dataType": "SR Legacy"
+  },
+  "bagel": {
+    "fdcId": 174899,
+    "description": "Bagels, plain, enriched, with calcium propionate (includes onion, poppy, sesame)",
+    "dataType": "SR Legacy"
+  },
+  "black-beans": {
+    "fdcId": 173735,
+    "description": "Beans, black, mature seeds, cooked, boiled, without salt",
+    "dataType": "SR Legacy"
+  },
+  "chickpeas": {
+    "fdcId": 173757,
+    "description": "Chickpeas (garbanzo beans, bengal gram), mature seeds, cooked, boiled, without salt",
+    "dataType": "SR Legacy"
+  },
+  "lentils": {
+    "fdcId": 172421,
+    "description": "Lentils, mature seeds, cooked, boiled, without salt",
+    "dataType": "SR Legacy"
+  },
+  "kidney-beans": {
+    "fdcId": 175194,
+    "description": "Beans, kidney, red, mature seeds, cooked, boiled, without salt",
+    "dataType": "SR Legacy"
+  },
+  "tofu": {
+    "fdcId": 172448,
+    "description": "Tofu, firm, prepared with calcium sulfate and magnesium chloride (nigari)",
+    "dataType": "SR Legacy"
+  },
+  "edamame": {
+    "fdcId": 168411,
+    "description": "Edamame, frozen, prepared",
+    "dataType": "SR Legacy"
+  },
+  "egg": {
+    "fdcId": 171287,
+    "description": "Egg, whole, raw, fresh",
+    "dataType": "SR Legacy"
+  },
+  "egg-white": {
+    "fdcId": 172183,
+    "description": "Egg, white, raw, fresh",
+    "dataType": "SR Legacy"
+  },
+  "milk-2": {
+    "fdcId": 171267,
+    "description": "Milk, reduced fat, fluid, 2% milkfat, with added vitamin A and vitamin D",
+    "dataType": "SR Legacy"
+  },
+  "skim-milk": {
+    "fdcId": 171269,
+    "description": "Milk, nonfat, fluid, with added vitamin A and vitamin D (fat free or skim)",
+    "dataType": "SR Legacy"
+  },
+  "greek-yogurt": {
+    "fdcId": 170894,
+    "description": "Yogurt, Greek, plain, nonfat (Includes foods for USDA's Food Distribution Program)",
+    "dataType": "SR Legacy"
+  },
+  "cottage-cheese": {
+    "fdcId": 172182,
+    "description": "Cheese, cottage, lowfat, 2% milkfat",
+    "dataType": "SR Legacy"
+  },
+  "cheddar-cheese": {
+    "fdcId": 173414,
+    "description": "Cheese, cheddar",
+    "dataType": "SR Legacy"
+  },
+  "mozzarella": {
+    "fdcId": 170845,
+    "description": "Cheese, mozzarella, whole milk",
+    "dataType": "SR Legacy"
+  },
+  "butter": {
+    "fdcId": 173410,
+    "description": "Butter, salted",
+    "dataType": "SR Legacy"
+  },
+  "almonds": {
+    "fdcId": 170567,
+    "description": "Nuts, almonds",
+    "dataType": "SR Legacy"
+  },
+  "walnuts": {
+    "fdcId": 170187,
+    "description": "Nuts, walnuts, english",
+    "dataType": "SR Legacy"
+  },
+  "peanut-butter": {
+    "fdcId": 174266,
+    "description": "Peanut butter, smooth style, with salt (Includes foods for USDA's Food Distribution Program)",
+    "dataType": "SR Legacy"
+  },
+  "olive-oil": {
+    "fdcId": 171413,
+    "description": "Oil, olive, salad or cooking",
+    "dataType": "SR Legacy"
+  },
+  "cashews": {
+    "fdcId": 170162,
+    "description": "Nuts, cashew nuts, raw",
+    "dataType": "SR Legacy"
+  },
+  "honey": {
+    "fdcId": 169640,
+    "description": "Honey",
+    "dataType": "SR Legacy"
+  },
+  "sugar": {
+    "fdcId": 746784,
+    "description": "Sugars, granulated",
+    "dataType": "Foundation"
+  },
+  "dark-chocolate": {
+    "fdcId": 170273,
+    "description": "Chocolate, dark, 70-85% cacao solids",
+    "dataType": "SR Legacy"
+  },
+  "ground-beef-80-20": {
+    "fdcId": 171798,
+    "description": "Beef, ground, 80% lean meat / 20% fat, patty, cooked, pan-broiled",
+    "dataType": "SR Legacy"
+  },
+  "ground-beef-90-10": {
+    "fdcId": 171793,
+    "description": "Beef, ground, 90% lean meat / 10% fat, patty, cooked, pan-broiled",
+    "dataType": "SR Legacy"
+  },
+  "ground-beef-93-7": {
+    "fdcId": 174753,
+    "description": "Beef, ground, 93% lean meat /7% fat, patty, cooked, pan-broiled",
+    "dataType": "SR Legacy"
+  },
+  "beef-sirloin": {
+    "fdcId": 174054,
+    "description": "Beef, top sirloin, steak, separable lean only, trimmed to 1/8\" fat, all grades, cooked, broiled",
+    "dataType": "SR Legacy"
+  },
+  "ribeye-steak": {
+    "fdcId": 172142,
+    "description": "Beef, rib eye steak, boneless, lip off, separable lean only, trimmed to 0\" fat, all grades, cooked, grilled",
+    "dataType": "SR Legacy"
+  },
+  "apricot": {
+    "fdcId": 171697,
+    "description": "Apricots, raw",
+    "dataType": "SR Legacy"
+  },
+  "nectarine": {
+    "fdcId": 169914,
+    "description": "Nectarines, raw",
+    "dataType": "SR Legacy"
+  },
+  "mandarin": {
+    "fdcId": 169105,
+    "description": "Tangerines, (mandarin oranges), raw",
+    "dataType": "SR Legacy"
+  },
+  "honeydew": {
+    "fdcId": 2710816,
+    "description": "Melons, honeydew, raw",
+    "dataType": "Foundation"
+  },
+  "papaya": {
+    "fdcId": 169926,
+    "description": "Papayas, raw",
+    "dataType": "SR Legacy"
+  },
+  "lime": {
+    "fdcId": 168155,
+    "description": "Limes, raw",
+    "dataType": "SR Legacy"
+  },
+  "raisins": {
+    "fdcId": 2758980,
+    "description": "Raisins, dark, seedless",
+    "dataType": "Foundation"
+  },
+  "dates": {
+    "fdcId": 168191,
+    "description": "Dates, medjool",
+    "dataType": "SR Legacy"
+  },
+  "dried-cranberries": {
+    "fdcId": 2758976,
+    "description": "Cranberries, dried, sweetened",
+    "dataType": "Foundation"
+  },
+  "coconut": {
+    "fdcId": 170169,
+    "description": "Nuts, coconut meat, raw",
+    "dataType": "SR Legacy"
+  },
+  "plantain": {
+    "fdcId": 168215,
+    "description": "Plantains, green, raw",
+    "dataType": "SR Legacy"
+  },
+  "prunes": {
+    "fdcId": 2758978,
+    "description": "Plums, dried (prunes), uncooked",
+    "dataType": "Foundation"
+  },
+  "beet": {
+    "fdcId": 2685576,
+    "description": "Beets, raw",
+    "dataType": "Foundation"
+  },
+  "eggplant": {
+    "fdcId": 169228,
+    "description": "Eggplant, raw",
+    "dataType": "SR Legacy"
+  },
+  "butternut-squash": {
+    "fdcId": 169295,
+    "description": "Squash, winter, butternut, raw",
+    "dataType": "SR Legacy"
+  },
+  "spaghetti-squash": {
+    "fdcId": 169298,
+    "description": "Squash, winter, spaghetti, raw",
+    "dataType": "SR Legacy"
+  },
+  "pumpkin": {
+    "fdcId": 168448,
+    "description": "Pumpkin, raw",
+    "dataType": "SR Legacy"
+  },
+  "green-onion": {
+    "fdcId": 170005,
+    "description": "Onions, spring or scallions (includes tops and bulb), raw",
+    "dataType": "SR Legacy"
+  },
+  "leek": {
+    "fdcId": 169246,
+    "description": "Leeks, (bulb and lower leaf-portion), raw",
+    "dataType": "SR Legacy"
+  },
+  "radish": {
+    "fdcId": 169276,
+    "description": "Radishes, raw",
+    "dataType": "SR Legacy"
+  },
+  "arugula": {
+    "fdcId": 169387,
+    "description": "Arugula, raw",
+    "dataType": "SR Legacy"
+  },
+  "collard-greens": {
+    "fdcId": 170406,
+    "description": "Collards, raw",
+    "dataType": "SR Legacy"
+  },
+  "bok-choy": {
+    "fdcId": 170390,
+    "description": "Cabbage, chinese (pak-choi), raw",
+    "dataType": "SR Legacy"
+  },
+  "jalapeno": {
+    "fdcId": 168576,
+    "description": "Peppers, jalapeno, raw",
+    "dataType": "SR Legacy"
+  },
+  "green-bell-pepper": {
+    "fdcId": 170427,
+    "description": "Peppers, sweet, green, raw",
+    "dataType": "SR Legacy"
+  },
+  "snap-peas": {
+    "fdcId": 170010,
+    "description": "Peas, edible-podded, raw",
+    "dataType": "SR Legacy"
+  },
+  "artichoke": {
+    "fdcId": 168386,
+    "description": "Artichokes, (globe or french), cooked, boiled, drained, without salt",
+    "dataType": "SR Legacy"
+  },
+  "olives": {
+    "fdcId": 169094,
+    "description": "Olives, ripe, canned (small-extra large)",
+    "dataType": "SR Legacy"
+  },
+  "pickles": {
+    "fdcId": 168558,
+    "description": "Pickles, cucumber, dill or kosher dill",
+    "dataType": "SR Legacy"
+  },
+  "sun-dried-tomato": {
+    "fdcId": 168567,
+    "description": "Tomatoes, sun-dried",
+    "dataType": "SR Legacy"
+  },
+  "ground-chicken": {
+    "fdcId": 171117,
+    "description": "Chicken, ground, crumbles, cooked, pan-browned",
+    "dataType": "SR Legacy"
+  },
+  "chicken-drumstick": {
+    "fdcId": 172376,
+    "description": "Chicken, broilers or fryers, dark meat, drumstick, meat only, cooked, roasted",
+    "dataType": "SR Legacy"
+  },
+  "chicken-wing": {
+    "fdcId": 173630,
+    "description": "Chicken, broilers or fryers, wing, meat and skin, cooked, roasted",
+    "dataType": "SR Legacy"
+  },
+  "ground-lamb": {
+    "fdcId": 172544,
+    "description": "Lamb, ground, cooked, broiled",
+    "dataType": "SR Legacy"
+  },
+  "italian-sausage": {
+    "fdcId": 174586,
+    "description": "Sausage, Italian, pork, mild, cooked, pan-fried",
+    "dataType": "SR Legacy"
+  },
+  "breakfast-sausage": {
+    "fdcId": 167698,
+    "description": "Pork sausage rice links, brown and serve, cooked",
+    "dataType": "SR Legacy"
+  },
+  "hot-dog": {
+    "fdcId": 174614,
+    "description": "Frankfurter, beef, heated",
+    "dataType": "SR Legacy"
+  },
+  "chorizo": {
+    "fdcId": 746781,
+    "description": "Sausage, pork, chorizo, link or ground, cooked, pan-fried",
+    "dataType": "Foundation"
+  },
+  "pepperoni": {
+    "fdcId": 2759006,
+    "description": "Pepperoni, beef and pork, sliced",
+    "dataType": "Foundation"
+  },
+  "salami": {
+    "fdcId": 174603,
+    "description": "Salami, Italian, pork",
+    "dataType": "SR Legacy"
+  },
+  "deli-turkey": {
+    "fdcId": 174572,
+    "description": "Turkey breast, low salt, prepackaged or deli, luncheon meat",
+    "dataType": "SR Legacy"
+  },
+  "tuna-steak": {
+    "fdcId": 172006,
+    "description": "Fish, tuna, yellowfin, fresh, cooked, dry heat",
+    "dataType": "SR Legacy"
+  },
+  "halibut": {
+    "fdcId": 174201,
+    "description": "Fish, halibut, Atlantic and Pacific, cooked, dry heat",
+    "dataType": "SR Legacy"
+  },
+  "mahi-mahi": {
+    "fdcId": 171992,
+    "description": "Fish, mahimahi, cooked, dry heat",
+    "dataType": "SR Legacy"
+  },
+  "trout": {
+    "fdcId": 173718,
+    "description": "Fish, trout, rainbow, farmed, cooked, dry heat",
+    "dataType": "SR Legacy"
+  },
+  "canned-salmon": {
+    "fdcId": 173724,
+    "description": "Fish, Salmon, pink, canned, drained solids, without skin and bones",
+    "dataType": "SR Legacy"
+  },
+  "smoked-salmon": {
+    "fdcId": 173687,
+    "description": "Fish, salmon, chinook, smoked",
+    "dataType": "SR Legacy"
+  },
+  "crab": {
+    "fdcId": 174205,
+    "description": "Crustaceans, crab, blue, cooked, moist heat",
+    "dataType": "SR Legacy"
+  },
+  "lobster": {
+    "fdcId": 174209,
+    "description": "Crustaceans, lobster, northern, cooked, moist heat",
+    "dataType": "SR Legacy"
+  },
+  "scallops": {
+    "fdcId": 167742,
+    "description": "Mollusks, scallop, (bay and sea), cooked, steamed",
+    "dataType": "SR Legacy"
+  },
+  "mussels": {
+    "fdcId": 174217,
+    "description": "Mollusks, mussel, blue, cooked, moist heat",
+    "dataType": "SR Legacy"
+  },
+  "calamari": {
+    "fdcId": 171982,
+    "description": "Mollusks, squid, mixed species, cooked, fried",
+    "dataType": "SR Legacy"
+  },
+  "anchovies": {
+    "fdcId": 174183,
+    "description": "Fish, anchovy, european, canned in oil, drained solids",
+    "dataType": "SR Legacy"
+  },
+  "sourdough-bread": {
+    "fdcId": 172675,
+    "description": "Bread, french or vienna (includes sourdough)",
+    "dataType": "SR Legacy"
+  },
+  "rye-bread": {
+    "fdcId": 172684,
+    "description": "Bread, rye",
+    "dataType": "SR Legacy"
+  },
+  "multigrain-bread": {
+    "fdcId": 168013,
+    "description": "Bread, multi-grain (includes whole-grain)",
+    "dataType": "SR Legacy"
+  },
+  "english-muffin": {
+    "fdcId": 175063,
+    "description": "English muffins, plain, enriched, without calcium propionate(includes sourdough)",
+    "dataType": "SR Legacy"
+  },
+  "pita": {
+    "fdcId": 174915,
+    "description": "Bread, pita, white, enriched",
+    "dataType": "SR Legacy"
+  },
+  "naan": {
+    "fdcId": 171845,
+    "description": "Bread, naan, plain, commercially prepared, refrigerated",
+    "dataType": "SR Legacy"
+  },
+  "pancake": {
+    "fdcId": 175009,
+    "description": "Pancakes, plain, prepared from recipe",
+    "dataType": "SR Legacy"
+  },
+  "waffle": {
+    "fdcId": 175048,
+    "description": "Waffles, plain, frozen, ready -to-heat, toasted",
+    "dataType": "SR Legacy"
+  },
+  "granola": {
+    "fdcId": 171646,
+    "description": "Cereals ready-to-eat, granola, homemade",
+    "dataType": "SR Legacy"
+  },
+  "barley": {
+    "fdcId": 170285,
+    "description": "Barley, pearled, cooked",
+    "dataType": "SR Legacy"
+  },
+  "farro": {
+    "fdcId": 2710828,
+    "description": "Farro, pearled, dry, raw",
+    "dataType": "Foundation"
+  },
+  "popcorn": {
+    "fdcId": 167959,
+    "description": "Snacks, popcorn, air-popped",
+    "dataType": "SR Legacy"
+  },
+  "crackers": {
+    "fdcId": 172746,
+    "description": "Crackers, saltines (includes oyster, soda, soup)",
+    "dataType": "SR Legacy"
+  },
+  "rice-cakes": {
+    "fdcId": 170250,
+    "description": "Snacks, rice cakes, brown rice, plain, unsalted",
+    "dataType": "SR Legacy"
+  },
+  "cornbread": {
+    "fdcId": 174910,
+    "description": "Bread, cornbread, prepared from recipe, made with low fat (2%) milk",
+    "dataType": "SR Legacy"
+  },
+  "pinto-beans": {
+    "fdcId": 175200,
+    "description": "Beans, pinto, mature seeds, cooked, boiled, without salt",
+    "dataType": "SR Legacy"
+  },
+  "navy-beans": {
+    "fdcId": 173746,
+    "description": "Beans, navy, mature seeds, cooked, boiled, without salt",
+    "dataType": "SR Legacy"
+  },
+  "cannellini": {
+    "fdcId": 175203,
+    "description": "Beans, white, mature seeds, cooked, boiled, without salt",
+    "dataType": "SR Legacy"
+  },
+  "lima-beans": {
+    "fdcId": 174253,
+    "description": "Lima beans, large, mature seeds, cooked, boiled, without salt",
+    "dataType": "SR Legacy"
+  },
+  "black-eyed-peas": {
+    "fdcId": 173759,
+    "description": "Cowpeas, common (blackeyes, crowder, southern), mature seeds, cooked, boiled, without salt",
+    "dataType": "SR Legacy"
+  },
+  "hummus": {
+    "fdcId": 174289,
+    "description": "Hummus, commercial",
+    "dataType": "SR Legacy"
+  },
+  "tempeh": {
+    "fdcId": 174272,
+    "description": "Tempeh",
+    "dataType": "SR Legacy"
+  },
+  "refried-beans": {
+    "fdcId": 172438,
+    "description": "Refried beans, canned, traditional style",
+    "dataType": "SR Legacy"
+  },
+  "peanuts": {
+    "fdcId": 173806,
+    "description": "Peanuts, all types, dry-roasted, without salt",
+    "dataType": "SR Legacy"
+  },
+  "baked-beans": {
+    "fdcId": 175182,
+    "description": "Beans, baked, canned, plain or vegetarian",
+    "dataType": "SR Legacy"
+  },
+  "whole-milk": {
+    "fdcId": 171265,
+    "description": "Milk, whole, 3.25% milkfat, with added vitamin D",
+    "dataType": "SR Legacy"
+  },
+  "milk-1": {
+    "fdcId": 170872,
+    "description": "Milk, lowfat, fluid, 1% milkfat, with added vitamin A and vitamin D",
+    "dataType": "SR Legacy"
+  },
+  "heavy-cream": {
+    "fdcId": 170859,
+    "description": "Cream, fluid, heavy whipping",
+    "dataType": "SR Legacy"
+  },
+  "sour-cream": {
+    "fdcId": 171257,
+    "description": "Cream, sour, cultured",
+    "dataType": "SR Legacy"
+  },
+  "cream-cheese": {
+    "fdcId": 173418,
+    "description": "Cheese, cream",
+    "dataType": "SR Legacy"
+  },
+  "ricotta": {
+    "fdcId": 170851,
+    "description": "Cheese, ricotta, whole milk",
+    "dataType": "SR Legacy"
+  },
+  "feta": {
+    "fdcId": 173420,
+    "description": "Cheese, feta",
+    "dataType": "SR Legacy"
+  },
+  "parmesan": {
+    "fdcId": 171247,
+    "description": "Cheese, parmesan, grated",
+    "dataType": "SR Legacy"
+  },
+  "swiss-cheese": {
+    "fdcId": 171251,
+    "description": "Cheese, swiss",
+    "dataType": "SR Legacy"
+  },
+  "provolone": {
+    "fdcId": 170850,
+    "description": "Cheese, provolone",
+    "dataType": "SR Legacy"
+  },
+  "american-cheese": {
+    "fdcId": 170853,
+    "description": "Cheese, pasteurized process, American, fortified with vitamin D",
+    "dataType": "SR Legacy"
+  },
+  "plain-yogurt": {
+    "fdcId": 2259793,
+    "description": "Yogurt, plain, whole milk",
+    "dataType": "Foundation"
+  },
+  "whole-greek-yogurt": {
+    "fdcId": 2259794,
+    "description": "Yogurt, Greek, plain, whole milk",
+    "dataType": "Foundation"
+  },
+  "almond-milk": {
+    "fdcId": 174832,
+    "description": "Beverages, almond milk, unsweetened, shelf stable",
+    "dataType": "SR Legacy"
+  },
+  "oat-milk": {
+    "fdcId": 2257046,
+    "description": "Oat milk, unsweetened, plain, refrigerated",
+    "dataType": "Foundation"
+  },
+  "soy-milk": {
+    "fdcId": 1999630,
+    "description": "Soy milk, unsweetened, plain, shelf stable",
+    "dataType": "Foundation"
+  },
+  "pistachios": {
+    "fdcId": 170184,
+    "description": "Nuts, pistachio nuts, raw",
+    "dataType": "SR Legacy"
+  },
+  "pecans": {
+    "fdcId": 170182,
+    "description": "Nuts, pecans",
+    "dataType": "SR Legacy"
+  },
+  "hazelnuts": {
+    "fdcId": 170581,
+    "description": "Nuts, hazelnuts or filberts",
+    "dataType": "SR Legacy"
+  },
+  "sunflower-seeds": {
+    "fdcId": 170562,
+    "description": "Seeds, sunflower seed kernels, dried",
+    "dataType": "SR Legacy"
+  },
+  "pumpkin-seeds": {
+    "fdcId": 170556,
+    "description": "Seeds, pumpkin and squash seed kernels, dried",
+    "dataType": "SR Legacy"
+  },
+  "chia-seeds": {
+    "fdcId": 170554,
+    "description": "Seeds, chia seeds, dried",
+    "dataType": "SR Legacy"
+  },
+  "flaxseed": {
+    "fdcId": 169414,
+    "description": "Seeds, flaxseed",
+    "dataType": "SR Legacy"
+  },
+  "almond-butter": {
+    "fdcId": 2262074,
+    "description": "Almond butter, creamy",
+    "dataType": "Foundation"
+  },
+  "tahini": {
+    "fdcId": 170189,
+    "description": "Seeds, sesame butter, tahini, from roasted and toasted kernels (most common type)",
+    "dataType": "SR Legacy"
+  },
+  "coconut-oil": {
+    "fdcId": 171412,
+    "description": "Oil, coconut",
+    "dataType": "SR Legacy"
+  },
+  "canola-oil": {
+    "fdcId": 748278,
+    "description": "Oil, canola",
+    "dataType": "Foundation"
+  },
+  "avocado-oil": {
+    "fdcId": 173573,
+    "description": "Oil, avocado",
+    "dataType": "SR Legacy"
+  },
+  "mayonnaise": {
+    "fdcId": 171009,
+    "description": "Salad dressing, mayonnaise, regular",
+    "dataType": "SR Legacy"
+  },
+  "maple-syrup": {
+    "fdcId": 169661,
+    "description": "Syrups, maple",
+    "dataType": "SR Legacy"
+  },
+  "brown-sugar": {
+    "fdcId": 168833,
+    "description": "Sugars, brown",
+    "dataType": "SR Legacy"
+  },
+  "jam": {
+    "fdcId": 169641,
+    "description": "Jams and preserves",
+    "dataType": "SR Legacy"
+  },
+  "ketchup": {
+    "fdcId": 168556,
+    "description": "Catsup",
+    "dataType": "SR Legacy"
+  },
+  "mustard": {
+    "fdcId": 172234,
+    "description": "Mustard, prepared, yellow",
+    "dataType": "SR Legacy"
+  },
+  "soy-sauce": {
+    "fdcId": 174277,
+    "description": "Soy sauce made from soy and wheat (shoyu)",
+    "dataType": "SR Legacy"
+  },
+  "salsa": {
+    "fdcId": 746777,
+    "description": "Sauce, salsa, ready-to-serve",
+    "dataType": "Foundation"
+  },
+  "ranch": {
+    "fdcId": 173592,
+    "description": "Salad dressing, ranch dressing, regular",
+    "dataType": "SR Legacy"
+  },
+  "bbq-sauce": {
+    "fdcId": 174523,
+    "description": "Sauce, barbecue",
+    "dataType": "SR Legacy"
+  },
+  "coconut-milk": {
+    "fdcId": 170173,
+    "description": "Nuts, coconut milk, canned (liquid expressed from grated meat and water)",
+    "dataType": "SR Legacy"
+  },
+  "milk-chocolate": {
+    "fdcId": 167587,
+    "description": "Candies, milk chocolate",
+    "dataType": "SR Legacy"
+  },
+  "flank-steak": {
+    "fdcId": 174774,
+    "description": "Beef, flank, steak, separable lean only, trimmed to 0\" fat, all grades, cooked, broiled",
+    "dataType": "SR Legacy"
+  },
+  "ny-strip": {
+    "fdcId": 171813,
+    "description": "Beef, short loin, top loin, steak, separable lean only, trimmed to 1/8\" fat, all grades, cooked, broiled",
+    "dataType": "SR Legacy"
+  },
+  "filet-mignon": {
+    "fdcId": 171811,
+    "description": "Beef, tenderloin, steak, separable lean only, trimmed to 1/8\" fat, all grades, cooked, broiled",
+    "dataType": "SR Legacy"
+  },
+  "lamb-chop": {
+    "fdcId": 173811,
+    "description": "Lamb, New Zealand, imported, frozen, loin, separable lean only, cooked, broiled",
+    "dataType": "SR Legacy"
+  },
+  "marinara": {
+    "fdcId": 171192,
+    "description": "Sauce, pasta, spaghetti/marinara, ready-to-serve",
+    "dataType": "SR Legacy"
+  }
+}

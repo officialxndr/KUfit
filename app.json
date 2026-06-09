@@ -92,7 +92,7 @@
         "react-native-ble-plx",
         {
           "isBackgroundEnabled": false,
-          "bluetoothAlwaysPermission": "Hale connects to a compatible Bluetooth smart tape measure to log body measurements."
+          "bluetoothAlwaysPermission": "Hale connects to compatible Bluetooth devices — a smart tape measure for body measurements and a kitchen scale to weigh foods."
         }
       ],
       "@bacons/apple-targets",

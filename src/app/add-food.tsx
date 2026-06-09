@@ -3,18 +3,19 @@ import {
   View, TextInput, StyleSheet, Pressable, FlatList, Alert, Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
-import { X, ScanLine, Search, Plus, Star, Utensils } from 'lucide-react-native';
+import { X, ScanLine, Search, Plus, Star, Utensils, BookmarkPlus, Pencil, Trash2 } from 'lucide-react-native';
 
 import { FsText, Button } from '@/components/ui';
+import { KebabMenu } from '@/components/KebabMenu';
 import { Skeleton } from '@/components/anim/Skeleton';
 import { FoodQuantitySheet, type SheetFood } from '@/components/FoodQuantitySheet';
 import { searchFood, barcodeLookup, ensureFoodItem, type FoodCandidate } from '@/lib/foodSearch';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
-import type { FoodItem, MealType, Recipe } from '@/types';
+import type { FoodItem, MealType, Recipe, SavedMeal } from '@/types';
 
 type Tab = 'search' | 'recent' | 'favorites';
 const TABS: { key: Tab; label: string }[] = [
@@ -23,7 +24,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'favorites', label: 'Favorites' },
 ];
 
-type Row = { kind: 'recipe'; recipe: Recipe } | { kind: 'food'; food: FoodCandidate };
+type Row = { kind: 'savedMeal'; meal: SavedMeal } | { kind: 'recipe'; recipe: Recipe } | { kind: 'food'; food: FoodCandidate };
 type FavTarget = { kind: 'food'; candidate: FoodCandidate } | { kind: 'recipe'; recipe: Recipe };
 
 /** Map a stored FoodItem to a search candidate (carries favorite + rich details). */
@@ -60,6 +61,7 @@ export default function AddFoodModal() {
   const [tab, setTab] = useState<Tab>('search');
   const [foods, setFoods] = useState<FoodCandidate[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [savedMeals, setSavedMeals] = useState<SavedMeal[]>([]);
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [selected, setSelected] = useState<{ food: SheetFood; log: (qty: number, entry: { amount: number; unit: string }) => void; fav: FavTarget } | null>(null);
@@ -76,21 +78,26 @@ export default function AddFoodModal() {
     allRecipes.current = foodRepo.getRecipes(); // keep favorite flags fresh
     const ql = q.trim().toLowerCase();
     const matchRecipes = ql.length >= 2 ? allRecipes.current.filter((r) => r.name.toLowerCase().includes(ql)) : allRecipes.current;
+    const allMeals = foodRepo.getSavedMeals();
+    const matchMeals = ql.length >= 2 ? allMeals.filter((m) => m.name.toLowerCase().includes(ql)) : allMeals;
 
     if (tab === 'favorites') {
       setFoods(foodRepo.getFavoriteFoodItems().map(toCandidate));
       setRecipes(allRecipes.current.filter((r) => r.isFavorite));
+      setSavedMeals([]);
       setLoading(false);
       return;
     }
     if (tab === 'recent') {
       setFoods(foodRepo.getRecentFoodItems(15).map(toCandidate));
       setRecipes(matchRecipes);
+      setSavedMeals(matchMeals);
       setLoading(false);
       return;
     }
     // search
     setRecipes(matchRecipes);
+    setSavedMeals(matchMeals);
     if (ql.length < 2) {
       setFoods(foodRepo.getRecentFoodItems(10).map(toCandidate));
       setLoading(false);
@@ -104,11 +111,25 @@ export default function AddFoodModal() {
   }, [q, tab]);
 
   useEffect(() => { load(); return () => { if (debounce.current) clearTimeout(debounce.current); }; }, [load]);
+  // Refresh when returning from the saved-meal editor so renamed/edited meals update.
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const rows: Row[] = useMemo(() => [
+    ...savedMeals.map((m) => ({ kind: 'savedMeal' as const, meal: m })),
     ...recipes.map((r) => ({ kind: 'recipe' as const, recipe: r })),
     ...foods.map((f) => ({ kind: 'food' as const, food: f })),
-  ], [recipes, foods]);
+  ], [savedMeals, recipes, foods]);
+
+  /** Fan a saved meal out into individual logs for this day/meal, then close. */
+  const addSavedMeal = (m: SavedMeal) => {
+    foodRepo.addSavedMeal(m.id, date, meal);
+    router.back();
+  };
+  const removeSavedMeal = (m: SavedMeal) =>
+    Alert.alert('Delete saved meal?', `Remove "${m.name}"? Your logged food won't be affected.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => { foodRepo.deleteSavedMeal(m.id); load(); } },
+    ]);
 
   const pickFood = (c: FoodCandidate) => {
     Keyboard.dismiss();
@@ -245,33 +266,55 @@ export default function AddFoodModal() {
 
       <FlatList
         data={rows}
-        keyExtractor={(item, i) => (item.kind === 'recipe' ? `r${item.recipe.id}` : `f${item.food.localId ?? item.food.barcode ?? item.food.name}`) + i}
+        keyExtractor={(item, i) => (item.kind === 'savedMeal' ? `m${item.meal.id}` : item.kind === 'recipe' ? `r${item.recipe.id}` : `f${item.food.localId ?? item.food.barcode ?? item.food.name}`) + i}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingHorizontal: space[4], paddingBottom: 200 }}
         ListEmptyComponent={
           !loading ? (
-            <View style={{ marginTop: space[4], gap: space[3] }}>
+            <View style={{ marginTop: space[4], gap: space[2] }}>
               <FsText variant="caption">
                 {tab === 'favorites' ? 'Star foods to keep them here.' : q.length < 2 ? 'Recent foods & recipes appear here.' : 'No matches.'}
               </FsText>
+              <Button title="Quick add calories" variant="ghost" onPress={() => router.push({ pathname: '/quick-add', params: { meal, date } })} />
               <Button title="Create custom food" variant="ghost" onPress={() => router.push({ pathname: '/custom-food', params: { meal, date } })} />
             </View>
           ) : null
         }
         ListFooterComponent={
           rows.length > 0 ? (
-            <Pressable
-              onPress={() => WebBrowser.openBrowserAsync('https://world.openfoodfacts.org').catch(() => {})}
-              style={styles.creditFooter}
-              hitSlop={6}
-            >
-              <FsText variant="caption" style={{ color: colors.muted, textAlign: 'center' }}>
-                Food data from Open Food Facts (ODbL)
-              </FsText>
-            </Pressable>
+            <View style={{ paddingTop: space[3], gap: space[2] }}>
+              <Button title="Quick add calories" variant="ghost" onPress={() => router.push({ pathname: '/quick-add', params: { meal, date } })} />
+              <Pressable
+                onPress={() => WebBrowser.openBrowserAsync('https://world.openfoodfacts.org').catch(() => {})}
+                style={styles.creditFooter}
+                hitSlop={6}
+              >
+                <FsText variant="caption" style={{ color: colors.muted, textAlign: 'center' }}>
+                  Food data from Open Food Facts (ODbL)
+                </FsText>
+              </Pressable>
+            </View>
           ) : null
         }
-        renderItem={({ item }) => item.kind === 'recipe' ? (
+        renderItem={({ item }) => item.kind === 'savedMeal' ? (
+          <Pressable style={styles.resultRow} onPress={() => addSavedMeal(item.meal)}>
+            <BookmarkPlus color={colors.primary} size={16} />
+            <View style={{ flex: 1 }}>
+              <FsText variant="bodyMedium" numberOfLines={1}>{item.meal.name}</FsText>
+              <FsText variant="caption" numberOfLines={1}>
+                {item.meal.itemCount} item{item.meal.itemCount === 1 ? '' : 's'} · {Math.round(item.meal.calories)} kcal · saved meal
+              </FsText>
+            </View>
+            <KebabMenu
+              size={18}
+              items={[
+                { icon: Pencil, label: 'Edit meal', onPress: () => router.push({ pathname: '/saved-meal', params: { id: item.meal.id } }) },
+                { icon: Trash2, label: 'Delete', danger: true, onPress: () => removeSavedMeal(item.meal) },
+              ]}
+            />
+            <Plus color={colors.primary} size={20} strokeWidth={2.4} />
+          </Pressable>
+        ) : item.kind === 'recipe' ? (
           <Pressable style={styles.resultRow} onPress={() => pickRecipe(item.recipe)}>
             <Utensils color={colors.primary} size={16} />
             <View style={{ flex: 1 }}>

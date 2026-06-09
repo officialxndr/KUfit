@@ -126,6 +126,9 @@ export function AppShell() {
       case 'scan-barcode':
         openAddFood();
         break;
+      case 'quick-add':
+        router.push({ pathname: '/quick-add', params: { meal: 'SNACK', date: today() } });
+        break;
       case 'log-weight':
         router.push('/log-weight');
         break;

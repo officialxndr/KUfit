@@ -1,11 +1,13 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, TextInput, StyleSheet, Pressable, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { X, ScanText, Circle } from 'lucide-react-native';
+import { X, ScanText, Circle, Scale as ScaleIcon } from 'lucide-react-native';
 
 import { FsText, Card, Button, SectionHeader } from '@/components/ui';
+import { ScaleWeighBar } from '@/components/ScaleWeighBar';
+import { useScale } from '@/lib/scales/useScale';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { recognizeNutritionLabel, type ParsedNutrition } from '@/lib/nutritionOcr';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
@@ -27,6 +29,21 @@ export default function CustomFood() {
   const [sugar, setSugar] = useState('');
   const [saturatedFat, setSaturatedFat] = useState('');
   const [sodium, setSodium] = useState('');
+
+  // Weigh the serving size on a Bluetooth scale (live grams fill the serving-size field).
+  const [weighing, setWeighing] = useState(false);
+  const [sim, setSim] = useState(false);
+  const scale = useScale({ simulate: sim });
+  useEffect(() => {
+    if (!weighing) return;
+    scale.start();
+    return () => scale.stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weighing, sim]);
+  useEffect(() => {
+    if (weighing && scale.reading) { setServingUnit('g'); setServingSize(String(scale.reading.grams)); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weighing, scale.reading]);
 
   const [permission, requestPermission] = useCameraPermissions();
   const [scanning, setScanning] = useState(false);
@@ -161,6 +178,15 @@ export default function CustomFood() {
               <Field label="Unit" value={servingUnit} onChangeText={setServingUnit} />
             </View>
           </View>
+          <Pressable style={styles.weighToggle} onPress={() => setWeighing((w) => !w)}>
+            <ScaleIcon color={colors.primary} size={16} />
+            <FsText variant="caption" style={{ color: colors.primary }}>{weighing ? 'Hide scale' : 'Weigh on scale'}</FsText>
+          </Pressable>
+          {weighing && (
+            <View style={{ marginTop: space[2] }}>
+              <ScaleWeighBar scale={scale} onSimulate={() => setSim(true)} onClose={() => { setWeighing(false); setSim(false); }} />
+            </View>
+          )}
         </Card>
 
         <Card style={{ marginBottom: space[3] }}>
@@ -232,6 +258,7 @@ const styles = themedStyles(() => StyleSheet.create({
     backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.primary,
     padding: space[3], marginBottom: space[3],
   },
+  weighToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: space[2] },
   scanOverlay: { flex: 1, padding: space[4], alignItems: 'center' },
   shutter: {
     width: 72, height: 72, borderRadius: 36, backgroundColor: '#fff',

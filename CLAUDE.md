@@ -58,6 +58,15 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   the picker filters by muscle + equipment chips (`getDistinctEquipment`, most-common first).
 - **Bluetooth**: `src/lib/renphoTape.ts` — Renpho RF-BMF01 tape (`react-native-ble-plx`); the
   `useRenphoTape()` hook drives `components/TapeMeasureView.tsx` (opened from `measurements.tsx`).
+- **Bluetooth kitchen scale**: `src/lib/scales/` — a **pluggable adapter layer** (`ScaleAdapter` = match +
+  notify UUIDs + `parse`→**grams**; add a scale = one file + a `registry.ts` entry). `esn00.ts` is the
+  Renpho ES-SNG01 / Etekcity ESN00 (VeSync) driver. `useScale({simulate})` mirrors `useRenphoTape` + adds
+  software tare + a simulator. Live grams drive `FoodQuantitySheet`/custom-food via `ScaleWeighBar`; Settings
+  → Bluetooth scale (`app/scale.tsx`) is a connect/test screen with a raw-frame inspector. **All weight is
+  normalized to grams inside the adapter** — the app never deals with a scale's display unit.
+  **`docs/BLUETOOTH-SCALE.md`** is the bench/bring-up guide (protocol reference + what to do if the scale
+  doesn't connect with the documented protocol: nRF Connect capture → one-file fix → HCI snoop for
+  handshake/tare).
 - **Nutrition-label OCR**: `src/lib/nutritionOcr.ts` — on-device ML Kit text recognition
   (`@react-native-ml-kit/text-recognition`); `parseNutritionText` is the pure parser. Drives the
   "Scan nutrition label" action in `custom-food.tsx`. Needs a dev build (native; no Expo Go).

@@ -224,7 +224,33 @@ export function initDb() {
       value TEXT
     );
 
+    -- Saved meals: a named bundle of items ("My usual breakfast") that re-logs in one
+    -- tap, fanning out into individual editable food_logs (unlike a recipe, which logs
+    -- as one combined entry). Items mirror food_logs (food item / recipe / quick-add custom).
+    CREATE TABLE IF NOT EXISTS saved_meals (
+      localId TEXT PRIMARY KEY,
+      serverId TEXT,
+      syncStatus TEXT DEFAULT 'local',
+      name TEXT NOT NULL,
+      updatedAt TEXT,
+      deleted INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS saved_meal_items (
+      localId TEXT PRIMARY KEY,
+      savedMealLocalId TEXT NOT NULL,
+      foodItemLocalId TEXT,
+      recipeLocalId TEXT,
+      servingQty REAL NOT NULL,
+      customName TEXT,
+      customCalories REAL,
+      customProtein REAL,
+      customCarbs REAL,
+      customFat REAL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_food_logs_date ON food_logs(date);
+    CREATE INDEX IF NOT EXISTS idx_saved_meal_items ON saved_meal_items(savedMealLocalId);
     CREATE INDEX IF NOT EXISTS idx_weight_date ON weight_entries(date);
     CREATE INDEX IF NOT EXISTS idx_exercises_name ON exercises(name);
     CREATE INDEX IF NOT EXISTS idx_exercises_muscle ON exercises(muscleGroup);
@@ -282,6 +308,13 @@ function runMigrations() {
   ensureColumn('exercises', 'leadSide', 'TEXT');
   // Side a logged set belongs to ('L'/'R') for unilateral exercises; null = bilateral.
   ensureColumn('exercise_sets', 'side', 'TEXT');
+  // Quick-add: a bare calorie (+ optional macros) entry with no food item / recipe —
+  // for restaurant meals / estimates. customName present ⇒ this is a quick-add row.
+  ensureColumn('food_logs', 'customName', 'TEXT');
+  ensureColumn('food_logs', 'customCalories', 'REAL');
+  ensureColumn('food_logs', 'customProtein', 'REAL');
+  ensureColumn('food_logs', 'customCarbs', 'REAL');
+  ensureColumn('food_logs', 'customFat', 'REAL');
 }
 
 function ensureColumn(table: string, column: string, decl: string) {

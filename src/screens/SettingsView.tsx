@@ -52,6 +52,7 @@ const T = {
   coaching: 'coaching reminders nudges prompts workout summary recap warnings',
   motion: 'motion animation animations confetti celebration reduce transitions',
   notifications: 'notifications reminders alerts schedule notify food weight measurement',
+  devices: 'devices bluetooth scale kitchen food weigh grams renpho etekcity connect tare',
   server: 'server backup sync self hosted url token connection',
   developer: 'developer dev demo data sample seed debug haptic haptics vibration rest test notification notifications push',
   about: 'about credits attribution acknowledgements licenses exercise food data source exercisedb ascendapi open food facts odbl legal',
@@ -530,6 +531,16 @@ export function SettingsView() {
           schedule. Off until you turn them on.
         </FsText>
         <Button title="Manage reminders" variant="ghost" onPress={() => router.push('/reminders')} />
+      </Card>
+
+      <Card hidden={!show(T.devices)} style={{ marginBottom: space[3] }}>
+        <SectionHeader title="Bluetooth scale" />
+        <FsText variant="caption" style={{ marginBottom: space[3] }}>
+          Connect a Bluetooth food scale to weigh foods straight into the app — the live weight fills
+          the amount as you add or remove food. Connect &amp; test it here (needs a dev build; a
+          simulator is built in to preview).
+        </FsText>
+        <Button title="Connect &amp; test scale" variant="ghost" onPress={() => router.push('/scale')} />
       </Card>
 
       <Card hidden={!show(T.server)} style={{ marginBottom: space[3] }}>

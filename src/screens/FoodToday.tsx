@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { View, StyleSheet, Pressable, Modal, ScrollView, Dimensions, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import { View, StyleSheet, Pressable, Modal, ScrollView, Dimensions, TextInput, Alert, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
@@ -12,10 +12,13 @@ import {
   Sun,
   Moon,
   Cookie,
+  Copy,
+  BookmarkPlus,
   type LucideIcon,
 } from 'lucide-react-native';
 
-import { Card, FsText } from '@/components/ui';
+import { Card, FsText, Button } from '@/components/ui';
+import { KebabMenu, type KebabMenuItem } from '@/components/KebabMenu';
 import { CalorieMacroCard } from '@/components/CalorieMacroCard';
 import { MonthCalendar } from '@/components/MonthCalendar';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
@@ -30,9 +33,20 @@ import { useActiveCaloriesStore } from '@/stores/activeCaloriesStore';
 import { colors, radius, space, PAGE_PADDING, themedStyles } from '@/theme/tokens';
 import type { FoodLog, MealType } from '@/types';
 
-/** Normalize a logged item (food or recipe) into the shared quantity sheet's shape. */
+/** Normalize a logged item (food, recipe, or quick-add) into the shared quantity sheet's shape. */
 function logToSheetFood(l: FoodLog): SheetFood | null {
   if (l.foodItem) return l.foodItem;
+  if (l.custom) {
+    return {
+      name: l.custom.name,
+      servingSize: 1,
+      servingUnit: 'serving',
+      calories: l.custom.calories,
+      protein: l.custom.protein,
+      carbs: l.custom.carbs,
+      fat: l.custom.fat,
+    };
+  }
   if (l.recipe?.nutrition) {
     const n = l.recipe.nutrition;
     return {
@@ -111,6 +125,28 @@ export function FoodToday() {
 
   const remove = (id: string) => { foodRepo.deleteLog(id); refresh(); };
 
+  // Copy meal / day (A1): pick a source day from the calendar, then re-log into `date`.
+  // `copyMode` is the target meal, or 'DAY' for the whole day.
+  const [copyMode, setCopyMode] = useState<MealType | 'DAY' | null>(null);
+  const startCopy = (mode: MealType | 'DAY') => { setCopyMode(mode); const m = firstOfMonth(new Date(date)); setCalMonth(m); loadMarks(m); setCalOpen(true); };
+  const onPickSourceDay = (picked: string) => {
+    if (!copyMode) { setDate(picked); setCalOpen(false); return; }
+    const n = copyMode === 'DAY' ? foodRepo.copyDay(picked, date) : foodRepo.copyMeal(picked, date, copyMode);
+    setCalOpen(false); setCopyMode(null);
+    if (n > 0) refresh();
+    else Alert.alert('Nothing to copy', copyMode === 'DAY' ? 'That day has no logged items.' : 'That day has no items for this meal.');
+  };
+
+  // Save as meal (A5): name the current meal's items as a reusable saved meal.
+  const [savingMeal, setSavingMeal] = useState<MealType | null>(null);
+  const [mealName, setMealName] = useState('');
+  const confirmSaveMeal = () => {
+    if (!savingMeal) return;
+    const id = foodRepo.saveMealFromLogs(mealName.trim() || 'My meal', date, savingMeal);
+    setSavingMeal(null); setMealName('');
+    if (id) Alert.alert('Saved', 'Add it any time from the "Add food" screen.');
+  };
+
   const [editing, setEditing] = useState<FoodLog | null>(null);
   const [favActive, setFavActive] = useState(false);
   const editFood = editing ? logToSheetFood(editing) : null;
@@ -153,7 +189,10 @@ export function FoodToday() {
               <CalendarDays color={colors.primary} size={14} />
             </View>
           </Pressable>
-          <Pressable onPress={() => shiftDay(1)} hitSlop={8} style={styles.arrow}><ChevronRight color={colors.muted} size={22} /></Pressable>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Pressable onPress={() => shiftDay(1)} hitSlop={8} style={styles.arrow}><ChevronRight color={colors.muted} size={22} /></Pressable>
+            <KebabMenu items={[{ icon: Copy, label: 'Copy entire day from…', onPress: () => startCopy('DAY') }]} size={18} />
+          </View>
         </View>
 
         {/* Swipeable nutrient summary */}
@@ -194,10 +233,14 @@ export function FoodToday() {
 
       {MEALS.map((meal) => {
         const items = logs.filter((l) => l.meal === meal.key);
-        const logCals = (l: FoodLog) => (l.foodItem ? l.foodItem.calories : l.recipe?.nutrition?.perServingCalories ?? 0) * l.servingQty;
+        const logCals = (l: FoodLog) => (l.foodItem ? l.foodItem.calories : l.custom ? l.custom.calories : l.recipe?.nutrition?.perServingCalories ?? 0) * l.servingQty;
         const cals = items.reduce((s, l) => s + logCals(l), 0);
         const isOpen = open[meal.key];
         const MealIcon = meal.icon;
+        const mealMenu: KebabMenuItem[] = [
+          { icon: Copy, label: 'Copy from another day', onPress: () => startCopy(meal.key) },
+          ...(items.length > 0 ? [{ icon: BookmarkPlus, label: 'Save as meal', onPress: () => { setMealName(''); setSavingMeal(meal.key); } }] : []),
+        ];
         return (
           <Card key={meal.key} style={{ marginBottom: space[3], padding: 0 }}>
             <Pressable style={styles.mealHead} onPress={() => setOpen((o) => ({ ...o, [meal.key]: !o[meal.key] }))}>
@@ -211,6 +254,7 @@ export function FoodToday() {
                 <Pressable hitSlop={8} onPress={() => router.push({ pathname: '/add-food', params: { meal: meal.key, date } })} style={styles.addBtn}>
                   <Plus color={colors.primary} size={16} strokeWidth={2.4} />
                 </Pressable>
+                <KebabMenu items={mealMenu} size={18} />
               </View>
             </Pressable>
             {isOpen && items.length > 0 && (
@@ -218,8 +262,12 @@ export function FoodToday() {
                 {items.map((l) => {
                   const fi = l.foodItem;
                   const c = Math.round(logCals(l));
-                  const name = fi?.name ?? l.recipe?.name ?? 'Item';
-                  const sub = fi ? `${l.servingQty} × ${fi.servingSize}${fi.servingUnit}` : `${l.servingQty} serving${l.servingQty > 1 ? 's' : ''} · recipe`;
+                  const name = fi?.name ?? l.custom?.name ?? l.recipe?.name ?? 'Item';
+                  const sub = fi
+                    ? `${l.servingQty} × ${fi.servingSize}${fi.servingUnit}`
+                    : l.custom
+                      ? (l.servingQty > 1 ? `${l.servingQty} × · quick add` : 'Quick add')
+                      : `${l.servingQty} serving${l.servingQty > 1 ? 's' : ''} · recipe`;
                   return (
                     <Animated.View
                       key={l.id}
@@ -245,22 +293,55 @@ export function FoodToday() {
         );
       })}
 
-      {/* Calendar modal */}
-      <Modal visible={calOpen} transparent animationType="fade" onRequestClose={() => setCalOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setCalOpen(false)}>
+      {/* Calendar modal — also used to pick a source day when copying a meal/day. */}
+      <Modal visible={calOpen} transparent animationType="fade" onRequestClose={() => { setCalOpen(false); setCopyMode(null); }}>
+        <Pressable style={styles.backdrop} onPress={() => { setCalOpen(false); setCopyMode(null); }}>
           <Pressable style={styles.calCard} onPress={(e) => e.stopPropagation()}>
+            {copyMode && (
+              <FsText variant="bodyMedium" style={{ textAlign: 'center', marginBottom: space[2] }}>
+                Copy {copyMode === 'DAY' ? 'a whole day' : 'a meal'} from…
+              </FsText>
+            )}
             <MonthCalendar
               month={calMonth}
               marked={marked}
               selected={date}
               allowAllDays
-              onSelectDay={(picked) => { setDate(picked); setCalOpen(false); }}
+              onSelectDay={onPickSourceDay}
               onMonthChange={(delta) => { const m = new Date(calMonth.getFullYear(), calMonth.getMonth() + delta, 1); setCalMonth(m); loadMarks(m); }}
             />
-            <Pressable style={styles.todayBtn} onPress={() => { setDate(todayIso); setCalOpen(false); }}>
-              <FsText variant="bodyMedium" style={{ color: colors.white }}>Today</FsText>
-            </Pressable>
-            <FsText variant="caption" style={{ textAlign: 'center', marginTop: space[2] }}>Dots mark days with logged food.</FsText>
+            {!copyMode && (
+              <Pressable style={styles.todayBtn} onPress={() => { setDate(todayIso); setCalOpen(false); }}>
+                <FsText variant="bodyMedium" style={{ color: colors.white }}>Today</FsText>
+              </Pressable>
+            )}
+            <FsText variant="caption" style={{ textAlign: 'center', marginTop: space[2] }}>
+              {copyMode ? 'Dots mark days with logged food. Tap one to copy it into today.' : 'Dots mark days with logged food.'}
+            </FsText>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Save-as-meal name prompt (A5) */}
+      <Modal visible={!!savingMeal} transparent animationType="fade" onRequestClose={() => setSavingMeal(null)}>
+        <Pressable style={styles.backdrop} onPress={() => setSavingMeal(null)}>
+          <Pressable style={styles.calCard} onPress={(e) => e.stopPropagation()}>
+            <FsText variant="cardTitle" style={{ marginBottom: 4 }}>Save as meal</FsText>
+            <FsText variant="caption" style={{ marginBottom: space[3] }}>Re-log these items together in one tap later.</FsText>
+            <TextInput
+              value={mealName}
+              onChangeText={setMealName}
+              placeholder="e.g. My usual breakfast"
+              placeholderTextColor={colors.muted}
+              style={styles.nameInput}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={confirmSaveMeal}
+            />
+            <View style={{ flexDirection: 'row', gap: space[2], marginTop: space[3] }}>
+              <View style={{ flex: 1 }}><Button title="Cancel" variant="ghost" onPress={() => setSavingMeal(null)} /></View>
+              <View style={{ flex: 1 }}><Button title="Save" onPress={confirmSaveMeal} /></View>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>
@@ -272,7 +353,7 @@ export function FoodToday() {
         initialServings={editing?.servingQty ?? 1}
         baselineQty={editing?.servingQty ?? 0}
         submitLabel="Save"
-        favorite={editing ? { active: favActive, onToggle: toggleEditFav } : undefined}
+        favorite={editing?.foodItem || editing?.recipe ? { active: favActive, onToggle: toggleEditFav } : undefined}
         onSubmit={saveEdit}
         onClose={() => setEditing(null)}
         onDelete={() => { if (editing) remove(editing.id); setEditing(null); }}
@@ -313,4 +394,5 @@ const styles = themedStyles(() => StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: space[4] },
   calCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: space[4] },
   todayBtn: { marginTop: space[3], backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 11, alignItems: 'center' },
+  nameInput: { backgroundColor: colors.surfaceHigh, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12, color: colors.text, fontSize: 15 },
 }));

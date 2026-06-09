@@ -75,6 +75,12 @@ export interface NutrimentEntry {
   value: number
 }
 
+/** A named household serving (e.g. "Medium" apple = 182 g) for quick-fill chips. */
+export interface FoodPortion {
+  label: string
+  grams: number
+}
+
 /** Rich product data captured from Open Food Facts beyond the core macros. */
 export interface FoodDetails {
   /** Extended nutriments (everything beyond the core 8), per serving, in grams. */
@@ -91,6 +97,8 @@ export interface FoodDetails {
   additives?: string[] | null
   /** Raw label + ingredient-analysis tags for diet badges (vegan, gluten-free…). */
   labels?: string[] | null
+  /** USDA household portions (discrete base foods only) — tap-to-fill in the quantity sheet. */
+  portions?: FoodPortion[] | null
 }
 
 export interface RecipeIngredient {
@@ -123,12 +131,39 @@ export interface Recipe {
   updatedAt: string
 }
 
+/** A bare quick-add entry (no food item / recipe) — calories + optional macros. */
+export interface CustomLog {
+  name: string
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+}
+
+/** A reusable named bundle of items that re-logs in one tap (A5). */
+export interface SavedMeal {
+  id: string
+  name: string
+  itemCount: number
+  calories: number
+}
+
+/** One resolved item inside a saved meal (for the editor). `calories` is per serving. */
+export interface SavedMealItem {
+  id: string
+  name: string
+  calories: number
+  servingQty: number
+}
+
 export interface FoodLog {
   id: string
   date: string
   meal: MealType
   foodItem?: FoodItem | null
   recipe?: Recipe | null
+  /** Set when this is a quick-add row (no food item / recipe). */
+  custom?: CustomLog | null
   servingQty: number
   createdAt: string
 }

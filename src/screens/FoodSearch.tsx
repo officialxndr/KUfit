@@ -46,7 +46,7 @@ export function FoodSearch() {
     const existing = item.localId
       ? foodRepo.getFoodItemById(item.localId)
       : item.barcode ? foodRepo.getFoodItemByBarcode(item.barcode) : null;
-    setSelected({ ...item, lastAmount: existing?.lastAmount ?? null, lastUnit: existing?.lastUnit ?? null });
+    setSelected({ ...item, details: item.details ?? existing?.details ?? null, lastAmount: existing?.lastAmount ?? null, lastUnit: existing?.lastUnit ?? null });
   };
   const toggleFav = () => {
     if (!selected) return;
