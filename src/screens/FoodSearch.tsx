@@ -5,6 +5,7 @@ import { Search, Plus } from 'lucide-react-native';
 import { Card, FsText } from '@/components/ui';
 import { FoodQuantitySheet } from '@/components/FoodQuantitySheet';
 import { searchFood, ensureFoodItem, type FoodCandidate } from '@/lib/foodSearch';
+import { useMealSelection } from '@/lib/mealSelection';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { MealType } from '@/types';
@@ -17,14 +18,6 @@ const MEALS: { key: MealType; label: string }[] = [
   { key: 'SNACK', label: 'Snack' },
 ];
 
-function mealByTime(): MealType {
-  const h = new Date().getHours();
-  if (h < 11) return 'BREAKFAST';
-  if (h < 15) return 'LUNCH';
-  if (h < 21) return 'DINNER';
-  return 'SNACK';
-}
-
 /**
  * Food → Search sub-tab: look up any food (local-first + Open Food Facts) to view
  * its full breakdown or quick-log it to today. Reuses `searchFood` + the shared
@@ -34,7 +27,7 @@ export function FoodSearch() {
   const [q, setQ] = useState('');
   const [results, setResults] = useState<FoodCandidate[]>([]);
   const [loading, setLoading] = useState(false);
-  const [meal, setMeal] = useState<MealType>(mealByTime);
+  const [meal, setMeal] = useMealSelection();
   const [selected, setSelected] = useState<FoodCandidate | null>(null);
   const [favActive, setFavActive] = useState(false);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
