@@ -97,6 +97,8 @@ export default function RootLayout() {
           <Stack.Screen name="log-dexa" options={{ presentation: 'modal' }} />
           <Stack.Screen name="custom-food" options={{ presentation: 'modal' }} />
           <Stack.Screen name="quick-add" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="estimate-meal" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="ai-endpoint" options={{ presentation: 'modal' }} />
           <Stack.Screen name="saved-meal" options={{ presentation: 'modal' }} />
           <Stack.Screen name="scale" options={{ presentation: 'modal' }} />
           <Stack.Screen name="reminders" options={{ presentation: 'modal' }} />

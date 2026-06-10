@@ -766,6 +766,7 @@ function AiScanCard({ hidden }: { hidden?: boolean }) {
   const profile = useSettingsStore((s) => s.profile);
   const setProfile = useSettingsStore((s) => s.setProfile);
   const dl = useModelDownload();
+  const router = useRouter();
   const [, bump] = useState(0); // re-render after a delete (no store change to react to)
   if (!AI_ENABLED) return null; // on-device AI was stripped from this build (AI=0)
   const ramGB = Device.totalMemory ? Device.totalMemory / 1e9 : null;
@@ -774,15 +775,16 @@ function AiScanCard({ hidden }: { hidden?: boolean }) {
 
   return (
     <Card hidden={hidden} style={{ marginBottom: space[3] }}>
-      <SectionHeader title="AI label scanning" />
+      <SectionHeader title="AI vision" />
       <FsText variant="caption" style={{ marginBottom: space[3] }}>
-        Read Nutrition Facts labels with AI instead of basic text scanning. On-device reads the photo
-        fully on your phone — nothing leaves the device. Needs a dev/native build.
+        Read Nutrition Facts labels and estimate plated meals with AI. On-device keeps the photo on your
+        phone (needs a dev/native build); an API endpoint sends it to that server.
       </FsText>
 
       <View style={styles.sourceRow}>
         <Chip label="Off" selected={provider === 'off'} onPress={() => setProfile({ aiProvider: 'off' })} />
         <Chip label="On-device" selected={provider === 'device'} onPress={() => setProfile({ aiProvider: 'device' })} />
+        <Chip label="API / cloud" selected={provider === 'remote'} onPress={() => setProfile({ aiProvider: 'remote' })} />
       </View>
 
       {provider === 'device' && (
@@ -836,17 +838,19 @@ function AiScanCard({ hidden }: { hidden?: boolean }) {
         if (ready) {
           return (
             <>
-              <View style={styles.toggleRow}>
-                <View style={{ flex: 1, marginRight: space[3] }}>
-                  <FsText variant="bodyMedium">Deep reasoning</FsText>
-                  <FsText variant="caption">The model thinks before answering — more accurate on dense labels, but slower per scan. Off = fastest.</FsText>
+              {selected.reasoning === 'optional' && (
+                <View style={styles.toggleRow}>
+                  <View style={{ flex: 1, marginRight: space[3] }}>
+                    <FsText variant="bodyMedium">Deep reasoning</FsText>
+                    <FsText variant="caption">The model thinks before answering — more accurate on dense labels, but slower per scan. Off = fastest.</FsText>
+                  </View>
+                  <Switch
+                    value={profile.aiThinking}
+                    onValueChange={(v) => setProfile({ aiThinking: v })}
+                    trackColor={{ true: colors.primary, false: colors.border }}
+                  />
                 </View>
-                <Switch
-                  value={profile.aiThinking}
-                  onValueChange={(v) => setProfile({ aiThinking: v })}
-                  trackColor={{ true: colors.primary, false: colors.border }}
-                />
-              </View>
+              )}
               <Button
                 title="Delete model (free up space)"
                 variant="ghost"
@@ -871,6 +875,33 @@ function AiScanCard({ hidden }: { hidden?: boolean }) {
             </FsText>
           )}
         </>
+      )}
+
+      {provider === 'remote' && (
+        <View style={{ marginTop: space[3], gap: space[2] }}>
+          <FsText variant="caption" style={{ color: colors.muted }}>
+            Saved endpoints — OpenAI-compatible (Ollama, LM Studio, OpenWebUI, OpenAI, OpenRouter) or
+            Google Gemini. Tap one to make it active; your photo is sent to it.
+          </FsText>
+          {profile.aiEndpoints.length === 0 && (
+            <FsText variant="caption">No endpoints yet — add one to use a remote model.</FsText>
+          )}
+          {profile.aiEndpoints.map((ep) => {
+            const active = ep.id === profile.aiActiveEndpointId;
+            return (
+              <Pressable key={ep.id} onPress={() => setProfile({ aiActiveEndpointId: ep.id })} style={[styles.modelRow, active && styles.modelRowOn]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <FsText variant="bodyMedium">{ep.name || '(unnamed)'}{active ? ' · active' : ''}</FsText>
+                  <Pressable onPress={() => router.push({ pathname: '/ai-endpoint', params: { id: ep.id } })} hitSlop={10}>
+                    <FsText variant="caption" style={{ color: colors.primary }}>Edit</FsText>
+                  </Pressable>
+                </View>
+                <FsText variant="caption">{ep.kind === 'gemini' ? 'Gemini' : 'OpenAI-compatible'} · {ep.model || 'no model set'}</FsText>
+              </Pressable>
+            );
+          })}
+          <Button title="Add endpoint" variant="ghost" onPress={() => router.push('/ai-endpoint')} style={{ marginTop: space[1] }} />
+        </View>
       )}
     </Card>
   );

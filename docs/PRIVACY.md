@@ -1,13 +1,15 @@
 # Hale — Privacy Policy
 
-_Last updated: June 4, 2026_
+_Last updated: June 10, 2026_
 
-**Short version: Hale does not collect, transmit, sell, or share your personal
-data. Everything you log stays on your device.**
+**Short version: Hale does not collect, sell, or share your personal data, and runs
+no Hale server. Everything you log stays on your device. The only data that ever leaves
+your phone is for optional features you turn on yourself — and it goes straight to the
+service that feature talks to, never to us.**
 
 Hale is a local-first health & fitness app. There is no account to create and no
-Hale server. We (the developer) cannot see your data, because it never leaves your
-phone.
+Hale server. We (the developer) cannot see your data. By default it never leaves your
+phone; the opt-in exceptions are listed below.
 
 ## What we collect
 
@@ -33,11 +35,23 @@ and none of them send your personal information:
   See Open Food Facts' own privacy terms for how they handle requests.
 - **Exercise demo media.** Exercise demonstration GIFs may be downloaded for the
   exercise library; these are plain media requests with no personal data.
+- **External AI vision endpoint (opt-in — off by default).** Hale can read nutrition labels
+  and estimate a meal from a photo with AI. The default is an **on-device** model, where the
+  photo never leaves your phone. If you instead open **Settings → AI vision → API / cloud** and
+  add an endpoint, then scanning a label or estimating a meal **sends that photo (plus a text
+  prompt) to the endpoint you configured** — either a server you run yourself (e.g. Ollama, LM
+  Studio, or OpenWebUI on your own network) or a third-party cloud service you choose (e.g.
+  OpenAI, OpenRouter, or Google Gemini). Hale sends it directly to the address and key you
+  entered; it never passes through a Hale server. Whatever provider you pick handles the image
+  under **their** privacy policy. This feature is entirely optional and stays off unless you set
+  it up.
 
 ## Device features Hale uses (with your permission)
 
-- **Camera** — to scan barcodes and read nutrition labels. Images are processed
-  **on-device** and are not uploaded or stored by us.
+- **Camera** — to scan barcodes, read nutrition labels, and estimate a meal from a photo.
+  By default these images are processed **on-device** and are not uploaded or stored by us.
+  The one exception is if you have set up an external AI endpoint (see above), in which case
+  the label/meal photo is sent to the endpoint you chose.
 - **Apple Health / Health Connect** (optional) — to read your weight/activity/heart-rate
   so your stats stay in sync. This data is read on-device and is **not transmitted** by
   Hale to anyone. You control access in your system Health settings.
@@ -45,8 +59,9 @@ and none of them send your personal information:
   body measurements. Readings are processed on-device.
 - **Notifications** (optional) — local reminders you schedule. These are generated and
   delivered on your device; no push server is involved.
-- **Photo library** (optional) — only if you choose a profile picture; the image is
-  stored locally.
+- **Photo library** (optional) — if you choose a profile picture (stored locally), or pick a
+  photo of a meal to estimate. A meal/label photo follows the same rule as the camera above:
+  on-device by default, or sent to your configured AI endpoint if you've set one up.
 
 ## Donations
 

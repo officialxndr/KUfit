@@ -25,6 +25,8 @@ export interface SheetFood {
   brand?: string | null;
   servingSize: number;
   servingUnit: string;
+  /** Household serving descriptor, e.g. "2 cookies" — shown alongside the gram serving. */
+  servingText?: string | null;
   calories: number;
   protein: number;
   carbs: number;
@@ -274,7 +276,7 @@ export function FoodQuantitySheet({
                       )}
                     </View>
                     <FsText variant="caption" style={{ marginTop: 2 }}>
-                      {food.brand ? `${food.brand} · ` : ''}{Math.round(food.calories)} kcal per {food.servingSize}{food.servingUnit}
+                      {food.brand ? `${food.brand} · ` : ''}{Math.round(food.calories)} kcal per {food.servingSize}{food.servingUnit}{food.servingText ? ` · ${food.servingText}` : ''}
                     </FsText>
                   </View>
 

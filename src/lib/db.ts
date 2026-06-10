@@ -280,6 +280,8 @@ function runMigrations() {
   // Last amount + unit the user logged this item at, to prefill the quantity sheet.
   ensureColumn('food_items', 'lastAmount', 'REAL');
   ensureColumn('food_items', 'lastUnit', 'TEXT');
+  // Household serving descriptor from a label scan, e.g. "2 cookies" (alongside the gram serving).
+  ensureColumn('food_items', 'servingText', 'TEXT');
   ensureColumn('recipes', 'isFavorite', 'INTEGER DEFAULT 0');
   ensureColumn('recipes', 'servingWeightG', 'REAL');
   // Supersets: a group key shared by adjacent exercises (null = solo).

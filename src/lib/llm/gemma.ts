@@ -28,6 +28,8 @@ export interface VisionScanArgs {
   mmprojPath: string;
   /** Reason before answering (slower, more accurate) vs answer directly (fast). */
   thinking: boolean;
+  /** Response JSON schema for `response_format` (defaults to the nutrition-label schema). */
+  schema?: object;
 }
 
 /**
@@ -65,7 +67,7 @@ export async function describeImageJson(args: VisionScanArgs): Promise<string> {
           ],
         },
       ],
-      response_format: { type: 'json_schema', json_schema: { strict: true, schema: NUTRITION_SCHEMA } },
+      response_format: { type: 'json_schema', json_schema: { strict: true, schema: args.schema ?? NUTRITION_SCHEMA } },
       temperature: 0.1,
       jinja: true,
       // Thinking ON: `reasoning_format:'auto'` makes llama.rn parse the reasoning into

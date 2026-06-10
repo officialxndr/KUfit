@@ -41,7 +41,7 @@ import { HealthMeasure } from '@/screens/HealthMeasure';
 import { SettingsView } from '@/screens/SettingsView';
 import { GoalsEditorModal } from '@/components/GoalsEditor';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { registerMainScroll } from '@/lib/appScroll';
+import { registerMainScroll, emitMainScrollNearEnd } from '@/lib/appScroll';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -123,11 +123,16 @@ export function AppShell() {
     switch (key) {
       case 'log-food':
       case 'search-food':
-      case 'scan-barcode':
         openAddFood();
+        break;
+      case 'scan-barcode':
+        router.push({ pathname: '/add-food', params: { meal: 'SNACK', date: today(), scan: '1' } });
         break;
       case 'quick-add':
         router.push({ pathname: '/quick-add', params: { meal: 'SNACK', date: today() } });
+        break;
+      case 'estimate-meal':
+        router.push({ pathname: '/estimate-meal', params: { date: today() } });
         break;
       case 'log-weight':
         router.push('/log-weight');
@@ -177,7 +182,13 @@ export function AppShell() {
         style={styles.scroll}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={64}
+        onScroll={(e) => {
+          const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+          if (contentSize.height - contentOffset.y - layoutMeasurement.height < 600) emitMainScrollNearEnd();
+        }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
         }

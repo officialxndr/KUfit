@@ -50,6 +50,8 @@ export interface FoodItem {
   brand?: string | null
   servingSize: number
   servingUnit: string
+  /** Household serving descriptor, e.g. "2 cookies" (supplements the numeric serving). */
+  servingText?: string | null
   calories: number
   protein: number
   carbs: number

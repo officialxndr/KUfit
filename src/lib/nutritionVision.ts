@@ -1,11 +1,10 @@
-import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import { prepareVisionImage } from '@/lib/imagePrep';
 import { recognizeNutritionLabel, type ParsedNutrition } from '@/lib/nutritionOcr';
-import { describeImageJson } from '@/lib/llm/gemma';
-import { SCHEMA_HINT } from '@/lib/llm/nutritionSchema';
+import { SCHEMA_HINT, NUTRITION_SCHEMA } from '@/lib/llm/nutritionSchema';
 import { getModel, type ModelDef } from '@/lib/llm/models';
-import { isModelReady, modelPaths } from '@/lib/llm/modelManager';
+import { isModelReady } from '@/lib/llm/modelManager';
+import { describeImageJsonAny, isVisionConfigured, type AiVisionConfig } from '@/lib/llm/visionProviders';
 import { AI_ENABLED } from '@/lib/aiConfig';
-import type { AiProvider } from '@/stores/settingsStore';
 
 /**
  * Direct image → on-device Gemma 4 E2B vision label scanning (no OCR in the path).
@@ -30,6 +29,7 @@ const SYSTEM_PROMPT = [
   '• fiber ← "Dietary Fiber", "Fiber", or "Fibre".',
   '• sodium ← "Sodium", in MILLIGRAMS. If the label instead lists "Salt" in grams, set sodium = salt_grams × 400.',
   '• servingSize / servingUnit ← the amount in ONE serving. ALWAYS prefer the WEIGHT IN GRAMS (or volume in ml) whenever the label prints one — even when the serving is also described as a household measure, return the weight, not the household count. Examples: "Serving size 2/3 cup (55g)" → 55 + "g"; "3 crackers (30g)" → 30 + "g"; "1 bar (40 g)" → 40 + "g"; "Per 250 ml" → 250 + "ml". Only fall back to a household count/measure (e.g. "2 cookies", "1 cup") when NO gram or ml weight appears anywhere for the serving.',
+  '• servingText ← the household serving description in words, if the label gives one — e.g. "2 cookies", "3 crackers", "1 bar", "2/3 cup". This is ALONGSIDE the gram weight above (it does not replace it). Omit it when the serving is only a weight.',
   '',
   'Serving size — read carefully, this is the most common mistake:',
   '- The label shows TWO numbers. "Serving size" / "Serv. size" is the amount per serving — that is what you want.',
@@ -46,7 +46,7 @@ const SYSTEM_PROMPT = [
 const INSTRUCTION = 'Read this nutrition label and return the JSON, mapping its wording to the fields above.';
 
 // Plausible per-serving ranges — anything outside is a misread and gets dropped.
-const RANGES: Record<keyof Omit<ParsedNutrition, 'servingUnit'>, [number, number]> = {
+const RANGES: Record<keyof Omit<ParsedNutrition, 'servingUnit' | 'servingText'>, [number, number]> = {
   servingSize: [0, 5000],
   calories: [0, 2000],
   protein: [0, 300],
@@ -91,6 +91,9 @@ export function parseVisionJson(raw: string): ParsedNutrition {
   if (typeof obj.servingUnit === 'string' && obj.servingUnit.trim()) {
     out.servingUnit = obj.servingUnit.trim().slice(0, 12).toLowerCase();
   }
+  if (typeof obj.servingText === 'string' && obj.servingText.trim()) {
+    out.servingText = obj.servingText.trim().slice(0, 40);
+  }
   return out;
 }
 
@@ -101,15 +104,8 @@ export function readyVisionModel(modelId: string | null | undefined): ModelDef |
   return def && isModelReady(def) ? def : null;
 }
 
-export interface ScanConfig {
-  /** profile.aiProvider — which engine reads the label. */
-  provider: AiProvider;
-  /** on-device provider: profile.aiModelId */
-  modelId: string | null;
-  /** on-device provider: profile.aiThinking — reason before answering (slower, more accurate). */
-  thinking: boolean;
-  // Future API providers (gemini / self-hosted server) would add: apiKey?, baseUrl?, apiModel?.
-}
+/** Everything a scan needs about the chosen AI backend (device or remote endpoint). */
+export type ScanConfig = AiVisionConfig;
 
 export interface ScanResult {
   parsed: ParsedNutrition;
@@ -122,20 +118,10 @@ export interface ScanResult {
 
 /** Vision-only path against a known-ready model. Throws on failure. Returns the
  *  parsed fields plus the raw model text (surfaced for on-device debugging). */
-async function scanWithVision(imageUri: string, def: ModelDef, thinking: boolean): Promise<{ parsed: ParsedNutrition; raw: string }> {
-  const paths = modelPaths(def);
-  if (!paths) throw new Error('Model files missing');
-  const shrunk = await manipulateAsync(imageUri, [{ resize: { width: 1024 } }], {
-    compress: 0.7,
-    format: SaveFormat.JPEG,
-  });
-  const raw = await describeImageJson({
-    system: SYSTEM_PROMPT,
-    instruction: INSTRUCTION,
-    imageUri: shrunk.uri,
-    modelPath: paths.model,
-    mmprojPath: paths.mmproj,
-    thinking,
+async function scanWithVision(imageUri: string, cfg: ScanConfig): Promise<{ parsed: ParsedNutrition; raw: string }> {
+  const shrunkUri = await prepareVisionImage(imageUri);
+  const raw = await describeImageJsonAny(cfg, {
+    system: SYSTEM_PROMPT, instruction: INSTRUCTION, imageUri: shrunkUri, schema: NUTRITION_SCHEMA,
   });
   return { parsed: parseVisionJson(raw), raw };
 }
@@ -148,26 +134,23 @@ async function scanWithVision(imageUri: string, def: ModelDef, thinking: boolean
  * that returns the same `ScanResult` shape — the UI and form-fill don't change.
  */
 export async function scanLabel(imageUri: string, cfg: ScanConfig): Promise<ScanResult> {
-  // On-device Gemma vision (only when this build includes AI + a model is downloaded).
-  if (cfg.provider === 'device' && AI_ENABLED) {
-    const def = readyVisionModel(cfg.modelId);
-    if (def) {
-      let aiError: string;
-      try {
-        const { parsed, raw } = await scanWithVision(imageUri, def, cfg.thinking);
-        if (Object.keys(parsed).length) return { parsed, usedAi: true };
-        // Loaded + ran but produced nothing usable — surface the raw text so we can see
-        // whether the model emitted `{}`, prose, or values the parser dropped.
-        aiError = `Model returned no usable fields.\nRaw output: ${raw.trim().slice(0, 240) || '(empty)'}`;
-      } catch (e) {
-        aiError = String((e as Error)?.message ?? e);
-      }
-      const parsed = await recognizeNutritionLabel(imageUri);
-      return { parsed, usedAi: false, aiError };
+  // Any configured AI backend reads the photo; on failure we fall back to built-in OCR.
+  // (Device also needs AI compiled into this build; remote providers are just HTTP.)
+  const useAi = cfg.provider !== 'off' && isVisionConfigured(cfg) && (cfg.provider !== 'device' || AI_ENABLED);
+  if (useAi) {
+    let aiError: string;
+    try {
+      const { parsed, raw } = await scanWithVision(imageUri, cfg);
+      if (Object.keys(parsed).length) return { parsed, usedAi: true };
+      // Ran but produced nothing usable — surface the raw text for on-device debugging.
+      aiError = `Model returned no usable fields.\nRaw output: ${raw.trim().slice(0, 240) || '(empty)'}`;
+    } catch (e) {
+      aiError = String((e as Error)?.message ?? e);
     }
+    const parsed = await recognizeNutritionLabel(imageUri);
+    return { parsed, usedAi: false, aiError };
   }
-  // FUTURE: else if (cfg.provider === 'gemini' | 'server') → call the API, same ScanResult.
-  // 'off', AI stripped from this build, or model not ready → built-in OCR.
+  // 'off', AI stripped from this build, or provider not configured → built-in OCR.
   const parsed = await recognizeNutritionLabel(imageUri);
   return { parsed, usedAi: false };
 }

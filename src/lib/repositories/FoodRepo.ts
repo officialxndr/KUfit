@@ -30,6 +30,7 @@ function mapFoodItem(row: any): FoodItem {
     brand: row.brand ?? null,
     servingSize: row.servingSize,
     servingUnit: row.servingUnit ?? 'g',
+    servingText: row.servingText ?? null,
     calories: row.calories,
     protein: row.protein,
     carbs: row.carbs,
@@ -531,9 +532,9 @@ export class FoodRepo {
     const localId = Crypto.randomUUID();
     db.runSync(
       `INSERT INTO food_items
-         (localId, name, brand, barcode, servingSize, servingUnit,
+         (localId, name, brand, barcode, servingSize, servingUnit, servingText,
           calories, protein, carbs, fat, fiber, sugar, sodium, saturatedFat, detailsJson, source, isCustom, syncStatus, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'MANUAL', 1, 'pending', ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'MANUAL', 1, 'pending', ?)`,
       [
         localId,
         item.name,
@@ -541,6 +542,7 @@ export class FoodRepo {
         item.barcode ?? null,
         item.servingSize,
         item.servingUnit ?? 'g',
+        item.servingText ?? null,
         item.calories,
         item.protein,
         item.carbs,

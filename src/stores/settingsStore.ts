@@ -11,7 +11,20 @@ import type { RestEndHaptic } from '@/lib/haptics';
  *  'device' = on-device Gemma vision model (private, offline).
  *  Future:  'gemini' (cloud API key) | 'server' (self-hosted OpenAI-compatible endpoint).
  *  Adding a provider = a new value here + a case in `scanLabel` (lib/nutritionVision). */
-export type AiProvider = 'off' | 'device';
+export type AiProvider = 'off' | 'device' | 'remote';
+
+/** A saved remote AI vision endpoint — OpenAI-compatible (Ollama / LM Studio / OpenWebUI /
+ *  OpenAI / OpenRouter) or Google Gemini. Each carries its own URL / key / model + nickname,
+ *  so several models can be kept side by side and switched between. */
+export interface AiEndpoint {
+  id: string;
+  name: string;
+  kind: 'openai' | 'gemini';
+  /** OpenAI-compatible base URL ending in /v1 (unused for gemini). */
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+}
 
 /** A user-tracked secondary nutrient goal (beyond calories/macros). */
 export interface NutrientGoal {
@@ -77,6 +90,9 @@ export interface Profile {
   /** When true, the on-device vision model reasons before answering — more accurate on
    *  dense labels, but noticeably slower per scan. Off = fastest. */
   aiThinking: boolean;
+  /** Saved remote AI endpoints (used when aiProvider === 'remote') + which is active. */
+  aiEndpoints: AiEndpoint[];
+  aiActiveEndpointId: string | null;
   // Training goals (Workout section)
   weeklySessionTarget: number | null;
   // Custom secondary nutrient goals (Nutrition section)
@@ -123,6 +139,8 @@ const DEFAULT_PROFILE: Profile = {
   aiModelId: null,
   aiProvider: 'off',
   aiThinking: true,
+  aiEndpoints: [],
+  aiActiveEndpointId: null,
   weeklySessionTarget: null,
   nutrientGoals: [],
   measurementGoals: {},
@@ -164,10 +182,23 @@ export const useSettingsStore = create<SettingsState>()(
           profile.activeCalorieSource = 'inapp';
         }
         // Migrate the old on-device AI on/off boolean to the provider enum.
-        const aiLegacy = p.profile as { aiVisionEnabled?: boolean; aiProvider?: AiProvider } | undefined;
+        const aiLegacy = p.profile as { aiVisionEnabled?: boolean; aiProvider?: string } | undefined;
         if (aiLegacy && aiLegacy.aiProvider == null) {
           profile.aiProvider = aiLegacy.aiVisionEnabled === false ? 'off' : (profile.aiModelId ? 'device' : 'off');
         }
+        // Migrate the earlier single remote endpoint (provider 'openai'/'gemini' + flat
+        // aiBaseUrl/aiApiKey/aiApiModel) into the named-endpoints list.
+        const remoteLegacy = p.profile as { aiProvider?: string; aiBaseUrl?: string; aiApiKey?: string; aiApiModel?: string } | undefined;
+        if (remoteLegacy && (remoteLegacy.aiProvider === 'openai' || remoteLegacy.aiProvider === 'gemini') && profile.aiEndpoints.length === 0) {
+          profile.aiEndpoints = [{
+            id: 'migrated', name: remoteLegacy.aiProvider === 'gemini' ? 'Gemini' : 'My endpoint',
+            kind: remoteLegacy.aiProvider as 'openai' | 'gemini', baseUrl: remoteLegacy.aiBaseUrl ?? '', apiKey: remoteLegacy.aiApiKey ?? '', model: remoteLegacy.aiApiModel ?? '',
+          }];
+          profile.aiActiveEndpointId = 'migrated';
+          profile.aiProvider = 'remote';
+        }
+        // Coerce any now-invalid persisted provider value.
+        if (!['off', 'device', 'remote'].includes(profile.aiProvider)) profile.aiProvider = 'off';
         return { ...current, ...p, profile };
       },
       onRehydrateStorage: () => (state) => {

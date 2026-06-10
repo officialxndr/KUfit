@@ -53,7 +53,7 @@ function recipeToSheetFood(r: Recipe): SheetFood | null {
 
 export default function AddFoodModal() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ meal?: MealType; date?: string }>();
+  const params = useLocalSearchParams<{ meal?: MealType; date?: string; scan?: string }>();
   const meal = (params.meal ?? 'SNACK') as MealType;
   const date = params.date ?? new Date().toISOString().slice(0, 10);
 
@@ -105,7 +105,7 @@ export default function AddFoodModal() {
     }
     setLoading(true);
     debounce.current = setTimeout(async () => {
-      setFoods(await searchFood(q));
+      setFoods((await searchFood(q, 1)).items);
       setLoading(false);
     }, 350);
   }, [q, tab]);
@@ -186,6 +186,12 @@ export default function AddFoodModal() {
     }
     setScanning(true);
   };
+
+  // Launched with ?scan=1 (Quick Actions FAB / Food search tab) → jump straight to the camera.
+  useEffect(() => {
+    if (params.scan === '1') openScanner();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onScanned = async (r: BarcodeScanningResult) => {
     setScanning(false);

@@ -19,6 +19,9 @@ import type { FoodDetails, FoodItem, FoodSource } from '@/types';
  */
 
 const OFF_BASE = 'https://world.openfoodfacts.org';
+// US-tuned mirror for the legacy full-text coverage search — ranks US foods first
+// (e.g. the McDonald's items the global index buries) and tends to be a bit more available.
+const OFF_US_BASE = 'https://us.openfoodfacts.org';
 const USER_AGENT = 'Hale/1.0 (haledevteam@protonmail.com)';
 
 // Optional USDA fallback — left disabled by default (embedding a key in the
@@ -32,6 +35,7 @@ export interface FoodCandidate {
   brand: string | null;
   servingSize: number;
   servingUnit: string;
+  servingText?: string | null;
   calories: number;
   protein: number;
   carbs: number;
@@ -80,62 +84,144 @@ function offProductToCandidate(p: any): FoodCandidate | null {
   };
 }
 
-/** Search the local cache + Open Food Facts, merged and relevance-ranked. */
-export async function searchFood(query: string): Promise<FoodCandidate[]> {
+const SAL_BASE = 'https://search.openfoodfacts.org';
+const SEARCH_PAGE_SIZE = 30;
+const SAL_FIELDS =
+  'product_name,brands,code,nutriments,nutriscore_grade,nova_group,ecoscore_grade,nutrient_levels';
+const CGI_FIELDS =
+  'product_name,brands,nutriments,serving_size,code,nutriscore_grade,nova_group,ecoscore_grade,' +
+  'nutrient_levels,ingredients_text,allergens_tags,additives_tags,labels_tags,ingredients_analysis_tags';
+
+const salBrand = (b: unknown): string | null =>
+  Array.isArray(b) ? (b[0] ?? null) : ((b as string) || null);
+
+/** Map a search-a-licious hit (per-100g nutriments, no serving_size) to a candidate. */
+function salHitToCandidate(h: any): FoodCandidate | null {
+  const name = typeof h.product_name === 'string' ? h.product_name : null;
+  if (!name || name.length > 120) return null; // missing / ingredient-dump names
+  const n = h.nutriments ?? {};
+  const calories = n['energy-kcal_serving'] ?? n['energy-kcal_100g'] ?? 0;
+  if (!calories) return null; // no calorie data → not loggable
+  const sodium = n.sodium_serving ?? n.sodium_100g;
+  return {
+    barcode: h.code || null,
+    name,
+    brand: salBrand(h.brands),
+    servingSize: 100, // SAL doesn't index serving_size → per-100g base
+    servingUnit: 'g',
+    calories,
+    protein: n.proteins_serving ?? n.proteins_100g ?? 0,
+    carbs: n.carbohydrates_serving ?? n.carbohydrates_100g ?? 0,
+    fat: n.fat_serving ?? n.fat_100g ?? 0,
+    fiber: n.fiber_serving ?? n.fiber_100g ?? null,
+    sugar: n.sugars_serving ?? n.sugars_100g ?? null,
+    sodium: sodium != null ? sodium * 1000 : null,
+    saturatedFat: n['saturated-fat_serving'] ?? n['saturated-fat_100g'] ?? null,
+    source: 'OPEN_FOOD_FACTS',
+    isCustom: false,
+    details: extractDetails(h),
+  };
+}
+
+export interface SearchPage {
+  items: FoodCandidate[];
+  /** More OFF pages available for this query (drives infinite scroll). */
+  hasMore: boolean;
+}
+
+/** search-a-licious: fast + reliable + paginated, but its index omits many products. */
+async function searchSAL(q: string, page: number): Promise<SearchPage> {
+  try {
+    const { data } = await axios.get(`${SAL_BASE}/search`, {
+      params: { q, page, page_size: SEARCH_PAGE_SIZE, fields: SAL_FIELDS },
+      headers: { 'User-Agent': USER_AGENT },
+      timeout: 8000,
+    });
+    const items: FoodCandidate[] = [];
+    for (const h of data?.hits ?? []) {
+      const c = salHitToCandidate(h);
+      if (c) items.push(c);
+    }
+    return { items, hasMore: (data?.page ?? page) < (data?.page_count ?? page) };
+  } catch {
+    return { items: [], hasMore: false };
+  }
+}
+
+/** Legacy CGI full-text: complete coverage (US/branded items SAL's index lacks)
+ *  but frequently 503s — best-effort with a quick retry (503s fail fast). */
+async function searchCGI(q: string): Promise<FoodCandidate[]> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const { data } = await axios.get(`${OFF_US_BASE}/cgi/search.pl`, {
+        params: { search_terms: q, search_simple: 1, action: 'process', json: 1, page_size: 50, fields: CGI_FIELDS },
+        headers: { 'User-Agent': USER_AGENT },
+        timeout: 3500,
+      });
+      const items: FoodCandidate[] = [];
+      for (const p of data?.products ?? []) {
+        const c = offProductToCandidate(p);
+        if (c) items.push(c);
+      }
+      return items;
+    } catch {
+      /* 503 / timeout — retry once, then give up (SAL still covers us) */
+    }
+  }
+  return [];
+}
+
+/** Relevance: token overlap drives multi-word brand queries; exact/prefix boosts short ones. */
+function relevance(name: string, query: string): number {
+  const n = name.toLowerCase().trim();
+  const q = query.toLowerCase().trim();
+  if (n === q) return 1000;
+  const qt = q.split(/[\s,()/]+/).filter(Boolean);
+  const nt = new Set(n.split(/[\s,()/]+/).filter(Boolean));
+  const overlap = qt.filter((t) => nt.has(t)).length;
+  let s = overlap * 25;
+  if (qt.length > 0 && overlap === qt.length) s += 60; // every query word present
+  if (n.startsWith(q)) s += 100;
+  else if (n.includes(q)) s += 40;
+  return s;
+}
+
+/**
+ * Search local cache + Open Food Facts, paginated. Page 1 queries BOTH OFF
+ * endpoints in parallel — search-a-licious (fast/reliable but an incomplete
+ * index) and the legacy CGI full-text (complete coverage, e.g. US/branded
+ * items, but flaky) — then merges, de-dupes, and relevance-ranks. Later pages
+ * page through search-a-licious only. On-device matches always rank first.
+ */
+export async function searchFood(query: string, page = 1): Promise<SearchPage> {
   const q = query.trim();
-  if (!q) return [];
+  if (!q) return { items: [], hasMore: false };
+
+  if (page !== 1) return searchSAL(q, page);
 
   const local = foodRepo.searchFoodItems(q).map(fromLocal);
   const localBarcodes = new Set(local.map((l) => l.barcode).filter(Boolean));
   const localNames = new Set(local.map((l) => l.name.toLowerCase()));
 
-  let offItems: FoodCandidate[] = [];
-  try {
-    const { data } = await axios.get(`${OFF_BASE}/cgi/search.pl`, {
-      params: {
-        search_terms: q,
-        search_simple: 1,
-        action: 'process',
-        json: 1,
-        page_size: 100,
-        sort_by: 'unique_scans_n',
-        fields: 'product_name,brands,nutriments,serving_size,code,nutriscore_grade,'
-          + 'nova_group,ecoscore_grade,nutrient_levels,ingredients_text,allergens_tags,'
-          + 'additives_tags,labels_tags,ingredients_analysis_tags',
-      },
-      headers: { 'User-Agent': USER_AGENT },
-      timeout: 8000,
-    });
-    const products: any[] = data?.products ?? [];
-    for (const p of products) {
-      const c = offProductToCandidate(p);
-      if (!c) continue;
-      if (c.barcode && localBarcodes.has(c.barcode)) continue;
-      if (localNames.has(c.name.toLowerCase())) continue;
-      offItems.push(c);
-    }
-  } catch {
-    /* offline or OFF unavailable — local results still returned */
+  const [sal, cgi] = await Promise.all([searchSAL(q, 1), searchCGI(q)]);
+
+  // Merge OFF results — CGI first so its richer entries (serving size, per-serving) win de-dupe.
+  const off: FoodCandidate[] = [];
+  const seen = new Set<string>();
+  for (const c of [...cgi, ...sal.items]) {
+    const key = c.barcode || c.name.toLowerCase();
+    // Also collapse same name+brand entries — OFF often lists a product under several barcodes.
+    const brandKey = c.brand ? `${c.name.toLowerCase()}|${c.brand.toLowerCase()}` : null;
+    if (seen.has(key) || (brandKey && seen.has(brandKey))) continue;
+    if ((c.barcode && localBarcodes.has(c.barcode)) || localNames.has(c.name.toLowerCase())) continue;
+    seen.add(key);
+    if (brandKey) seen.add(brandKey);
+    off.push(c);
   }
 
-  // Relevance score (verbatim from web): exact > startsWith > first-word > word > prefix > substring
-  const score = (name: string): number => {
-    const n = name.toLowerCase().trim();
-    const q2 = q.toLowerCase();
-    if (n === q2) return 100;
-    if (n.startsWith(q2 + ' ') || n.startsWith(q2 + ',') || n.startsWith(q2 + '(')) return 90;
-    const words = n.split(/[\s,()/]+/).filter(Boolean);
-    if (words[0] === q2) return 85;
-    if (words.some((w) => w === q2)) return 70;
-    if (words.some((w) => w.startsWith(q2))) return 50;
-    if (n.includes(q2)) return 30;
-    return 10;
-  };
-
-  // Local-first: every on-device match (custom/base/cached) ranks above OFF results.
-  const localRanked = local.sort((a, b) => score(b.name) - score(a.name));
-  const offRanked = offItems.sort((a, b) => score(b.name) - score(a.name));
-  return [...localRanked, ...offRanked].slice(0, 60);
+  const localRanked = local.sort((a, b) => relevance(b.name, q) - relevance(a.name, q));
+  const offRanked = off.sort((a, b) => relevance(b.name, q) - relevance(a.name, q));
+  return { items: [...localRanked, ...offRanked], hasMore: sal.hasMore };
 }
 
 /** Barcode lookup: local cache → Open Food Facts (→ USDA if enabled). */

@@ -25,6 +25,25 @@ const MMPROJ: ModelFile = {
   role: 'mmproj',
 };
 
+// Qwen3-VL-2B GGUF (unsloth) — Thinking + Instruct, 3-bit (Q3_K_M). Runs on llama.rn's
+// llama.cpp (LLM_ARCH_QWEN3VL). NOTE: the MLX-community builds are .safetensors (Apple MLX),
+// which llama.cpp can't load — GGUF only. Each variant ships its own F16 vision projector
+// (distinct local names so they never collide on disk / with Gemma's).
+const QWEN3VL_2B_THINKING_BASE = 'https://huggingface.co/unsloth/Qwen3-VL-2B-Thinking-GGUF/resolve/main';
+const QWEN3VL_2B_THINKING_MMPROJ: ModelFile = {
+  name: 'Qwen3VL-2B-Thinking-mmproj-F16.gguf',
+  url: `${QWEN3VL_2B_THINKING_BASE}/mmproj-F16.gguf`,
+  bytes: 819 * 1e6,
+  role: 'mmproj',
+};
+const QWEN3VL_2B_INSTRUCT_BASE = 'https://huggingface.co/unsloth/Qwen3-VL-2B-Instruct-GGUF/resolve/main';
+const QWEN3VL_2B_INSTRUCT_MMPROJ: ModelFile = {
+  name: 'Qwen3VL-2B-Instruct-mmproj-F16.gguf',
+  url: `${QWEN3VL_2B_INSTRUCT_BASE}/mmproj-F16.gguf`,
+  bytes: 819 * 1e6,
+  role: 'mmproj',
+};
+
 export type ModelFileRole = 'model' | 'mmproj';
 
 export interface ModelFile {
@@ -48,6 +67,10 @@ export interface ModelDef {
   sizeLabel: string;
   /** Recommended minimum device RAM (GB) — the chooser warns below this. */
   minRamGB: number;
+  /** Reasoning behavior: 'always' (Thinking builds), 'never' (Instruct builds), or
+   *  'optional' (the user's Deep-reasoning toggle decides). Drives `enable_thinking`
+   *  and whether the Settings toggle is shown. */
+  reasoning: 'always' | 'never' | 'optional';
   /** Main GGUF + projector. */
   files: ModelFile[];
 }
@@ -59,6 +82,7 @@ export const MODELS: ModelDef[] = [
     description: 'Best label accuracy. Larger download, needs a recent 8 GB-RAM phone.',
     sizeLabel: '~2.6 GB',
     minRamGB: 8,
+    reasoning: 'optional',
     files: [
       { name: 'gemma-4-E2B-it-Q4_K_M.gguf', url: `${HF_BASE}/gemma-4-E2B-it-Q4_K_M.gguf`, bytes: 1.7e9, role: 'model' },
       MMPROJ,
@@ -70,9 +94,34 @@ export const MODELS: ModelDef[] = [
     description: 'Smaller + faster, a little less accurate. Lighter on storage and RAM.',
     sizeLabel: '~2.3 GB',
     minRamGB: 6,
+    reasoning: 'optional',
     files: [
       { name: 'gemma-4-E2B-it-Q3_K_M.gguf', url: `${HF_BASE}/gemma-4-E2B-it-Q3_K_M.gguf`, bytes: 1.4e9, role: 'model' },
       MMPROJ,
+    ],
+  },
+  {
+    id: 'qwen3-vl-2b-instruct-q3',
+    label: 'Qwen3-VL 2B · Instruct',
+    description: 'Smallest download (3-bit). No reasoning step, so faster replies — the quick Qwen pick for label scans.',
+    sizeLabel: '~1.8 GB',
+    minRamGB: 6,
+    reasoning: 'never',
+    files: [
+      { name: 'Qwen3VL-2B-Instruct-Q3_K_M.gguf', url: `${QWEN3VL_2B_INSTRUCT_BASE}/Qwen3-VL-2B-Instruct-Q3_K_M.gguf`, bytes: 0.94e9, role: 'model' },
+      QWEN3VL_2B_INSTRUCT_MMPROJ,
+    ],
+  },
+  {
+    id: 'qwen3-vl-2b-thinking-q3',
+    label: 'Qwen3-VL 2B · Thinking',
+    description: 'Same size, but reasons before answering — slower, and 3-bit can dent label accuracy.',
+    sizeLabel: '~1.8 GB',
+    minRamGB: 6,
+    reasoning: 'always',
+    files: [
+      { name: 'Qwen3VL-2B-Thinking-Q3_K_M.gguf', url: `${QWEN3VL_2B_THINKING_BASE}/Qwen3-VL-2B-Thinking-Q3_K_M.gguf`, bytes: 0.94e9, role: 'model' },
+      QWEN3VL_2B_THINKING_MMPROJ,
     ],
   },
 ];

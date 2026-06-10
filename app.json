@@ -16,12 +16,14 @@
         "com.apple.security.application-groups": ["group.com.zanderhalverson.hale"]
       },
       "infoPlist": {
-        "NSCameraUsageDescription": "Hale uses the camera to scan food barcodes.",
-        "NSPhotoLibraryUsageDescription": "Hale uses your photos to set a profile picture.",
+        "NSCameraUsageDescription": "Hale uses the camera to scan food barcodes, read nutrition labels, and estimate a meal from a photo.",
+        "NSPhotoLibraryUsageDescription": "Hale uses your photos to set a profile picture and to estimate a meal from a photo you choose.",
         "NSHealthShareUsageDescription": "Hale reads weight, activity, and heart rate from Apple Health to keep your stats in sync.",
         "NSHealthUpdateUsageDescription": "Hale can write workouts and weight to Apple Health.",
         "ITSAppUsesNonExemptEncryption": false,
-        "NSSupportsLiveActivities": true
+        "NSSupportsLiveActivities": true,
+        "NSLocalNetworkUsageDescription": "Hale connects to a local AI server (e.g. Ollama or LM Studio) on your network when you set one as your AI endpoint.",
+        "NSAppTransportSecurity": { "NSAllowsLocalNetworking": true }
       }
     },
     "android": {

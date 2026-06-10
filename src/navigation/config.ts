@@ -28,6 +28,7 @@ import {
   Utensils,
   Scale,
   TrendingUp,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react-native';
 
@@ -107,6 +108,7 @@ export const FAB_ACTIONS: Partial<Record<SectionKey, FabAction[]>> = {
   food: [
     { key: 'search-food', label: 'Search food', icon: Search },
     { key: 'scan-barcode', label: 'Scan barcode', icon: ScanLine },
+    { key: 'estimate-meal', label: 'Estimate a meal (AI)', icon: Sparkles },
     { key: 'quick-add', label: 'Quick add calories', icon: Flame },
   ],
   workout: [

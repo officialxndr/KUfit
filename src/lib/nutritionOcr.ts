@@ -15,6 +15,8 @@ import TextRecognition from '@react-native-ml-kit/text-recognition';
 export interface ParsedNutrition {
   servingSize?: number;
   servingUnit?: string;
+  /** Household serving descriptor, e.g. "2 cookies" / "3 crackers". */
+  servingText?: string;
   calories?: number;
   protein?: number;
   carbs?: number;
@@ -25,7 +27,7 @@ export interface ParsedNutrition {
   sodium?: number; // mg
 }
 
-type NumericField = Exclude<keyof ParsedNutrition, 'servingUnit'>;
+type NumericField = Exclude<keyof ParsedNutrition, 'servingUnit' | 'servingText'>;
 type Unit = 'mg' | 'mcg' | 'g' | 'kcal' | 'cal' | '%' | null;
 interface NumTok { value: number; unit: Unit; }
 

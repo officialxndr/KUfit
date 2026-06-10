@@ -10,7 +10,8 @@ import { ScaleWeighBar } from '@/components/ScaleWeighBar';
 import { useScale } from '@/lib/scales/useScale';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { type ParsedNutrition } from '@/lib/nutritionOcr';
-import { scanLabel, readyVisionModel } from '@/lib/nutritionVision';
+import { scanLabel } from '@/lib/nutritionVision';
+import { isVisionConfigured, resolveAiConfig } from '@/lib/llm/visionProviders';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { MealType } from '@/types';
@@ -23,6 +24,7 @@ export default function CustomFood() {
   const [brand, setBrand] = useState('');
   const [servingSize, setServingSize] = useState('100');
   const [servingUnit, setServingUnit] = useState('g');
+  const [servingText, setServingText] = useState('');
   const [calories, setCalories] = useState('');
   const [protein, setProtein] = useState('');
   const [carbs, setCarbs] = useState('');
@@ -52,12 +54,12 @@ export default function CustomFood() {
   const [reading, setReading] = useState(false);
   const cameraRef = useRef<CameraView>(null);
 
-  // On-device AI vision scanning: enabled + a downloaded model → read the photo directly
-  // with Gemma; otherwise fall back to on-device OCR (handled inside scanLabel).
-  const aiModelId = useSettingsStore((s) => s.profile.aiModelId);
-  const aiProvider = useSettingsStore((s) => s.profile.aiProvider);
-  const aiThinking = useSettingsStore((s) => s.profile.aiThinking);
-  const visionReady = aiProvider === 'device' && readyVisionModel(aiModelId) != null;
+  // AI vision scanning: a configured backend (on-device model, or a remote endpoint) reads
+  // the photo directly; otherwise scanLabel falls back to on-device OCR.
+  const profile = useSettingsStore((s) => s.profile);
+  const aiCfg = resolveAiConfig(profile);
+  const visionReady = profile.aiProvider !== 'off' && isVisionConfigured(aiCfg);
+  const isRemoteAi = profile.aiProvider === 'remote';
   // After a scan: which engine actually read the label (AI vs OCR) + any AI failure reason.
   const [scanNote, setScanNote] = useState<{ ok: boolean; text: string } | null>(null);
   // Processing overlay — the LLM runs after the camera closes, so show a blocking
@@ -78,6 +80,7 @@ export default function CustomFood() {
     const set = (v: number | undefined, fn: (s: string) => void) => { if (v != null) fn(String(v)); };
     set(p.servingSize, setServingSize);
     if (p.servingUnit) setServingUnit(p.servingUnit);
+    if (p.servingText) setServingText(p.servingText);
     set(p.calories, setCalories);
     set(p.protein, setProtein);
     set(p.carbs, setCarbs);
@@ -105,10 +108,10 @@ export default function CustomFood() {
       setScanning(false);
       if (!shot?.uri) { Alert.alert('Scan failed', 'Could not capture the photo. Try again.'); return; }
       setProcessing(true);
-      const res = await scanLabel(shot.uri, { provider: aiProvider, modelId: aiModelId, thinking: aiThinking });
+      const res = await scanLabel(shot.uri, aiCfg);
       const found = applyParsed(res.parsed);
       if (res.usedAi) {
-        setScanNote({ ok: true, text: '✓ Read by on-device AI — the photo stayed on your phone.' });
+        setScanNote({ ok: true, text: isRemoteAi ? '✓ Read by your AI endpoint.' : '✓ Read by on-device AI — the photo stayed on your phone.' });
       } else if (visionReady && res.aiError) {
         // We expected AI (model downloaded + enabled) but it fell back — show why,
         // and surface the full reason in an alert so it's easy to read/screenshot.
@@ -140,6 +143,7 @@ export default function CustomFood() {
       barcode: null,
       servingSize: Number(servingSize) || 100,
       servingUnit: servingUnit || 'g',
+      servingText: servingText.trim() || null,
       calories: Number(calories),
       protein: Number(protein) || 0,
       carbs: Number(carbs) || 0,
@@ -173,7 +177,7 @@ export default function CustomFood() {
           <View style={{ flex: 1 }} />
           <FsText variant="bodyMedium" style={{ color: '#fff', textAlign: 'center', marginBottom: space[4] }}>
             {reading
-              ? (visionReady ? 'Reading the label with on-device AI — this can take a few seconds…' : 'Reading the label…')
+              ? (visionReady ? 'Reading the label with AI — this can take a few seconds…' : 'Reading the label…')
               : 'Fill the frame with the Nutrition Facts panel, hold steady, then tap to capture.'}
           </FsText>
           <Pressable onPress={captureLabel} disabled={reading} style={styles.shutter} hitSlop={10}>
@@ -198,8 +202,8 @@ export default function CustomFood() {
             <FsText variant="bodyMedium" style={{ color: colors.primary }}>Scan nutrition label</FsText>
             <FsText variant="caption">
               {visionReady
-                ? 'Read by on-device AI — the photo never leaves your phone.'
-                : 'Auto-fill the nutrition fields from a photo (on-device).'}
+                ? (isRemoteAi ? 'Read by your AI endpoint — the photo is sent to it.' : 'Read by on-device AI — the photo never leaves your phone.')
+                : 'Auto-fill the nutrition fields from a photo.'}
             </FsText>
           </View>
         </Pressable>
@@ -225,6 +229,7 @@ export default function CustomFood() {
               <Field label="Unit" value={servingUnit} onChangeText={setServingUnit} />
             </View>
           </View>
+          <Field label="Serving description (optional)" value={servingText} onChangeText={setServingText} placeholder={'e.g. "2 cookies"'} />
           <Pressable style={styles.weighToggle} onPress={() => setWeighing((w) => !w)}>
             <ScaleIcon color={colors.primary} size={16} />
             <FsText variant="caption" style={{ color: colors.primary }}>{weighing ? 'Hide scale' : 'Weigh on scale'}</FsText>
@@ -272,7 +277,7 @@ export default function CustomFood() {
           <FsText variant="h2" style={{ color: '#fff', marginTop: space[3] }}>Reading label…</FsText>
           <FsText variant="bodyMedium" style={{ color: '#fff', textAlign: 'center', marginTop: space[2] }}>
             {visionReady
-              ? 'On-device AI is reading the label — nothing leaves your phone.'
+              ? (isRemoteAi ? 'Your AI endpoint is reading the label…' : 'On-device AI is reading the label — nothing leaves your phone.')
               : 'Scanning the label…'}
           </FsText>
           {visionReady && (
