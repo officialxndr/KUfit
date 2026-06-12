@@ -3,7 +3,7 @@ import { BleManager, type Device, type Subscription } from 'react-native-ble-plx
 
 import { base64ToBytes, bytesToHex, requestBlePermissions } from './ble';
 import { matchAdapter } from './registry';
-import type { ScaleAdapter, ScaleReading, ScaleStatus } from './types';
+import type { ScaleAdapter, ScaleDisplayUnit, ScaleReading, ScaleStatus } from './types';
 
 export interface UseScale {
   status: ScaleStatus;
@@ -19,6 +19,8 @@ export interface UseScale {
   stop: () => void;
   /** Zero the reading — hardware tare if the scale supports it, else software offset. */
   tare: () => void;
+  /** Ask the scale to switch its on-device display unit (no-op if unsupported / not connected). */
+  setUnit: (unit: ScaleDisplayUnit) => void;
 }
 
 /**
@@ -158,7 +160,12 @@ export function useScale(opts?: { simulate?: boolean }): UseScale {
     setReading((r) => (r ? { ...r, grams: 0 } : r));
   }, []);
 
+  const setUnit = useCallback((unit: ScaleDisplayUnit) => {
+    const adapter = adapterRef.current, device = deviceRef.current;
+    if (adapter?.setUnit && device) adapter.setUnit(device, unit).catch(() => {});
+  }, []);
+
   useEffect(() => () => { teardown(); managerRef.current?.destroy(); managerRef.current = null; }, [teardown]);
 
-  return { status, reading, error, deviceName, tareSupported, lastRawHex, start, stop, tare };
+  return { status, reading, error, deviceName, tareSupported, lastRawHex, start, stop, tare, setUnit };
 }

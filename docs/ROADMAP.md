@@ -160,8 +160,9 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       grams-normalized) + `useScale` hook (scan→connect→live grams, software/BLE tare, built-in simulator).
       A scale button in `FoodQuantitySheet` + custom-food streams the live weight into the amount so macros
       update as you add/remove food; Settings → Bluetooth scale (`app/scale.tsx`) connects/tests with a raw
-      packet inspector. Ships with the Renpho ES-SNG01 / Etekcity ESN00 driver. *Pending on-hardware
-      confirmation of the exact frame header + tare command (use the inspector on first connect).*
+      packet inspector. **Confirmed on hardware with the Etekcity Nutrition Scale** (`a5scale.ts`, FFF0/A5
+      protocol — reads live grams in g/ml/oz incl. water/milk volume modes, with **hardware tare** wired via
+      the captured FFF2 command).
 - [x] **USDA household portions** — foods carry curated measures (Small/Medium/Large, cup/tbsp/tsp,
       slice/piece, 3 oz, ½) from each FDC record's `foodPortions`, shown as tap-to-fill "Quick portions"
       chips in the add-food quantity sheet (`FoodQuantitySheet`). See `docs/BASE_FOODS.md` for the
@@ -432,12 +433,13 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       entitlements). Model is a **~2 GB first-run download** (onboarding model-choice step or Settings), never
       bundled; needs the memory entitlements + a paid team + an **8 GB-class iPhone**. Provider enum is built to
       extend to API providers (Gemini key / self-hosted server) — see `docs/AI-Food-Scanning.md`.
-- [x] **Reminders system** — per-reminder **schedule** (daily / weekly / custom weekdays + time) for
-      **measure body, log weight, log food, workout**. Each fires a **local notification**
-      (`expo-notifications`, `lib/reminders.ts`) and surfaces a **dismissible Dashboard banner**
-      (`ReminderBanner` + pure `lib/reminderStatus.ts`). Opt-in (`remindersStore`, all off by default);
-      managed from **Settings → Notifications & reminders** (`app/reminders.tsx`). Notifications need a dev
-      build; banners work everywhere.
+- [x] **Reminders system** — **per-type interfaces** (a `mode` union in `remindersStore`): **measurements** =
+      interval (every N days/weeks/months/years), **weight/workout** = weekdays + time (with an "Every day"
+      shortcut), **food** = one+ daily times that **only fire if nothing's been logged that day** (smart;
+      reconciled on Dashboard focus). Each fires a **local notification** (`expo-notifications`,
+      `lib/reminders.ts`) and a **dismissible Dashboard banner** (`ReminderBanner` + pure
+      `lib/reminderStatus.ts`). Each individually opt-in (`remindersStore`, all off); managed from **Settings →
+      Notifications & reminders** (`app/reminders.tsx`). Notifications need a dev build; banners work everywhere.
 - [x] **Workout-summary toggle** — `showWorkoutSummary` (Settings → Coaching & reminders) skips the
       post-workout celebration screen; finishing a session then returns straight to Workout history.
 - [x] **Motion & dynamism pass** — app-wide animation built on a shared layer (`theme/motion.ts` tokens +

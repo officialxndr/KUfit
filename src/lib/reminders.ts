@@ -2,17 +2,30 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import {
-  REMINDER_KEYS, REMINDER_META, type ReminderConfig, type ReminderKey,
+  REMINDER_KEYS, REMINDER_META, EVERY_DAY,
+  type FoodReminder, type IntervalReminder, type IntervalUnit,
+  type ReminderConfig, type ReminderKey, type ScheduleReminder,
 } from '@/stores/remindersStore';
+import { foodRepo } from '@/lib/repositories/FoodRepo';
+import { healthRepo } from '@/lib/repositories/HealthRepo';
 
 /**
  * Local notification orchestration for the reminders system. All on-device —
- * schedules repeating local notifications via `expo-notifications`. Needs a dev
- * build + runtime permission (no remote push / server involved).
+ * schedules local notifications via `expo-notifications`. Needs a dev build +
+ * runtime permission (no remote push / server involved).
  *
  * The store (`remindersStore`) is the source of truth; call
- * `syncScheduledNotifications(reminders)` after any change and once on app start
- * so the OS schedule always reflects the user's current settings.
+ * `syncScheduledNotifications(reminders)` after any change, on app start, and
+ * after logging food (so a "smart" food reminder cancels itself) — it cancels
+ * everything and reschedules from scratch, so the OS schedule always reflects
+ * the current settings.
+ *
+ * Per mode:
+ *  - `schedule` (weight/workout): repeating DAILY (all 7 weekdays) or WEEKLY-per-day triggers.
+ *  - `interval` (measurements): a one-shot DATE trigger at the next occurrence (anchored to the
+ *    last measurement, or the cadence start), re-armed on the next sync.
+ *  - `food`: one-shot DATE triggers for today's remaining times (only if nothing's logged yet) +
+ *    tomorrow's times; re-synced after a food log so it stops nagging once you've eaten.
  */
 
 const ANDROID_CHANNEL = 'reminders';
@@ -48,21 +61,73 @@ export async function ensurePermission(): Promise<boolean> {
   return res.granted;
 }
 
-/** Triggers covering this reminder's frequency (one weekly trigger per weekday). */
-function triggersFor(cfg: ReminderConfig): Notifications.NotificationTriggerInput[] {
-  const channelId = Platform.OS === 'android' ? ANDROID_CHANNEL : undefined;
-  if (cfg.frequency === 'daily') {
-    return [{ type: Notifications.SchedulableTriggerInputTypes.DAILY, hour: cfg.hour, minute: cfg.minute, channelId }];
+const channelId = () => (Platform.OS === 'android' ? ANDROID_CHANNEL : undefined);
+const localISO = (d: Date) => d.toLocaleDateString('en-CA'); // YYYY-MM-DD, local
+/** A local Date at the given time on an ISO (YYYY-MM-DD) day. */
+const atTime = (iso: string, hour: number, minute: number) =>
+  new Date(`${iso}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`);
+
+/** Advance a date by one interval (calendar math for months/years). */
+function addInterval(d: Date, every: number, unit: IntervalUnit): Date {
+  const r = new Date(d);
+  if (unit === 'days') r.setDate(r.getDate() + every);
+  else if (unit === 'weeks') r.setDate(r.getDate() + every * 7);
+  else if (unit === 'months') r.setMonth(r.getMonth() + every);
+  else r.setFullYear(r.getFullYear() + every);
+  return r;
+}
+
+/** The first occurrence strictly after `after`, stepping from `anchor` by the interval. */
+function nextOccurrence(anchor: Date, every: number, unit: IntervalUnit, after: Date): Date {
+  let d = addInterval(anchor, Math.max(1, every), unit);
+  for (let guard = 0; d <= after && guard < 5000; guard++) d = addInterval(d, Math.max(1, every), unit);
+  return d;
+}
+
+type Sched = { content: Notifications.NotificationContentInput; trigger: Notifications.NotificationTriggerInput };
+
+/** Build the notification(s) for one reminder based on its mode. `now` is the reference time. */
+function schedulesFor(key: ReminderKey, cfg: ReminderConfig, now: Date): Sched[] {
+  const content = { title: REMINDER_META[key].title, body: REMINDER_META[key].body, data: { reminderKey: key } };
+  const cid = channelId();
+
+  if (cfg.mode === 'schedule') {
+    const s = cfg as ScheduleReminder;
+    const days = s.weekdays.length ? s.weekdays : EVERY_DAY;
+    if (days.length >= 7) {
+      return [{ content, trigger: { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour: s.hour, minute: s.minute, channelId: cid } }];
+    }
+    // Expo weekdays are 1–7 (Sunday = 1); the store uses 0–6 (Sunday = 0).
+    return days.map((d) => ({
+      content,
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.WEEKLY, weekday: (d % 7) + 1, hour: s.hour, minute: s.minute, channelId: cid },
+    }));
   }
-  // weekly / custom — Expo weekdays are 1–7 (Sunday = 1); store uses 0–6 (Sunday = 0).
-  const days = cfg.weekdays.length ? cfg.weekdays : [1];
-  return days.map((d) => ({
-    type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-    weekday: (d % 7) + 1,
-    hour: cfg.hour,
-    minute: cfg.minute,
-    channelId,
-  }));
+
+  if (cfg.mode === 'interval') {
+    const i = cfg as IntervalReminder;
+    // Anchor to the last measurement (so it counts from when you actually measured), else the
+    // cadence start, else today. One-shot DATE trigger re-armed on the next sync.
+    const lastMeasured = (() => { try { return healthRepo.getMeasurements()[0]?.date ?? null; } catch { return null; } })();
+    const anchor = atTime(lastMeasured || i.anchorDate || localISO(now), i.hour, i.minute);
+    return [{ content, trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: nextOccurrence(anchor, i.every, i.unit, now), channelId: cid } }];
+  }
+
+  // food — smart: skip today's times once something's been logged; always seed tomorrow's.
+  const f = cfg as FoodReminder;
+  const today = localISO(now);
+  const loggedToday = (() => { try { return foodRepo.getDayTotals(today).calories > 0; } catch { return false; } })();
+  const out: Sched[] = [];
+  for (const t of f.times) {
+    const todayAt = atTime(today, t.hour, t.minute);
+    if (!loggedToday && todayAt.getTime() > now.getTime()) {
+      out.push({ content, trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: todayAt, channelId: cid } });
+    }
+    const tomorrowAt = new Date(todayAt);
+    tomorrowAt.setDate(tomorrowAt.getDate() + 1);
+    out.push({ content, trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: tomorrowAt, channelId: cid } });
+  }
+  return out;
 }
 
 /**
@@ -75,15 +140,12 @@ export async function syncScheduledNotifications(reminders: Record<ReminderKey, 
     await Notifications.cancelAllScheduledNotificationsAsync();
     if (!granted) return;
     await ensureAndroidChannel();
+    const now = new Date();
     for (const key of REMINDER_KEYS) {
       const cfg = reminders[key];
       if (!cfg?.enabled) continue;
-      const meta = REMINDER_META[key];
-      for (const trigger of triggersFor(cfg)) {
-        await Notifications.scheduleNotificationAsync({
-          content: { title: meta.title, body: meta.body, data: { reminderKey: key } },
-          trigger,
-        });
+      for (const { content, trigger } of schedulesFor(key, cfg, now)) {
+        await Notifications.scheduleNotificationAsync({ content, trigger });
       }
     }
   } catch {

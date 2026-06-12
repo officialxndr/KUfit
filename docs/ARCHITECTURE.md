@@ -144,11 +144,13 @@ External network (Open Food Facts, ExerciseDB CDN) is called directly from the d
   `addPresetTemplate`, which resolves each id via `WorkoutRepo.getExerciseByDbId` and `saveTemplate`s a
   real, user-owned `WorkoutTemplate` (the preset is just a seed — never linked back).
 - `serverStore` — optional server URL + token; **null by default** (sync inactive until set).
-- `remindersStore` — per-reminder schedules for the **reminders system** (`measurements`/`weight`/
-  `workout`/`food`): each has `enabled`, `frequency` (daily/weekly/custom), `weekdays[]`, `hour`/`minute`,
-  and `bannerDismissedFor`. **Opt-in** (all disabled by default); persisted via AsyncStorage with a `merge`
-  that backfills newly-added reminder keys. Drives both scheduled local notifications (`lib/reminders.ts`)
-  and the Dashboard banner (`lib/reminderStatus.ts`).
+- `remindersStore` — the **reminders system** (`measurements`/`weight`/`workout`/`food`), a **discriminated
+  union on `mode`** so each reminder has its own shape + UI: `interval` (measurements: `every`/`unit`/time/
+  `anchorDate`), `schedule` (weight/workout: `weekdays[]`/time), `food` (`times[]`). All have `enabled` +
+  `bannerDismissedFor`. **Each individually opt-in** (all off by default); persisted via AsyncStorage at
+  **`version: 2`** with a `migrate` (old uniform `frequency/weekdays` → the union) + a `merge` that backfills
+  new keys. Drives both scheduled local notifications (`lib/reminders.ts`) and the Dashboard banner
+  (`lib/reminderStatus.ts`).
 
 ## First-run & onboarding
 `settingsStore` carries `onboarded`/`hydrated`. `(tabs)/index.tsx` redirects to `onboarding` once
@@ -380,11 +382,17 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
 - `lib/reminders.ts` + `lib/reminderStatus.ts` — the **reminders system** (driven by `remindersStore`).
   `reminders.ts` orchestrates `expo-notifications`: `configureNotifications()` (handler, called once at
   module load in `_layout.tsx`), `ensurePermission()`, and **`syncScheduledNotifications(reminders)`** which
-  cancels all app-scheduled notifications and reschedules each enabled reminder (daily → DAILY trigger;
-  weekly/custom → one WEEKLY trigger per weekday, Expo weekday = `(jsDay % 7) + 1`); wrapped in try/catch so
-  it no-ops in Expo Go. `reminderStatus.ts` is **pure**: given a `ReminderContext` (today + last-logged
-  dates from the repos) it decides which reminders are "due" (enabled + scheduled today + not dismissed +
-  action outstanding) — `dueReminders` / `topDueReminder` (priority measurements > weight > food > workout).
+  cancels all app-scheduled notifications and reschedules per **mode**: `schedule` → DAILY (all 7 weekdays)
+  or one WEEKLY trigger per weekday (Expo weekday = `(jsDay % 7) + 1`); `interval` → a one-shot DATE trigger
+  at the next occurrence (`nextOccurrence`, calendar math for months/years, anchored to the last measurement
+  via `healthRepo`); `food` → one-shot DATE triggers for today's remaining times **only while unlogged**
+  (`foodRepo.getDayTotals`) + tomorrow's. Re-armed on each sync; wrapped in try/catch so it no-ops in Expo
+  Go. Callers: `_layout` on launch, the reminders screen on edit, `backup` on import, and the **Dashboard
+  focus refresh** (which reconciles a smart food reminder once you've logged). `reminderStatus.ts` is
+  **pure**: given a `ReminderContext` (today, `nowMinutes`, last-logged dates, today's calories) it decides
+  which reminders are "due" per mode (schedule = scheduled weekday + outstanding; interval = ≥ one interval
+  since last measurement; food = nothing logged + earliest time passed) — `dueReminders` / `topDueReminder`
+  (priority measurements > weight > food > workout).
   Local-only — so `plugins/withoutPushEntitlement.js` strips the `aps-environment` entitlement that
   prebuild's bundled `expo-notifications` plugin adds. **Push Notifications is the one capability a
   personal/free Apple team can't sign** (independent of paid status / HealthKit), so stripping it lets the

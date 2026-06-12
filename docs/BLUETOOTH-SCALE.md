@@ -4,8 +4,13 @@ Groundwork for connecting a Bluetooth food scale so its **live weight drives the
 logging a food (macros update as you add/remove food). Built ahead of the hardware; this doc is the
 bench guide for getting the real scale talking + the fallback plan if the documented protocol misses.
 
-**Target scale:** Renpho **ES-SNG01** food scale = rebadged Etekcity **ESN00** (both VeSync brands).
-Pairs with the **Gennec** app (not the usual Renpho app).
+**Working scale (confirmed on hardware):** **Etekcity Nutrition Scale** — `FFF0` service, "A5" frame
+protocol (`src/lib/scales/a5scale.ts`). Reads live grams in g/ml/oz including water/milk volume modes.
+Pairs with the **VeSync** app.
+
+**Original target (abandoned):** Renpho **ES-SNG01** = rebadged Etekcity **ESN00** (VeSync; Gennec app).
+The unit that arrived was **encrypted Tuya BLE** (per-device key → un-shippable), so the Etekcity Nutrition
+Scale replaced it. The `esn00.ts` adapter remains for the documented (unconfirmed) ESN00 protocol.
 
 ---
 
@@ -14,7 +19,8 @@ Pairs with the **Gennec** app (not the usual Renpho app).
 | File | Role |
 |---|---|
 | `src/lib/scales/types.ts` | `ScaleAdapter` interface — match rule + notify UUIDs + `parse(bytes)→grams` + optional `init`/`tare`. `ScaleReading { grams, stable, displayUnit?, raw? }`. |
-| `src/lib/scales/esn00.ts` | **Renpho ES-SNG01 / Etekcity ESN00 driver** — the one to edit if the protocol differs. |
+| `src/lib/scales/a5scale.ts` | **Etekcity Nutrition Scale driver** (FFF0/A5) — ✅ confirmed working on hardware. |
+| `src/lib/scales/esn00.ts` | **Renpho ES-SNG01 / Etekcity ESN00 driver** — documented but unconfirmed (the ES-SNG01 was Tuya-encrypted). |
 | `src/lib/scales/registry.ts` | List of adapters. Add a new scale = one adapter file + one line here. |
 | `src/lib/scales/useScale.ts` | Hook: scan → match → connect → live grams, auto-reconnect, **software tare**, `simulate` mode. |
 | `src/lib/scales/ble.ts` | base64↔bytes, hex dump, Android permission request. |
@@ -58,6 +64,46 @@ write char  00002c11-0000-1000-8000-00805f9b34fb   (0x2c11)   app → device (co
   off the adapter, so the app uses **software tare** (subtract a captured offset) for now.
 - **oz / ml / fl-oz scaling** — the g and ml paths (÷10) are solid; oz/lb-oz/fl-oz use a best-guess ÷100.
   You'll likely keep the scale in grams, where this doesn't matter.
+
+---
+
+## Etekcity Nutrition Scale protocol (A5) — confirmed on hardware
+
+What `a5scale.ts` implements (reverse-engineered from nRF Connect captures, every byte verified):
+
+```
+advertised name  "Etekcity Nutrition Scale"   (Manufacturer: Etekcity Corporation)
+service     0000fff0-0000-1000-8000-00805f9b34fb   (0xFFF0)
+notify char 0000fff1-0000-1000-8000-00805f9b34fb   (0xFFF1)   device → app (weight frames)
+write char  0000fff2-0000-1000-8000-00805f9b34fb   (0xFFF2)   app → device (Write w/o Response)
+```
+
+**Frame** = fixed **17 bytes**, e.g. `427 g` → `A5 22 47 0B 00 FC 01 87 A1 00 00 AE 10 00 02 00 01`:
+
+| offset | field | notes |
+|---|---|---|
+| 0 | `0xA5` | header |
+| 1 | flags | `0x02` default; `0x20` bit set in non-gram / active modes (unused) |
+| 2 | sequence | rolling counter (unused) |
+| 3–4 | `0x0B 0x00` | constant |
+| 5 | **checksum** | tuned so `sum(all 17 bytes) & 0xFF == 0xFF` |
+| 6–10 | `01 87 A1 00 00` | constant |
+| 11–13 | **weight** | signed **little-endian** (byte 13 = high/sign byte); = display reading **×10** (g/ml) or **×100** (oz/fl-oz) |
+| 14 | **unit** | `0`=oz `1`=lb:oz `2`=g `3`=ml `4`=fl-oz |
+| 15 | sub-mode | ml/fl-oz density: `1`=water `2`=milk; else `0` |
+| 16 | stable | `1` = settled/present (best-effort) |
+
+- The transmitted value is the *display* reading (the scale converts on-device), so the same ~427 g object
+  reads `427 g` / `426 ml (water)` / `414 ml (milk, ÷1.03)` / `15.10 oz`. The adapter converts back to grams:
+  g + ml(water) are exact; ml(milk) ÷1.03; **oz is ×100** (confirmed: `1510` → 15.10 oz ≈ 428 g); fl-oz
+  assumed ×100; lb:oz unverified (not reachable from the UI).
+- Streams on connect with no handshake (just enabling notifications on FFF1).
+- **Commands (app → FFF2)** reuse the same A5 framing + checksum: `A5 22 <seq> <len> 00 <ck> <payload>`,
+  where `seq` is a rolling counter the app increments per command. **Tare** = payload `01 85 A1 00` (wired
+  as the adapter's `tare()`); **set unit** = payload `01 80 A1 00 <unit> 00` (`unit` = the notify enum:
+  0=oz 1=lb:oz 2=g 3=ml 4=fl-oz). `buildCommand()` in `a5scale.ts` reproduces the captured frames exactly.
+- **The food log's unit picker drives the scale's display unit** (`ScaleAdapter.setUnit` → `useScale.setUnit`):
+  pick g/oz while weighing and the scale's LCD follows (units it can't show fall back to grams).
 
 ---
 
@@ -132,6 +178,24 @@ built — ask if you want it. (Handshake/tare commands still need HCI snoop rega
 ---
 
 ## Adding a future scale (the whole point of the abstraction)
-1. New file `src/lib/scales/<scale>.ts` exporting a `ScaleAdapter` (match + notify UUIDs + `parse`→grams).
+
+Nothing outside `src/lib/scales/` knows about a specific scale — the app talks only to the `useScale`
+hook and the `ScaleDisplayUnit` type. So a new scale is **one adapter file + one registry line**.
+
+1. New file `src/lib/scales/<scale>.ts` exporting a `ScaleAdapter`:
+   - **`matches(scan)`** — claim your device. Match as **narrowly** as possible (your service UUID, or a
+     distinctive name token) so you don't grab another scale's device. If several adapters match one
+     device, `matchAdapter` prefers the one whose declared `serviceUUIDs` is actually advertised.
+   - **`notify: { service, characteristic }`** — the characteristic that streams weight.
+   - **`parse(bytes) → ScaleReading`** — **always return grams** (convert from the scale's display unit
+     inside `parse`); return `null` to ignore a frame. `displayUnit`/`raw` are diagnostics only.
+   - **Optional** `init(device)` (handshake write before streaming), `tare(device)` (hardware zero —
+     else the hook's software tare is used; `tareSupported` reflects this), and
+     `setUnit(device, 'g'|'oz'|'ml'|'floz')` (so the food picker can drive the scale's display unit).
+     Build command bytes with `bytesToBase64` from `ble.ts`.
 2. Add it to `SCALE_ADAPTERS` in `registry.ts`.
-3. Done — the hook, the weigh bar, the quantity-sheet integration, and the Settings screen all just work.
+3. Done — the hook (scan→connect→live grams→software/hardware tare), the weigh bar, the quantity-sheet
+   integration (live weight + unit-follow), and the Settings screen all just work.
+
+`a5scale.ts` (Etekcity, FFF0) is the reference implementation that exercises every part of the contract;
+`esn00.ts` is a notify-only adapter (no commands).

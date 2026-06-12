@@ -20,6 +20,7 @@ import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { resolveTargets, goalSafetyWarning, describePace, activeCaloriesForDisplay } from '@/lib/targets';
 import { topDueReminder } from '@/lib/reminderStatus';
+import { syncScheduledNotifications } from '@/lib/reminders';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useRemindersStore, type ReminderKey } from '@/stores/remindersStore';
 import { useActiveCaloriesStore } from '@/stores/activeCaloriesStore';
@@ -85,11 +86,16 @@ export function DashboardOverview() {
     setDueReminder(topDueReminder(useRemindersStore.getState().reminders, {
       today: todayIso,
       todayWeekday: today.getDay(),
+      nowMinutes: today.getHours() * 60 + today.getMinutes(),
       lastWeightDate: healthRepo.getLatestWeightEntry()?.date ?? null,
       lastMeasurementDate: healthRepo.getMeasurements()[0]?.date ?? null,
       lastWorkoutDate: sessions[0]?.startedAt?.slice(0, 10) ?? null,
       caloriesToday: dayTotals.calories,
     }));
+    // Reconcile scheduled reminders against today's state (e.g. a "smart" food reminder
+    // cancels itself once something's been logged). Safe here — the Dashboard isn't focused
+    // mid-workout, so this won't cancel the rest-timer's background notification.
+    syncScheduledNotifications(useRemindersStore.getState().reminders);
 
     // Last 7 days of calories (oldest → today), filling gaps with 0.
     const from = isoDate(new Date(today.getTime() - 6 * DAY_MS));

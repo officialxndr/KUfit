@@ -59,8 +59,13 @@ Assistant automations via the sync layer (`serverStore` is null by default).
 - **Bluetooth**: `src/lib/renphoTape.ts` — Renpho RF-BMF01 tape (`react-native-ble-plx`); the
   `useRenphoTape()` hook drives `components/TapeMeasureView.tsx` (opened from `measurements.tsx`).
 - **Bluetooth kitchen scale**: `src/lib/scales/` — a **pluggable adapter layer** (`ScaleAdapter` = match +
-  notify UUIDs + `parse`→**grams**; add a scale = one file + a `registry.ts` entry). `esn00.ts` is the
-  Renpho ES-SNG01 / Etekcity ESN00 (VeSync) driver. `useScale({simulate})` mirrors `useRenphoTape` + adds
+  notify UUIDs + `parse`→**grams**; add a scale = one file + a `registry.ts` entry). `a5scale.ts` is the
+  **Etekcity Nutrition Scale** driver — **confirmed working on hardware** (`FFF0` service / `FFF1` notify /
+  `FFF2` write; fixed 17-byte "A5" frame, weight = LE int16 ×10 for g/ml or ×100 for oz/fl-oz, unit enum +
+  water/milk density, checksum = sum of all bytes ≡ `0xFF`; FFF2 commands — tare + `setUnit` — reuse the same
+  framing, so the **food log's unit picker drives the scale's display unit**, `g→g`/`oz→oz`). `esn00.ts` is the unconfirmed Renpho ES-SNG01 / Etekcity ESN00 (VeSync, `0x1910`)
+  driver — the ES-SNG01 that arrived turned out to be encrypted Tuya BLE (un-shippable), so the Etekcity is the
+  real one. `useScale({simulate})` mirrors `useRenphoTape` + adds
   software tare + a simulator. Live grams drive `FoodQuantitySheet`/custom-food via `ScaleWeighBar`; Settings
   → Bluetooth scale (`app/scale.tsx`) is a connect/test screen with a raw-frame inspector. **All weight is
   normalized to grams inside the adapter** — the app never deals with a scale's display unit.
@@ -87,7 +92,15 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   model-choice step. Attribution (Gemma + llama.cpp) is in Settings → About & credits — keep it.
 - **Reminders/notifications**: `remindersStore` + `src/lib/reminders.ts` (schedules `expo-notifications`)
   + pure `src/lib/reminderStatus.ts` (Dashboard banner due-logic). Managed in `src/app/reminders.tsx`
-  (Settings → Notifications & reminders). Notifications need a dev build; banners work in Expo Go.
+  (Settings → Notifications & reminders). Each reminder is a **discriminated union on `mode`** with its own
+  interface, all individually opt-in (off by default): **`interval`** (measurements — every N
+  days/weeks/months/years, scheduled as a one-shot DATE trigger at the next occurrence anchored to the last
+  measurement); **`schedule`** (weight/workout — chosen weekdays, all 7 = every day, via DAILY/WEEKLY
+  triggers); **`food`** — one or more daily times, **smart**: only fires if nothing's been logged that day
+  (today's times are scheduled only while unlogged + tomorrow's seeded; the Dashboard focus refresh re-runs
+  `syncScheduledNotifications` to cancel today's once you log — safe there since the Dashboard isn't focused
+  mid-workout, so it won't clobber the rest-timer notification). Persisted store is **version 2** (migrates
+  the old uniform `frequency/weekdays` shape). Notifications need a dev build; banners work in Expo Go.
 - **iOS widgets** (`targets/widget/` + `src/lib/widget.ts`): **four** WidgetKit/SwiftUI widgets users pick
   from — **Food** (calorie *ring* with remaining in the center + themed macro bars + weight/body-fat),
   **Workout** (next/last workout, this-week sessions + sets + volume + a 7-day volume bar sparkline),

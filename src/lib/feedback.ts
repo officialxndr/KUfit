@@ -11,15 +11,14 @@ export const FEEDBACK_EMAIL = 'haledevteam@protonmail.com';
  * Bump this whenever there's something new for testers to see. The What's-New sheet
  * shows once per version (tracked in `app_meta`). Keep the list short + tester-focused.
  */
-export const WHATS_NEW_VERSION = '1.0.0-b8';
+export const WHATS_NEW_VERSION = '1.0.0-b9';
 export const WHATS_NEW = {
   title: "What's new to test",
   items: [
-    'Bluetooth kitchen scale: connect a Renpho ES-SNG01 / Etekcity ESN00 scale (Settings → Bluetooth scale) and the live weight flows straight into food logging and custom-food entry — tap to grab the current grams, with a software tare. (Needs a physical scale + this dev build.)',
-    'Quick-add calories: log a bare calorie number (plus optional macros) without searching for a food — perfect for restaurant meals or estimates. Find it in the food "+" actions.',
-    'Saved meals: save a combination of foods as one meal, then re-add the whole thing in a tap. Edit a saved meal to rename it or adjust each item\'s servings.',
-    'Weight milestone card: the health/weight view now shows milestone markers along your progress bar with projected dates for each — so you can see when you\'re on track to hit the next round number and your goal.',
-    'Many more foods: the built-in food database got a big expansion of common base foods, so search should turn up more staples without a custom entry.',
+    'Estimate a meal with AI: in the food "+" actions, snap or pick a photo of a plate and the AI estimates its calories + macros — review and edit before logging. Estimates are rough on small models; try it and see how close it gets.',
+    'Bring your own AI: Settings → AI vision now lets you add API / cloud endpoints — your own Ollama, LM Studio, or OpenWebUI server, or OpenAI / OpenRouter / Google Gemini — each with a nickname, key, and model. They power both label scanning and meal estimates. Plus two new on-device options (Qwen3-VL 2B, Instruct + Thinking).',
+    'Faster, better food search: it\'s quicker and more reliable, finds US brand/restaurant items better (try "mcdonalds apple pie"), fills in as you type (no Enter), and loads more as you scroll. There\'s also a new barcode-scan button right on the search tab.',
+    'Smarter food logging: the meal (breakfast / lunch / dinner / snack) now auto-picks by time of day, scanning a label also captures a serving description like "2 cookies", and the keyboard drops when you start scrolling.',
   ],
 };
 

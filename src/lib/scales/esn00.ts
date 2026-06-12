@@ -70,7 +70,9 @@ export const esn00Adapter: ScaleAdapter = {
   serviceUUIDs: [ESN00_SERVICE],
   matches: (d: ScanResult) => {
     const names = [norm(d.name), norm(d.localName)];
-    const byName = names.some((n) => n && (n.includes('renpho') || n.includes('etekcity') || n.includes('esn') || n.includes('sng') || n.includes('vesync') || n.includes('scale')));
+    // Brand/model tokens only — NOT a bare 'scale' (that would greedily claim any other adapter's
+    // device). A real ES-SNG01/ESN00 also advertises the 0x1910 service, caught by bySvc below.
+    const byName = names.some((n) => n && (n.includes('renpho') || n.includes('etekcity') || n.includes('esn') || n.includes('sng') || n.includes('vesync')));
     const bySvc = d.serviceUUIDs?.some((u) => u.toLowerCase() === ESN00_SERVICE.toLowerCase()) ?? false;
     return byName || bySvc;
   },

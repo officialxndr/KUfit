@@ -11,6 +11,7 @@ import { MacroBars } from '@/components/MacroBar';
 import { FoodBadgeRow, FoodDetailSections } from '@/components/FoodDetails';
 import { ScaleWeighBar } from '@/components/ScaleWeighBar';
 import { useScale } from '@/lib/scales/useScale';
+import type { ScaleDisplayUnit } from '@/lib/scales/types';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { resolveTargets } from '@/lib/targets';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -48,6 +49,10 @@ const UNIT_TO_CANONICAL: Record<string, number> = {
 };
 const MASS_UNITS = ['g', 'kg', 'oz', 'lb'];
 const VOLUME_UNITS = ['ml', 'l', 'tsp', 'tbsp', 'cup', 'fl oz'];
+
+// Selected food unit → the scale's display unit, so its LCD follows the picker (g→g, oz→oz).
+// Units the scale can't show (serving/tsp/tbsp/cup/kg/lb/l) fall back to grams.
+const SCALE_DISPLAY_UNIT: Record<string, ScaleDisplayUnit> = { g: 'g', oz: 'oz', ml: 'ml', 'fl oz': 'floz' };
 
 /** Units offered for a food, based on whether its serving is a mass or volume. */
 function unitsFor(servingUnit: string | undefined): string[] {
@@ -181,11 +186,26 @@ export function FoodQuantitySheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weighing, sim]);
 
-  // Live grams drive the amount field → the macro + projection summary below updates live.
+  // Default to grams when weigh mode turns on (the scale's native unit).
+  useEffect(() => { if (weighing) { setUnit('g'); setUnitMenuOpen(false); } }, [weighing]);
+
+  // Mirror the selected unit onto the scale's own display so its LCD follows the picker
+  // (g→g, oz→oz); units the scale can't show fall back to grams. No-op until connected.
   useEffect(() => {
-    if (weighing && scale.reading) { setUnit('g'); setAmount(String(scale.reading.grams)); }
+    if (weighing && scale.status === 'connected') scale.setUnit(SCALE_DISPLAY_UNIT[unit] ?? 'g');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weighing, scale.reading]);
+  }, [weighing, unit, scale.status]);
+
+  // Live grams drive the amount field, shown in the currently-selected unit. Macros resolve the
+  // amount back to grams (the unit factor cancels), so they stay correct regardless of display unit.
+  useEffect(() => {
+    if (!weighing || !scale.reading || !food) return;
+    const g = scale.reading.grams;
+    if (unit === 'serving') { setAmount(String(Math.round(amountToServings(food, g, 'g') * 100) / 100)); return; }
+    const canon = UNIT_TO_CANONICAL[unit];
+    setAmount(String(canon ? Math.round((g / canon) * 100) / 100 : g));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weighing, scale.reading, unit]);
 
   const animateClose = () => {
     Animated.timing(translateY, { toValue: SCREEN_H, duration: 220, useNativeDriver: true })

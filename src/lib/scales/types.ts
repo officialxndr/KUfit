@@ -19,6 +19,9 @@ export interface ScanResult {
   serviceUUIDs?: string[] | null;
 }
 
+/** Semantic display units the app can ask a scale to switch to (the adapter maps to its wire code). */
+export type ScaleDisplayUnit = 'g' | 'oz' | 'ml' | 'floz';
+
 /**
  * A pluggable scale driver. Add a new scale by implementing this and registering it in
  * `registry.ts` — the generic `useScale` hook scans, asks each adapter `matches()`, then
@@ -42,6 +45,8 @@ export interface ScaleAdapter {
   init?: (device: Device) => Promise<void>;
   /** Optional hardware tare over BLE (else the hook falls back to software tare). */
   tare?: (device: Device) => Promise<void>;
+  /** Optional: set the scale's on-device display unit so its LCD follows the app's unit picker. */
+  setUnit?: (device: Device, unit: ScaleDisplayUnit) => Promise<void>;
 }
 
 export type ScaleStatus = 'idle' | 'scanning' | 'connecting' | 'connected' | 'error';
