@@ -18,3 +18,6 @@ export function matchAdapter(d: ScanResult): ScaleAdapter | null {
   const advertised = (d.serviceUUIDs ?? []).map((u) => u.toLowerCase());
   return hits.find((a) => a.serviceUUIDs?.some((u) => advertised.includes(u.toLowerCase()))) ?? hits[0];
 }
+
+/** Model names confirmed to work, for the Settings → Bluetooth scale "Supported scales" list. */
+export const SUPPORTED_SCALE_MODELS: string[] = SCALE_ADAPTERS.flatMap((a) => a.supportedModels ?? []);

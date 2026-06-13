@@ -111,8 +111,11 @@ weight field to 2–3 bytes) so it can't be misread as a spurious `0`.
   where `seq` is a rolling counter the app increments per command. **Tare** = payload `01 85 A1 00` (wired
   as the adapter's `tare()`); **set unit** = payload `01 80 A1 00 <unit> 00` (`unit` = the notify enum:
   0=oz 1=lb:oz 2=g 3=ml 4=fl-oz). `buildCommand()` in `a5scale.ts` reproduces the captured frames exactly.
-- **The food log's unit picker drives the scale's display unit** (`ScaleAdapter.setUnit` → `useScale.setUnit`):
-  pick g/oz while weighing and the scale's LCD follows (units it can't show fall back to grams).
+- **The food log's unit picker and the scale's physical unit stay in sync both ways** while weighing
+  (`ScaleAdapter.setUnit` → `useScale.setUnit`, plus the notify frame's `displayUnit` reflected back):
+  pick g/oz in-app and the scale's LCD follows; press g/oz on the scale and the picker follows. The
+  reflection keys on the unit *value* (fires only on a real change), so picking an app-only unit like
+  "servings" isn't overridden.
 
 ---
 
@@ -202,6 +205,9 @@ hook and the `ScaleDisplayUnit` type. So a new scale is **one adapter file + one
      else the hook's software tare is used; `tareSupported` reflects this), and
      `setUnit(device, 'g'|'oz'|'ml'|'floz')` (so the food picker can drive the scale's display unit).
      Build command bytes with `bytesToBase64` from `ble.ts`.
+   - **`supportedModels: [...]`** — once confirmed on hardware, list the model name(s) here; they appear in
+     Settings → Bluetooth scale → **Supported scales** (`SUPPORTED_SCALE_MODELS` in `registry.ts`). Leave it
+     off until confirmed so unverified adapters aren't advertised.
 2. Add it to `SCALE_ADAPTERS` in `registry.ts`.
 3. Done — the hook (scan→connect→live grams→software/hardware tare), the weigh bar, the quantity-sheet
    integration (live weight + unit-follow), and the Settings screen all just work.

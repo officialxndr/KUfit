@@ -6,6 +6,7 @@ import { X } from 'lucide-react-native';
 
 import { FsText, Card, Button, SectionHeader } from '@/components/ui';
 import { useScale } from '@/lib/scales/useScale';
+import { SUPPORTED_SCALE_MODELS } from '@/lib/scales/registry';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 
 /**
@@ -62,6 +63,20 @@ export default function ScaleScreen() {
           Real hardware needs a dev build; use the simulator to preview.
         </FsText>
 
+        {/* Supported scales — which models connect automatically */}
+        <Card style={{ marginBottom: space[3] }}>
+          <SectionHeader title="Supported scales" />
+          <FsText variant="caption" style={{ marginBottom: space[2] }}>
+            These Bluetooth scales connect automatically — just power one on nearby. More are added over time.
+          </FsText>
+          {SUPPORTED_SCALE_MODELS.map((m) => (
+            <View key={m} style={styles.modelRow}>
+              <View style={styles.bullet} />
+              <FsText variant="bodyMedium">{m}</FsText>
+            </View>
+          ))}
+        </Card>
+
         {/* Raw inspector — confirm the frame layout on first connect */}
         <Card>
           <SectionHeader title="Protocol inspector" />
@@ -89,6 +104,8 @@ const styles = themedStyles(() => StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space[4], paddingVertical: space[3] },
   conn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: space[2] },
   dot: { width: 8, height: 8, borderRadius: 4 },
+  modelRow: { flexDirection: 'row', alignItems: 'center', gap: space[2], paddingVertical: 4 },
+  bullet: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary },
   big: { fontSize: 64, lineHeight: 72, fontWeight: '800', color: colors.text, fontVariant: ['tabular-nums'] },
   unit: { fontSize: 22, fontWeight: '600', color: colors.muted },
   hexBox: { backgroundColor: colors.surfaceHigh, borderRadius: radius.md, padding: space[3] },

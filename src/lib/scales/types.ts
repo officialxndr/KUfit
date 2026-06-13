@@ -33,6 +33,9 @@ export type ScaleDisplayUnit = 'g' | 'oz' | 'ml' | 'floz';
 export interface ScaleAdapter {
   id: string;
   displayName: string;
+  /** Human-readable model name(s) this adapter is **confirmed on hardware** to support — listed in
+   *  Settings → Bluetooth scale. Omit for unconfirmed/experimental adapters so they aren't advertised. */
+  supportedModels?: string[];
   /** Service UUIDs to bias the scan toward (optional; matching also works on name). */
   serviceUUIDs?: string[];
   /** Does this scanned device belong to this adapter? */

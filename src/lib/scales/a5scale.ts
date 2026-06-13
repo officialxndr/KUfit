@@ -131,6 +131,7 @@ const norm = (s?: string | null) => (s ?? '').toLowerCase().replace(/[^a-z0-9]/g
 export const a5Adapter: ScaleAdapter = {
   id: 'etekcity-nutrition',
   displayName: 'Etekcity Nutrition Scale',
+  supportedModels: ['Etekcity Nutrition Scale', 'Etekcity ENS-C551S-SUS'],
   serviceUUIDs: [A5_SERVICE],
   matches: (d: ScanResult) => {
     // Advertised name is "Etekcity Nutrition Scale" (confirmed in nRF Connect). Match on the

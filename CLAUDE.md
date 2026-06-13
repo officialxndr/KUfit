@@ -65,8 +65,10 @@ Assistant automations via the sync layer (`serverStore` is null by default).
   frame is **length-prefixed** (byte 3 → total `6+n`, so `parse` handles the 17-byte and 16-byte variants
   off one codec; weight field is the 2–3 bytes before the unit, LE ×10 for g/ml or ×100 for oz/fl-oz, unit
   enum + water/milk density, checksum = sum of all bytes ≡ `0xFF`; a stray 18-byte status frame is skipped).
-  FFF2 commands — tare + `setUnit` — reuse the same framing, so the **food log's unit picker drives the
-  scale's display unit**, `g→g`/`oz→oz`). `esn00.ts` is the unconfirmed Renpho ES-SNG01 / Etekcity ESN00 (VeSync, `0x1910`)
+  FFF2 commands — tare + `setUnit` — reuse the same framing, so the **food log's unit picker and the scale's
+  physical unit button stay in sync both ways** (`g↔oz`): picking in-app sets the scale's display
+  (`selectUnit`), and changing it on the scale updates the picker (the notify frame's unit byte → `displayUnit`,
+  reflected in `FoodQuantitySheet`)). `esn00.ts` is the unconfirmed Renpho ES-SNG01 / Etekcity ESN00 (VeSync, `0x1910`)
   driver — the ES-SNG01 that arrived turned out to be encrypted Tuya BLE (un-shippable), so the Etekcity is the
   real one. `useScale({simulate})` mirrors `useRenphoTape` + adds
   software tare + a simulator. Live grams drive `FoodQuantitySheet`/custom-food via `ScaleWeighBar`; Settings
