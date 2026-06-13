@@ -4,9 +4,10 @@ Groundwork for connecting a Bluetooth food scale so its **live weight drives the
 logging a food (macros update as you add/remove food). Built ahead of the hardware; this doc is the
 bench guide for getting the real scale talking + the fallback plan if the documented protocol misses.
 
-**Working scale (confirmed on hardware):** **Etekcity Nutrition Scale** — `FFF0` service, "A5" frame
-protocol (`src/lib/scales/a5scale.ts`). Reads live grams in g/ml/oz including water/milk volume modes.
-Pairs with the **VeSync** app.
+**Working scales (confirmed on hardware):** Etekcity's **A5-family** kitchen scales — the **Nutrition Scale**
+(17-byte frames) and the **ENS-C551S** (16-byte frames), both on the `FFF0` service via the shared
+`src/lib/scales/a5scale.ts` codec (a single adapter — same GATT + advertised name). Reads live grams in
+g/ml/oz including water/milk volume modes. Pair with the **VeSync** app.
 
 **Original target (abandoned):** Renpho **ES-SNG01** = rebadged Etekcity **ESN00** (VeSync; Gennec app).
 The unit that arrived was **encrypted Tuya BLE** (per-device key → un-shippable), so the Etekcity Nutrition
@@ -67,9 +68,11 @@ write char  00002c11-0000-1000-8000-00805f9b34fb   (0x2c11)   app → device (co
 
 ---
 
-## Etekcity Nutrition Scale protocol (A5) — confirmed on hardware
+## Etekcity "A5" protocol — confirmed on hardware
 
-What `a5scale.ts` implements (reverse-engineered from nRF Connect captures, every byte verified):
+`a5scale.ts` is a **shared codec** for Etekcity's A5-family scales — verified on the **Nutrition Scale**
+(17-byte frames) and the **ENS-C551S** (16-byte frames). Both share the same GATT + advertised name, so the
+one adapter handles both:
 
 ```
 advertised name  "Etekcity Nutrition Scale"   (Manufacturer: Etekcity Corporation)
@@ -78,20 +81,26 @@ notify char 0000fff1-0000-1000-8000-00805f9b34fb   (0xFFF1)   device → app (we
 write char  0000fff2-0000-1000-8000-00805f9b34fb   (0xFFF2)   app → device (Write w/o Response)
 ```
 
-**Frame** = fixed **17 bytes**, e.g. `427 g` → `A5 22 47 0B 00 FC 01 87 A1 00 00 AE 10 00 02 00 01`:
+**Frame** is **length-prefixed** (byte 3), so `parse` reads any variant rather than assuming a size.
+E.g. Nutrition Scale `427 g` → `A5 22 47 0B …` (byte 3 `0x0B` → 17 bytes); ENS-C551S `425 g` →
+`A5 02 9D 0A 00 DF 01 83 A1 00 00 9A 10 02 00 01` (byte 3 `0x0A` → 16 bytes):
 
 | offset | field | notes |
 |---|---|---|
 | 0 | `0xA5` | header |
-| 1 | flags | `0x02` default; `0x20` bit set in non-gram / active modes (unused) |
+| 1 | flags | `0x02`/`0x22` (unused) |
 | 2 | sequence | rolling counter (unused) |
-| 3–4 | `0x0B 0x00` | constant |
-| 5 | **checksum** | tuned so `sum(all 17 bytes) & 0xFF == 0xFF` |
-| 6–10 | `01 87 A1 00 00` | constant |
-| 11–13 | **weight** | signed **little-endian** (byte 13 = high/sign byte); = display reading **×10** (g/ml) or **×100** (oz/fl-oz) |
-| 14 | **unit** | `0`=oz `1`=lb:oz `2`=g `3`=ml `4`=fl-oz |
-| 15 | sub-mode | ml/fl-oz density: `1`=water `2`=milk; else `0` |
-| 16 | stable | `1` = settled/present (best-effort) |
+| 3 | **length** | bytes after the checksum → total frame = `6 + this` (Nutrition `0x0B`=17B; C551S `0x0A`=16B) |
+| 4 | `0x00` | constant |
+| 5 | **checksum** | tuned so `sum(all frame bytes) & 0xFF == 0xFF` |
+| 6–10 | `01 8x A1 00 00` | preamble (`8x` varies by model) |
+| 11 … | **weight** | signed **little-endian**, byte 11 up to the unit byte (2 bytes on 16B frames, 3 on 17B); = reading **×10** (g/ml) or **×100** (oz/fl-oz) |
+| len−3 | **unit** | `0`=oz `1`=lb:oz `2`=g `3`=ml `4`=fl-oz (the last 3 bytes are unit, sub, stable) |
+| len−2 | sub-mode | ml/fl-oz density: `1`=water `2`=milk; else `0` |
+| len−1 | stable | `1` = settled/present (best-effort) |
+
+The C551S also emits an **18-byte status frame** (`byte1=0x12`) on FFF1; `parse` skips it (it constrains the
+weight field to 2–3 bytes) so it can't be misread as a spurious `0`.
 
 - The transmitted value is the *display* reading (the scale converts on-device), so the same ~427 g object
   reads `427 g` / `426 ml (water)` / `414 ml (milk, ÷1.03)` / `15.10 oz`. The adapter converts back to grams:
