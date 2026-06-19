@@ -2,8 +2,11 @@
 
 Local-first health & fitness app. Fresh Expo SDK 56 rebuild of the original React web PWA
 (`../apps/web`). **All data lives on-device in SQLite** — no server is required. An optional
-self-hosted server (the existing `../apps/api`) can later be wired in for backup + Home
-Assistant automations via the sync layer (`serverStore` is null by default).
+**Hale Hub** Home Assistant add-on (sibling repo `../hale-mcp-addon`, Node/TS) can be pointed at
+for backup + Home Assistant / **MCP** access (`serverStore` is null by default). Sync is
+**snapshot-based + upload-only** (`lib/sync.ts` `syncNow()` reuses `backup.ts` `exportData()` →
+`POST /sync/snapshot`; it never writes the phone DB). The only write-back is the confirmation-gated
+**Restore from server** (`restoreFromServer()`). See `docs/ARCHITECTURE.md` + the add-on repo's README.
 
 > Display name is **Hale** (`com.zanderhalverson.hale`), renamed from "FitSelf". The codebase keeps the
 > original `fitself` internally — SQLite file `fitself.db` and Zustand persist keys `fitself-*` — to preserve

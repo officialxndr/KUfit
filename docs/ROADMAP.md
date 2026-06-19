@@ -3,6 +3,19 @@
 Honest status of the rebuild. **Update this when features land or plans change.**
 
 ## Done
+- [x] **Home Assistant add-on (Hale Hub) + snapshot sync** — a sibling repo `hale-mcp-addon` (Node/TS,
+      modeled on `orbit-hub`) packages a Home Assistant add-on that holds a copy of your Hale data on the
+      HA box and exposes it over **MCP** for a local LLM ("daily briefing"). The phone pushes a full
+      **snapshot** (reusing the tested `lib/backup.ts` `exportData()`) to `POST /sync/snapshot`; the add-on
+      writes `/data/hale-backup.json` (the file you own) and materializes it into `/data/hale.db`, then
+      answers MCP tools (`get_daily_briefing` — which also carries a `yesterday` block + a `previousWeek`
+      recap; `get_nutrition`, `get_weight_progress`, `get_recent_workouts`, `get_exercise_progress`,
+      `get_body_measurements`, `get_active_goal`, plus `get_schema` + a guarded read-only `query` SQL escape
+      hatch) over token-auth'd Streamable HTTP on port 8126. App side (`lib/sync.ts`): `syncNow()` is **upload-only** (auto on background via `_layout.tsx`
+      + a manual "Sync now" button) and `restoreFromServer()` is the only write-back path (Settings → Server,
+      confirmation-gated, merge by default). Pure target/Epley/per-side math is ported into the add-on so its
+      numbers match the app. Replaces the old `apps/api`-contract plan; the schema's localId/serverId/syncStatus
+      remain available for a future incremental engine.
 - [x] **Exercise catalog cleanup (curation pass)** — generalized/de-noised the raw ExerciseDB set (~1500 →
       ~1270) via a new `scripts/lib-curate.mjs`: drops gimmick families (stability/medicine/BOSU ball, ab
       wheel, cardio machines), reclassifies mislabeled equipment (the "Sled" facet is the leg-press machine;
@@ -557,15 +570,18 @@ Honest status of the rebuild. **Update this when features land or plans change.*
 - [ ] **Renpho tape on-device test** — built and the protocol is implemented, but the BLE connection is
       **untested against the physical tape** (emulator/simulator have no Bluetooth). Verify on a real device
       (live reading, the `S`/`P` confirm flag, and metric/imperial `x[18]` handling).
-- [ ] **Server sync engine** — `lib/sync.ts` does a real **connection test** (Settings → Server
-      backup); the full bidirectional push/pull must match the `apps/api` route contract and be
-      validated against a running server. Schema is already sync-ready (localId/serverId/syncStatus).
+- [ ] **Incremental (row-level) server sync** — snapshot sync to the Hale Hub add-on now ships (see
+      Done → *Home Assistant add-on*), which is upload-only + full-snapshot. A future delta engine could push
+      only dirty rows (`syncStatus='pending'`) with a cursor and pull changes back — the schema is already
+      sync-ready (localId/serverId/syncStatus) and `upsertFromServer` repo methods exist. Only needed if a
+      second writer (e.g. editing data on the HA side) is added; the read-only LLM consumer doesn't require it.
 - [ ] **Health on-device verification** — the providers are installed and wired (see Done → *Native Health
       activated*), but real reads (weight backfill, active energy, heart rate) still need validation on a
       physical iPhone (paid account for HealthKit auth) / Android with Health Connect. In Expo Go and the
       free-account HealthKit-stripped build, the seam returns `null` and the MET estimate is used.
-- [ ] **Home Assistant add-on** — lives in the web/api repos, **not this mobile app**; expose
-      `/api/health/stats` there for automations.
+- [ ] **Home Assistant entity bridge (optional)** — the Hale Hub add-on (Done) exposes data over MCP, not as
+      HA sensors. If native HA automations are wanted, the add-on could additionally publish a few entities
+      (today's calories, weight, weekly volume) via the Supervisor API / MQTT discovery.
 - [ ] **Apple home-screen widgets (native milestone)** — quick-action widgets: start the default
       routine, log weight, log a food/recipe, plus **user-configured quick-log buttons** (search a food
       in widget settings, pick it, give it a custom name — e.g. a daily protein shake). Requires a

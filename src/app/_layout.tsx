@@ -12,8 +12,10 @@ import { recoverTourPreview } from '@/lib/tourPreview';
 import { syncWidget } from '@/lib/widget';
 import { endLiveActivity } from '@/lib/liveActivity';
 import { initWatchBridge, syncWatch } from '@/lib/watch';
+import { syncNow } from '@/lib/sync';
 import { configureNotifications, syncScheduledNotifications } from '@/lib/reminders';
 import { useRemindersStore } from '@/stores/remindersStore';
+import { useServerStore } from '@/stores/serverStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { colors, SURFACE_PRESETS } from '@/theme/tokens';
 
@@ -56,6 +58,11 @@ export default function RootLayout() {
     initWatchBridge();
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'background' || state === 'active') { syncWidget(); syncWatch(); }
+      // Push a snapshot to the optional Hale Hub when leaving the foreground. Upload-only
+      // (reads the DB, never writes it) and fire-and-forget, so a failure can't affect teardown.
+      if (state === 'background' && useServerStore.getState().serverUrl) {
+        syncNow().catch(() => {});
+      }
     });
     return () => sub.remove();
   }, []);

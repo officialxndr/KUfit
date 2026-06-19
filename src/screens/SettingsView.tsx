@@ -24,7 +24,7 @@ import { DateField } from '@/components/DateField';
 import { HeightField } from '@/components/HeightField';
 import { useServerStore } from '@/stores/serverStore';
 import { useNavStore } from '@/stores/navStore';
-import { testServerConnection } from '@/lib/sync';
+import { testServerConnection, syncNow, restoreFromServer } from '@/lib/sync';
 import { health, healthPlatformLabel } from '@/lib/health';
 import { downloadAllMedia } from '@/lib/exerciseMedia';
 import * as Device from 'expo-device';
@@ -242,6 +242,7 @@ export function SettingsView() {
   const [serverUrl, setServerUrl] = useState(server.serverUrl ?? '');
   const [serverToken, setServerToken] = useState(server.accessToken ?? '');
   const [testing, setTesting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   const testServer = async () => {
     setTesting(true);
@@ -253,6 +254,41 @@ export function SettingsView() {
     } else {
       Alert.alert('Server', res.message);
     }
+  };
+
+  // Upload-only: pushes a snapshot to the hub. Never writes this phone's data.
+  const onSyncNow = async () => {
+    setSyncing(true);
+    const res = await syncNow();
+    setSyncing(false);
+    Alert.alert('Sync', res.message);
+  };
+
+  const runRestore = async (mode: 'replace' | 'merge') => {
+    setSyncing(true);
+    const res = await restoreFromServer(mode);
+    if (res.ok) useRefreshStore.getState().bump();
+    setSyncing(false);
+    Alert.alert('Restore', res.message);
+  };
+
+  // The only path that writes this phone's data from the server — explicit + confirmed.
+  const onRestoreFromServer = () => {
+    Alert.alert(
+      'Restore from server',
+      'Pull the latest snapshot from your Hale Hub and apply it to this phone. Merge adds any missing records; Replace overwrites everything on this device.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Merge (add records)', onPress: () => runRestore('merge') },
+        {
+          text: 'Replace all', style: 'destructive',
+          onPress: () => Alert.alert('Replace everything?', 'This deletes your current data and restores the server snapshot. This cannot be undone.', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Replace', style: 'destructive', onPress: () => runRestore('replace') },
+          ]),
+        },
+      ]
+    );
   };
 
   const connectHealth = async () => {
@@ -555,14 +591,24 @@ export function SettingsView() {
       <Card hidden={!show(T.server)} style={{ marginBottom: space[3] }}>
         <SectionHeader title="Server backup &amp; sync" />
         <FsText variant="caption" style={{ marginBottom: space[3] }}>
-          Optional. Point at your self-hosted Hale server to test a connection. The app stays
-          fully usable offline; full two-way sync is on the roadmap.
+          Optional. Point at your Hale Hub add-on to back up a snapshot of your data to Home
+          Assistant and let a local LLM read it over MCP. The app stays fully usable offline.
+          Sync only uploads — it never changes the data on this phone.
         </FsText>
-        <Field label="Server URL" value={serverUrl} onChangeText={setServerUrl} placeholder="http://192.168.1.10:3001" />
-        <Field label="Access token (optional)" value={serverToken} onChangeText={setServerToken} placeholder="JWT" />
+        <Field label="Server URL" value={serverUrl} onChangeText={setServerUrl} placeholder="http://homeassistant.local:8126" />
+        <Field label="Access token" value={serverToken} onChangeText={setServerToken} placeholder="Add-on api_token" />
         <Button title={testing ? 'Testing…' : 'Test & save'} onPress={testServer} loading={testing} disabled={testing} />
         {!!server.serverUrl && (
-          <Button title="Disconnect" variant="ghost" onPress={() => { server.clearServer(); setServerUrl(''); setServerToken(''); }} style={{ marginTop: space[2] }} />
+          <>
+            <Button title={syncing ? 'Syncing…' : 'Sync now'} onPress={onSyncNow} loading={syncing} disabled={syncing} style={{ marginTop: space[2] }} />
+            <Button title="Restore from server" variant="ghost" onPress={onRestoreFromServer} disabled={syncing} style={{ marginTop: space[2] }} />
+            {!!server.lastSyncedAt && (
+              <FsText variant="caption" style={{ marginTop: space[2] }}>
+                Last synced {new Date(server.lastSyncedAt).toLocaleString()}
+              </FsText>
+            )}
+            <Button title="Disconnect" variant="ghost" onPress={() => { server.clearServer(); setServerUrl(''); setServerToken(''); }} style={{ marginTop: space[2] }} />
+          </>
         )}
       </Card>
 

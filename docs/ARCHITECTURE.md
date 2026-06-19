@@ -143,7 +143,18 @@ External network (Open Food Facts, ExerciseDB CDN) is called directly from the d
   `preset-templates` modal (opened from the Workout library card above Exercise Library) calls
   `addPresetTemplate`, which resolves each id via `WorkoutRepo.getExerciseByDbId` and `saveTemplate`s a
   real, user-owned `WorkoutTemplate` (the preset is just a seed — never linked back).
-- `serverStore` — optional server URL + token; **null by default** (sync inactive until set).
+- `serverStore` — optional server URL + bearer token (+ `lastSyncedAt`); **null by default** (sync inactive
+  until set). The token is the **Hale Hub add-on's `api_token`** (no login flow).
+- **Snapshot sync** (`lib/sync.ts`) — talks to the optional **Hale Hub** Home Assistant add-on (sibling repo
+  `hale-mcp-addon`, which stores a copy of the data + serves it to a local LLM over MCP; see ROADMAP → Done).
+  Two directions, deliberately asymmetric so routine sync can never wipe the phone:
+  - `syncNow()` is **upload-only** — it `exportData()`s the local DB (a pure read; reuses `lib/backup.ts`) and
+    POSTs the JSON to `POST {serverUrl}/sync/snapshot`. **No code path here writes the local DB.** Fired
+    automatically on app-background (`_layout.tsx` AppState handler, guarded on `serverUrl`) and from a manual
+    **Sync now** button (Settings → Server).
+  - `restoreFromServer(mode)` is the **only** write-back path — `GET /sync/snapshot` then `importData(json,
+    mode)`. Exposed solely as a confirmation-gated **Restore from server** button (Settings → Server), `merge`
+    (additive) by default. `testServerConnection()` still pings unauth'd `/health`.
 - `remindersStore` — the **reminders system** (`measurements`/`weight`/`workout`/`food`), a **discriminated
   union on `mode`** so each reminder has its own shape + UI: `interval` (measurements: `every`/`unit`/time/
   `anchorDate`), `schedule` (weight/workout: `weekdays[]`/time), `food` (`times[]`). All have `enabled` +

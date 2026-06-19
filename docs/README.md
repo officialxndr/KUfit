@@ -3,7 +3,8 @@
 Hale is a **local-first** health & fitness app built with Expo + React Native (SDK 56).
 It's a fresh rebuild of the original React web PWA (`../../apps/web`), designed so that **all
 data lives on the device** (SQLite) and **no server is required to use the app**. An optional
-self-hosted server can be added later for backup and Home Assistant automations.
+**Hale Hub** Home Assistant add-on (sibling `hale-mcp-addon` repo) can be pointed at for snapshot
+backup + giving a local LLM access to the data over MCP.
 
 ## Docs in this folder
 - **README.md** (this file) — overview, setup, running, seeding, building.
@@ -72,7 +73,8 @@ self-hosted server can be added later for backup and Home Assistant automations.
   native screenshot feedback.
 
 See **[ROADMAP.md](./ROADMAP.md)** for what's intentionally not built yet (on-device verification of
-Health & the Renpho tape, the full server-sync engine, the Home Assistant add-on, native home-screen widgets).
+Health & the Renpho tape, a row-level delta sync engine, native home-screen widgets). The **Hale Hub**
+Home Assistant add-on (snapshot sync + MCP) now ships in the sibling `hale-mcp-addon` repo.
 
 ## Prerequisites
 - Node 20+ (developed on Node 26), npm.
@@ -218,8 +220,12 @@ Settings → "AI label scanning" → Off is the in-app runtime toggle (and the s
   Needs **Xcode 16+ and a paid Apple team** (App Groups can't be signed by a free team) and `ios.appleTeamId`
   set in `app.json`. Test with `npx expo prebuild -p ios --clean` → `expo run:ios --device`; EAS production
   builds include it automatically.
-- **Server backup**: Settings → "Server backup & sync" sets a self-hosted Hale server URL/token
-  and tests the connection (`lib/sync.ts`). The full two-way sync engine is on the roadmap.
+- **Server backup / sync**: Settings → "Server backup & sync" points at the optional **Hale Hub**
+  Home Assistant add-on (sibling repo `hale-mcp-addon`). `lib/sync.ts` does **upload-only snapshot
+  sync** (`syncNow()` reuses `backup.ts` `exportData()` → `POST /sync/snapshot`; auto on background +
+  a manual button) so it can't alter on-device data; **Restore from server** is the only (confirmed)
+  write-back. The hub stores the snapshot and serves it to a local LLM over MCP. A row-level delta
+  engine remains on the roadmap (schema is sync-ready).
 - **Health (cross-platform)**: Settings → "Health" exposes the `lib/health.ts` seam. To activate,
   add the provider libs in a native build — `@kingstinct/react-native-healthkit` (iOS / Apple Health)
   and `react-native-health-connect` (Android / Health Connect) — wire them into the `HealthService`
