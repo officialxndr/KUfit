@@ -63,10 +63,15 @@ for backup + Home Assistant / **MCP** access (`serverStore` is null by default).
   `useRenphoTape()` hook drives `components/TapeMeasureView.tsx` (opened from `measurements.tsx`).
 - **Bluetooth kitchen scale**: `src/lib/scales/` — a **pluggable adapter layer** (`ScaleAdapter` = match +
   notify UUIDs + `parse`→**grams**; add a scale = one file + a `registry.ts` entry). `a5scale.ts` is the
-  **Etekcity Nutrition Scale** driver — **confirmed working on hardware** (`FFF0` service / `FFF1` notify /
-  `FFF2` write; fixed 17-byte "A5" frame, weight = LE int16 ×10 for g/ml or ×100 for oz/fl-oz, unit enum +
-  water/milk density, checksum = sum of all bytes ≡ `0xFF`; FFF2 commands — tare + `setUnit` — reuse the same
-  framing, so the **food log's unit picker drives the scale's display unit**, `g→g`/`oz→oz`). `esn00.ts` is the unconfirmed Renpho ES-SNG01 / Etekcity ESN00 (VeSync, `0x1910`)
+  **shared "A5" codec + adapter** for Etekcity's family — **confirmed on hardware** (Nutrition Scale +
+  ENS-C551S, both `FFF0` service / `FFF1` notify / `FFF2` write, same advertised name → one adapter). The
+  frame is **length-prefixed** (byte 3 → total `6+n`, so `parse` handles the 17-byte and 16-byte variants
+  off one codec; weight field is the 2–3 bytes before the unit, LE ×10 for g/ml or ×100 for oz/fl-oz, unit
+  enum + water/milk density, checksum = sum of all bytes ≡ `0xFF`; a stray 18-byte status frame is skipped).
+  FFF2 commands — tare + `setUnit` — reuse the same framing, so the **food log's unit picker and the scale's
+  physical unit button stay in sync both ways** (`g↔oz`): picking in-app sets the scale's display
+  (`selectUnit`), and changing it on the scale updates the picker (the notify frame's unit byte → `displayUnit`,
+  reflected in `FoodQuantitySheet`)). `esn00.ts` is the unconfirmed Renpho ES-SNG01 / Etekcity ESN00 (VeSync, `0x1910`)
   driver — the ES-SNG01 that arrived turned out to be encrypted Tuya BLE (un-shippable), so the Etekcity is the
   real one. `useScale({simulate})` mirrors `useRenphoTape` + adds
   software tare + a simulator. Live grams drive `FoodQuantitySheet`/custom-food via `ScaleWeighBar`; Settings

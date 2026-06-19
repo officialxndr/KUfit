@@ -53,6 +53,9 @@ const VOLUME_UNITS = ['ml', 'l', 'tsp', 'tbsp', 'cup', 'fl oz'];
 // Selected food unit → the scale's display unit, so its LCD follows the picker (g→g, oz→oz).
 // Units the scale can't show (serving/tsp/tbsp/cup/kg/lb/l) fall back to grams.
 const SCALE_DISPLAY_UNIT: Record<string, ScaleDisplayUnit> = { g: 'g', oz: 'oz', ml: 'ml', 'fl oz': 'floz' };
+// Reverse: the scale's reported display unit → the app's food unit (so a physical unit change on the
+// scale updates the picker). lb:oz / unknown have no clean app unit and are ignored.
+const APP_UNIT_FROM_SCALE: Record<string, string> = { g: 'g', oz: 'oz', ml: 'ml', 'ml (milk)': 'ml', 'fl oz': 'fl oz' };
 
 /** Units offered for a food, based on whether its serving is a mass or volume. */
 function unitsFor(servingUnit: string | undefined): string[] {
@@ -186,15 +189,20 @@ export function FoodQuantitySheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weighing, sim]);
 
-  // Default to grams when weigh mode turns on (the scale's native unit).
-  useEffect(() => { if (weighing) { setUnit('g'); setUnitMenuOpen(false); } }, [weighing]);
+  // Close the unit menu when weigh mode turns on; the unit then follows the scale (below).
+  useEffect(() => { if (weighing) setUnitMenuOpen(false); }, [weighing]);
 
-  // Mirror the selected unit onto the scale's own display so its LCD follows the picker
-  // (g→g, oz→oz); units the scale can't show fall back to grams. No-op until connected.
+  // Reflect the scale's *physical* display unit into the app picker: switching g↔oz on the scale
+  // itself updates the selected unit here (and the first reading adopts whatever the scale is set to).
+  // Keyed on the unit *value*, so it fires only on an actual change — not every reading — leaving the
+  // user free to pick a different app unit (e.g. servings) the scale can't show. Picker→scale is driven
+  // from `selectUnit` instead, so the two directions don't fight. Ignored if invalid for this food.
   useEffect(() => {
-    if (weighing && scale.status === 'connected') scale.setUnit(SCALE_DISPLAY_UNIT[unit] ?? 'g');
+    if (!weighing || !food) return;
+    const mapped = APP_UNIT_FROM_SCALE[scale.reading?.displayUnit ?? ''];
+    if (mapped && mapped !== unit && unitsFor(food.servingUnit).includes(mapped)) setUnit(mapped);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weighing, unit, scale.status]);
+  }, [weighing, scale.reading?.displayUnit]);
 
   // Live grams drive the amount field, shown in the currently-selected unit. Macros resolve the
   // amount back to grams (the unit factor cancels), so they stay correct regardless of display unit.
@@ -241,6 +249,8 @@ export function FoodQuantitySheet({
     const servings = amountToServings(food, Number(amount) || 0, unit);
     setAmount(String(Math.round(servingsToAmount(food, servings, u) * 100) / 100));
     setUnit(u);
+    // Other direction of the sync: pushing the picker's choice onto the scale's display (g↔oz).
+    if (weighing && scale.status === 'connected' && SCALE_DISPLAY_UNIT[u]) scale.setUnit(SCALE_DISPLAY_UNIT[u]);
   };
 
   const submit = () => {
