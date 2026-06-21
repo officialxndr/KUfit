@@ -82,6 +82,10 @@ export interface Profile {
   /** When false, don't auto-estimate body fat from tape measurements (U.S. Navy
    *  formula); only a body-fat % you enter yourself (or a DEXA baseline) is shown. */
   navyBodyFatEnabled: boolean;
+  /** Which body-fat source drives the Body view when both are available:
+   *  'dexa' = a measured % / DEXA-baseline estimate, 'navy' = the U.S. Navy tape estimate.
+   *  Only consulted when both exist; otherwise the available source is shown. */
+  bodyFatSource: 'dexa' | 'navy';
   /** Chosen on-device AI label-scanning model id (a `lib/llm/models` id), or null = none.
    *  The model *files* live on disk (see `lib/llm/modelManager`); this only records the pick. */
   aiModelId: string | null;
@@ -136,6 +140,7 @@ const DEFAULT_PROFILE: Profile = {
   animationsEnabled: true,
   confettiEnabled: true,
   navyBodyFatEnabled: true,
+  bodyFatSource: 'dexa',
   aiModelId: null,
   aiProvider: 'off',
   aiThinking: true,

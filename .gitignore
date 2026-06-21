@@ -62,3 +62,7 @@ screenshots/
 
 # FDC API key (local only)
 .fdc-key
+
+# graphify generated knowledge graph (rebuild with `graphify extract .`).
+# Remove this line + run `graphify hook install` if you want the graph committed/shared.
+graphify-out/

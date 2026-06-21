@@ -265,8 +265,13 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
   neckCm, waistCm, hipCm})`** is the U.S. Navy (Hodgdon–Beckett) tape estimate, metric form. Consumed by
   `screens/HealthBody.tsx` (source priority: measured % on the latest weigh-in → lean-mass estimate from
   a DEXA baseline → Navy tape estimate), with `HealthRepo.getLatestBodyFatBaseline()` supplying the baseline.
-  The Navy fallback is gated by `profile.navyBodyFatEnabled` (Settings → Body composition; default on) — off
-  means only a measured % or DEXA-baseline estimate is shown, in `HealthBody`, `HealthTrends` and `DashboardReports`.
+  When **both** a DEXA-anchored value (measured/baseline) **and** a Navy estimate are available, the Body card
+  shows a two-up **`SourceToggle`** (each option surfaces its own %) so the user can switch which drives the
+  whole card — composition, FFMI, the body-fat goal all recompute live; the choice persists as
+  `profile.bodyFatSource` (`'dexa' | 'navy'`, default `'dexa'` = the existing priority). With only one source
+  the toggle is hidden. The Navy fallback is gated by `profile.navyBodyFatEnabled` (Settings → Body composition;
+  default on) — off means only a measured % or DEXA-baseline estimate is shown (and no toggle), in `HealthBody`,
+  `HealthTrends` and `DashboardReports`.
   **DEXA scans**: a dedicated "Log DEXA scan" flow (`app/log-dexa.tsx` → `HealthRepo.logDexaScan`, stored as a
   weigh-in with `source='DEXA'` + `boneMassKg`/`visceralFatKg`/`boneTScore` columns) unlocks a true
   **3-compartment** Body view via `composition(weight, bf%, boneKg)` → fat + lean soft tissue + bone (FFMI still
@@ -663,8 +668,12 @@ intentionally **not** bottom sheets and keep their `animationType="fade"` modals
   values so the round milestone numbers come out in lb/kg, and ETAs/positions are ratios so the unit cancels;
   returns `etaDate: null` for already-reached or wrong-direction/zero-trend points). Consumed by
   `components/MilestoneProgressCard.tsx` (a clean filling start→goal bar with a **milestone timeline below it**
-  — tick + weight label per marker, end markers clamped to the edges — plus a projected-date ladder; shown
-  **compact on `DashboardOverview`** → taps to the Weight tab, and **full on `HealthWeight`**).
+  — a tick per marker, plus weight labels — and a projected-date ladder; shown
+  **compact on `DashboardOverview`** → taps to the Weight tab, and **full on `HealthWeight`**). The `MarkerRail`
+  ticks never collide, but the **labels would** when milestones pack close together, so it measures its width
+  (`onLayout`) and shows only labels that fit: always the two ends (start + goal, clamped to the edges), then
+  inner labels greedily left→right skipping any that would touch a neighbor (footprint estimated from digit
+  count). Dropped inner labels lose nothing — every value is still listed in the ladder below.
   The rate is `computeStats().weeklyChange` (so dates match Goal ETA); the left anchor + 5/10 step are
   configurable via `profile.milestoneStartBasis` (`phase`→active-phase start / `earliest` / `peak` / `custom`
   + `milestoneStartKg`) and `profile.milestoneInterval` (`small`=5 lb/2.5 kg, `large`=10 lb/5 kg).

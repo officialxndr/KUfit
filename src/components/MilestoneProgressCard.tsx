@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { Flag, Check } from 'lucide-react-native';
@@ -297,10 +297,45 @@ function ProgressBar({ progress }: { progress: number }) {
 
 type RailTone = 'start' | 'reached' | 'upcoming' | 'goal';
 
-/** Milestone timeline below the bar: a tick + weight label at each fraction. */
+/**
+ * Milestone timeline below the bar: a tick at every fraction, with labels added
+ * only where they fit. Ticks are cheap and never collide, but the labels would
+ * overlap when milestones are packed close together — so we always label the two
+ * ends (start + goal) and then greedily fill in inner labels left→right, skipping
+ * any that would touch the previous label or the goal label. The full value list
+ * still lives in the projection ladder below, so dropping a crowded inner label
+ * loses nothing.
+ */
 function MarkerRail({ items }: { items: { value: number; fraction: number; tone: RailTone }[] }) {
+  const [width, setWidth] = useState(0);
+
+  // Which labels to render. Always the two ends (start + goal); then inner labels
+  // greedily left→right, skipping any that would touch a neighbor. Each centered
+  // label's footprint is approximated from its digit count (tabular-nums @ fontSize
+  // 10 ≈ 7px/char). Cheap O(n) over a handful of markers, so just compute per render.
+  const showLabel = items.map(() => false);
+  if (items.length > 0) {
+    const last = items.length - 1;
+    showLabel[0] = true;     // start — anchored left:0
+    showLabel[last] = true;  // goal — anchored right:0
+    if (width > 0 && last > 0) {
+      const CHAR = 7, PAD = 4, GAP = 8;
+      const labelW = (v: number) => fmtVal(v).length * CHAR + PAD;
+      const goalLeft = width - labelW(items[last].value); // goal label hugs the right edge
+      let cursorRight = labelW(items[0].value);           // start label hugs the left edge
+      for (let i = 1; i < last; i++) {
+        const w = labelW(items[i].value);
+        const center = items[i].fraction * width;         // inner labels center on their tick
+        if (center - w / 2 >= cursorRight + GAP && center + w / 2 <= goalLeft - GAP) {
+          showLabel[i] = true;
+          cursorRight = center + w / 2;
+        }
+      }
+    }
+  }
+
   return (
-    <View style={styles.rail}>
+    <View style={styles.rail} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
       {items.map((m, i) => {
         const color = m.tone === 'goal' ? colors.primary : m.tone === 'reached' ? colors.success : colors.muted;
         // Clamp the end markers to the edges so their labels don't clip off the card.
@@ -312,7 +347,9 @@ function MarkerRail({ items }: { items: { value: number; fraction: number; tone:
         return (
           <View key={`${m.value}-${i}`} style={[styles.railItem, pos]}>
             <View style={[styles.railTick, { backgroundColor: color }]} />
-            <FsText variant="caption" numberOfLines={1} style={[styles.railLabel, { color }]}>{fmtVal(m.value)}</FsText>
+            {showLabel[i] && (
+              <FsText variant="caption" numberOfLines={1} style={[styles.railLabel, { color }]}>{fmtVal(m.value)}</FsText>
+            )}
           </View>
         );
       })}

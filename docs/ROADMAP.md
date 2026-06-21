@@ -34,7 +34,9 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       anchor is configurable (`milestoneStartBasis`: goal-phase start / earliest log / peak / custom — default
       phase; persisted on `profile` with `milestoneInterval`/`milestoneStartKg`). Shown **compact on the
       Dashboard** (tap → Weight tab) and **full on Health → Weight**; degrades gracefully with no goal /
-      <2 weigh-ins / goal reached / wrong-direction trend.
+      <2 weigh-ins / goal reached / wrong-direction trend. The `MarkerRail` measures its width and **culls
+      overlapping labels** (keeps both ends + greedily fills inner labels that fit) so tightly-spaced
+      milestones no longer collide into an unreadable smear; ticks still render for every milestone.
 - [x] **Full exercise catalog (1,500 + GIFs)** — fixed the seed to walk the source's `after`
       cursor (the working param; `cursor`/`offset`/`page` are ignored), pulling all ~1500 with GIFs
       (was ~440). Cleanup pass normalizes names, infers categories (Strength/Stretching/Cardio),
@@ -408,6 +410,10 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       sex). Body tab labels the source (Measured / Estimated / U.S. Navy) and can log a Navy reading. A
       **Settings → Body composition** toggle (`profile.navyBodyFatEnabled`, default on) disables the Navy
       fallback everywhere (Body / Stats / Reports) for users who'd rather only show a body-fat % they entered.
+- [x] **Choose body-fat source (DEXA ⇄ Navy)** — when both a DEXA/measured % and a Navy estimate exist, the
+      Body card shows a two-up `SourceToggle` (each side shows its own %) so you can pick which drives the card
+      after seeing both numbers; persists as `profile.bodyFatSource` (`'dexa' | 'navy'`, default `'dexa'`).
+      Composition / FFMI / body-fat goal recompute live off the choice; hidden when only one source is available.
 - [x] **DEXA scans → 3-compartment body comp** — a dedicated **Log DEXA scan** flow (`app/log-dexa.tsx` →
       `HealthRepo.logDexaScan`, stored as a weigh-in with `source='DEXA'` + `boneMassKg`/`visceralFatKg`/`boneTScore`)
       unlocks a true fat + **lean soft tissue** + **bone** split in the Body view (`bodyComposition.composition()`),

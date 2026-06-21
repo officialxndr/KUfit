@@ -46,6 +46,7 @@ function bfBand(bf: number): { label: string; tone: 'success' | 'warning' | 'dan
 export function HealthBody() {
   const router = useRouter();
   const profile = useSettingsStore((s) => s.profile);
+  const setProfile = useSettingsStore((s) => s.setProfile);
   const unit = profile.unitSystem;
   const [latest, setLatest] = useState<WeightEntry | null>(null);
   const [baseline, setBaseline] = useState<WeightEntry | null>(null);
@@ -92,16 +93,31 @@ export function HealthBody() {
     return <Empty message="Log your weight — or a full DEXA scan — to see body composition." action={{ label: 'Log DEXA scan', onPress: openDexa }} />;
   }
 
-  // Source priority: a measured % on the latest weigh-in, then the lean-mass estimate
-  // from a DEXA baseline, then the Navy tape estimate.
-  const measured = latest.bodyFat != null;
+  // Two body-fat sources can coexist: a DEXA-anchored number (a % measured on the
+  // latest weigh-in, else the lean-mass estimate from a DEXA baseline) and the Navy
+  // tape estimate. When both exist the user picks which drives the card
+  // (`profile.bodyFatSource`); otherwise we show whichever is available.
+  let dexaBf: number | null = null;
+  let dexaSource: 'measured' | 'baseline' = 'measured';
+  if (latest.bodyFat != null) {
+    dexaBf = latest.bodyFat;
+    dexaSource = 'measured';
+  } else if (baseline?.bodyFat != null) {
+    dexaBf = estimateBodyFat(baseline.weightKg, baseline.bodyFat, latest.weightKg);
+    dexaSource = 'baseline';
+  }
+
+  const canChooseSource = dexaBf != null && navyBf != null;
+  const preferNavy = profile.bodyFatSource === 'navy';
+
   let bf: number | null = null;
   let source: 'measured' | 'baseline' | 'navy' = 'measured';
-  if (measured) {
-    bf = latest.bodyFat as number;
-  } else if (baseline?.bodyFat != null) {
-    bf = estimateBodyFat(baseline.weightKg, baseline.bodyFat, latest.weightKg);
-    source = 'baseline';
+  if (preferNavy && navyBf != null) {
+    bf = navyBf;
+    source = 'navy';
+  } else if (dexaBf != null) {
+    bf = dexaBf;
+    source = dexaSource;
   } else if (navyBf != null) {
     bf = navyBf;
     source = 'navy';
@@ -136,6 +152,9 @@ export function HealthBody() {
     return <Empty message={message} action={{ label: 'Log DEXA scan', onPress: openDexa }} />;
   }
 
+  // Don't let "save this estimate as today's reading" clobber a real measured % already
+  // logged for today — reachable now that you can view Navy while a measured value exists.
+  const hasMeasuredToday = latest.date === today() && latest.bodyFat != null;
   const weightKg = latest.weightKg;
   const boneKg = dexa?.boneMassKg ?? null; // carried forward from the last DEXA (~constant)
   const comp = composition(weightKg, bf, boneKg);
@@ -189,6 +208,15 @@ export function HealthBody() {
           <FsText variant="caption" style={{ fontSize: 10 }}>Fitness</FsText>
           <FsText variant="caption" style={{ fontSize: 10 }}>High</FsText>
         </View>
+        {canChooseSource && (
+          <SourceToggle
+            dexaLabel={dexaSource === 'measured' ? (dexa != null ? 'DEXA' : 'Measured') : 'Estimate'}
+            dexaBf={dexaBf as number}
+            navyBf={navyBf as number}
+            value={preferNavy ? 'navy' : 'dexa'}
+            onChange={(v) => setProfile({ bodyFatSource: v })}
+          />
+        )}
         {source === 'baseline' && baseline?.bodyFat != null ? (
           <FsText variant="caption" style={{ marginTop: space[3], color: colors.muted, lineHeight: 17 }}>
             Estimated from your {shortDate(baseline.date)} reading ({baseline.bodyFat.toFixed(1)}% at {formatWeight(baseline.weightKg, unit)}), assuming lean mass held as you lose weight. After a new DEXA scan, log the measured % to re-baseline.
@@ -204,11 +232,11 @@ export function HealthBody() {
         )}
       </Card>
 
-      {source !== 'measured' && navyBf != null && (
+      {source !== 'measured' && !hasMeasuredToday && (
         <Button
-          title={source === 'navy' ? `Save ${navyBf.toFixed(1)}% as today's reading` : `Use Navy estimate · ${navyBf.toFixed(1)}%`}
+          title={`Save ${bf.toFixed(1)}% as today's reading`}
           variant="ghost"
-          onPress={() => logReading(navyBf)}
+          onPress={() => logReading(bf)}
           style={{ marginBottom: space[3] }}
         />
       )}
@@ -294,6 +322,40 @@ function Empty({ message, action }: { message: string; action?: { label: string;
       {action && (
         <Button title={action.label} variant="ghost" onPress={action.onPress} style={{ marginTop: space[3] }} />
       )}
+    </View>
+  );
+}
+
+/** Two-up segmented picker shown when both a DEXA/measured % and a Navy estimate exist —
+ *  each option surfaces its own value so you can choose after seeing both numbers. */
+function SourceToggle({ dexaLabel, dexaBf, navyBf, value, onChange }: {
+  dexaLabel: string;
+  dexaBf: number;
+  navyBf: number;
+  value: 'dexa' | 'navy';
+  onChange: (v: 'dexa' | 'navy') => void;
+}) {
+  const opts: { key: 'dexa' | 'navy'; label: string; bf: number }[] = [
+    { key: 'dexa', label: dexaLabel, bf: dexaBf },
+    { key: 'navy', label: 'U.S. Navy', bf: navyBf },
+  ];
+  return (
+    <View style={styles.srcToggle}>
+      {opts.map((o) => {
+        const active = o.key === value;
+        return (
+          <Pressable
+            key={o.key}
+            style={[styles.srcToggleBtn, active && styles.srcToggleActive]}
+            onPress={() => { if (!active) { haptic.tap(); onChange(o.key); } }}
+          >
+            <FsText variant="caption" style={{ color: active ? colors.white : colors.muted, fontWeight: '600' }}>{o.label}</FsText>
+            <FsText variant="bodyMedium" style={{ marginTop: 1, color: active ? colors.white : colors.text, fontWeight: '700' }}>
+              {o.bf.toFixed(1)}%
+            </FsText>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -393,6 +455,9 @@ const styles = themedStyles(() => StyleSheet.create({
   srcPill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, backgroundColor: 'rgba(99,102,241,0.15)' },
   rangeBar: { height: 12, borderRadius: radius.full, backgroundColor: colors.surfaceHigh, overflow: 'hidden', marginTop: space[3] },
   rangeLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: space[2] },
+  srcToggle: { flexDirection: 'row', gap: space[1], marginTop: space[3] },
+  srcToggleBtn: { flex: 1, paddingVertical: 8, paddingHorizontal: 8, borderRadius: radius.sm, alignItems: 'center', backgroundColor: colors.surfaceHigh },
+  srcToggleActive: { backgroundColor: colors.primary },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2], marginBottom: space[3] },
   metric: { width: '48%', flexGrow: 1 },
   dexaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space[3], rowGap: space[3] },

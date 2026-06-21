@@ -1,0 +1,37 @@
+# graphify ignore (gitignore syntax; merged with .gitignore)
+# Goal: a first-party *source-code* graph that builds locally via tree-sitter —
+# no LLM backend / API key required. Docs, images and bundled data are excluded
+# because semantic/vision extraction of those needs an LLM. To include them later,
+# set GEMINI_API_KEY (or run `/graphify .`, which uses the host model) and remove
+# the relevant lines below.
+
+# --- Bundled data & assets (exercise catalog, GIFs, fonts, icons, splash) ---
+assets/
+
+# --- Docs & markdown (would trigger LLM semantic extraction) ---
+*.md
+docs/
+
+# --- Generated / lockfiles / graphify's own output ---
+package-lock.json
+graphify-out/
+
+# --- Images & media (vision extraction needs an LLM) ---
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.svg
+*.ico
+
+# --- Fonts & binaries ---
+*.ttf
+*.otf
+*.woff
+*.woff2
+
+# --- Editor / tooling config ---
+.claude/
+.vscode/
+.expo/
