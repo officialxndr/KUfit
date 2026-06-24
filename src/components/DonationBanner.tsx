@@ -1,16 +1,16 @@
 import { View, StyleSheet, Pressable } from 'react-native';
-import { Heart, X } from 'lucide-react-native';
+import { Coffee, X } from 'lucide-react-native';
 
 import { Card, FsText, Button } from '@/components/ui';
 import { useDonationStore, shouldShowDonationPrompt } from '@/stores/donationStore';
-import { openSupport } from '@/lib/support';
+import { openSupportFlow } from '@/lib/iap';
 import { haptic } from '@/lib/haptics';
 import { colors, space, themedStyles } from '@/theme/tokens';
 
 /**
- * Gentle, dismissible "Support Hale" nudge on the Dashboard. Renders nothing unless
- * the donation prompt is due (see `shouldShowDonationPrompt`). The X dismisses it
- * forever; "Remind me later" snoozes ~30 days; "Donate" opens the link (and snoozes).
+ * Gentle, dismissible "buy the dev a coffee" nudge on the Dashboard. Renders nothing unless
+ * the prompt is due (see `shouldShowDonationPrompt`). The X dismisses it forever; "Maybe later"
+ * snoozes ~30 days; the coffee button opens the native tip jar (iOS) or Ko-fi (Android).
  */
 export function DonationBanner() {
   const s = useDonationStore();
@@ -19,10 +19,10 @@ export function DonationBanner() {
   return (
     <Card style={{ marginBottom: space[3] }}>
       <View style={styles.head}>
-        <View style={styles.iconWrap}><Heart color={colors.primary} size={18} /></View>
+        <View style={styles.iconWrap}><Coffee color={colors.primary} size={18} /></View>
         <View style={{ flex: 1 }}>
           <FsText variant="bodyMedium">Enjoying Hale?</FsText>
-          <FsText variant="caption">It's free forever, no ads — an optional donation keeps it that way.</FsText>
+          <FsText variant="caption">It's free forever, no ads — an optional coffee keeps it that way.</FsText>
         </View>
         <Pressable onPress={() => { haptic.tap(); s.dismissForever(); }} hitSlop={8}>
           <X color={colors.muted} size={16} />
@@ -30,10 +30,10 @@ export function DonationBanner() {
       </View>
       <View style={{ flexDirection: 'row', gap: space[2], marginTop: space[3] }}>
         <View style={{ flex: 1 }}>
-          <Button title="Donate" onPress={() => { haptic.tap(); s.markDonated(); openSupport(); }} />
+          <Button title="Buy me a coffee" onPress={() => { haptic.tap(); openSupportFlow(); }} />
         </View>
         <View style={{ flex: 1 }}>
-          <Button title="Remind me later" variant="ghost" onPress={() => { haptic.tap(); s.remindLater(); }} />
+          <Button title="Maybe later" variant="ghost" onPress={() => { haptic.tap(); s.remindLater(); }} />
         </View>
       </View>
     </Card>

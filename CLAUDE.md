@@ -219,9 +219,24 @@ for backup + Home Assistant / **MCP** access (`serverStore` is null by default).
   sync-ready columns for a future community-voting board). `components/WhatsNew.tsx` shows a
   once-per-`WHATS_NEW_VERSION` "what to test" sheet (tracked in `app_meta`); **bump `WHATS_NEW_VERSION` in
   `feedback.ts` each beta**. Beta bug reports also lean on **TestFlight's native screenshot/crash feedback**.
-- **Donations** (optional, never required): `lib/support.ts` (Ko-fi link, opened in the browser — no IAP) +
-  `donationStore` (snooze ~30d / dismiss forever) drive a final onboarding step, the Dashboard
-  `DonationBanner`, and Settings → Support Hale (donate card sits at the bottom of Settings).
+- **"Buy the dev a coffee"** (optional tip, never required, unlocks nothing): **iOS** uses a native
+  **StoreKit consumable tip jar** (`lib/iap.ts` `useTipJar` wraps **`expo-iap`** — three consumables
+  `…hale.tip.{small,medium,large}` at $1.99/$4.99/$9.99; the `app/tip.tsx` modal renders coffee tiers with
+  **store-localized** prices, confetti on success). **Android** keeps the external **Ko-fi** browser link
+  (`lib/support.ts`) — Google Play *bars* Play Billing for pure tips, so the link is the compliant 0%-fee
+  path there. `openSupportFlow()` (in `lib/iap.ts`) is the single entry point — it branches on
+  `tipJarSupported` (iOS && not Expo Go) to push `/tip` or open Ko-fi, and snoozes the nudge. **Compliance
+  is load-bearing:** Apple guideline **3.1.1 permits IAP *tips to the developer*** but **3.2.2 bars the word
+  "donation"** for non-nonprofits — so all user-facing copy says **"tip"/"coffee"/"support"**, never
+  "donation"/"charity". A consumable unlocks nothing → StoreKit 2 verifies on-device, **no server/receipt
+  backend** (preserves the no-server design); the only must-do is `finishTransaction({ isConsumable: true })`.
+  `donationStore` (internal name + persist key `fitself-donation` kept) still owns snooze ~30d / dismiss-forever
+  and drives the final onboarding step, the Dashboard `DonationBanner`, and Settings → Buy the dev a coffee.
+  Needs a dev/prod build (no Expo Go) + a **paid** Apple team (a personal team can't sign the Paid Apps
+  Agreement, so products come back empty → the tip UI degrades to an "unavailable" state). `storekit/Hale.storekit`
+  is the committed local-testing config. See `docs/IAP-TipJar.md` for the App Store Connect setup. **No IAP
+  entitlement to strip** (unlike push). `ios.deploymentTarget` is pinned to **16.4** (SDK 56 floor; satisfies
+  expo-iap's 15.0 min).
 - **Multi-add exercises**: the picker (`app/exercises.tsx`) multi-selects when opened with `?pick=template`
   / `?pick=session` — numbered in pick order, then "Add N"; plain `/exercises` browses (tap → detail).
 - **Pre-set templates**: curated starter workouts in `lib/presetTemplates.ts` reference the catalog by

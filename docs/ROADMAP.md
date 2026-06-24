@@ -301,9 +301,17 @@ Honest status of the rebuild. **Update this when features land or plans change.*
 - [x] **Modal top-padding fix** — sheet-style modals (`exercises`, `template/new`, …) were adding the device's
       top safe-area inset *on top of* the iOS page-sheet's own offset → wasted space. Dropped the redundant
       inset (full-screen `onboarding` keeps its real status-bar inset; its hero margin trimmed).
+- [x] **Native StoreKit tip jar ("Buy the dev a coffee")** — replaced the iOS external Ko-fi link with
+      **`expo-iap`** consumable IAPs (`lib/iap.ts` `useTipJar` + `app/tip.tsx`; three tiers
+      `…hale.tip.{small,medium,large}` $1.99/$4.99/$9.99, store-localized prices, confetti on success).
+      **Android keeps the Ko-fi link** (`lib/support.ts`) — Play bars Billing for tips. `openSupportFlow()`
+      branches on `tipJarSupported`. Wording is **"tip"/"coffee"**, never "donation" (Apple 3.1.1 permits IAP
+      tips; 3.2.2 bars the charitable word). No server (StoreKit 2 on-device verify), no IAP entitlement to
+      strip, `ios.deploymentTarget` pinned to 16.4. Manual App Store Connect setup: `docs/IAP-TipJar.md`.
 - [x] **Optional-donation flow** — `stores/donationStore.ts` + `components/DonationBanner.tsx` (Dashboard) +
-      a final wizard step (Donate / Remind me later / No thanks). "Remind later" re-prompts after ~30 days;
-      X / "No thanks" dismisses forever. Link centralised in `lib/support.ts` → Ko-fi (`ko-fi.com/haleapp`).
+      a final wizard step (Buy me a coffee / Remind me later / No thanks). "Remind later" re-prompts after
+      ~30 days; X / "No thanks" dismisses forever. Entry centralised in `lib/iap.ts` `openSupportFlow()`
+      (iOS tip jar / Android Ko-fi `ko-fi.com/haleapp`).
 - [x] **Settings reorg + wizard profile photo** — Settings cards regrouped by adjacency (display prefs /
       you+body / data / reminders) with the **Donate card moved to the bottom**; the wizard's "About you"
       step gained a **profile photo** picker so the profile basics are together.

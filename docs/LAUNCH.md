@@ -13,7 +13,8 @@ you, and the donation setup. See also **[PRIVACY.md](./PRIVACY.md)**.
 ## 1. Deployment
 
 **Accounts**
-- Apple Developer Program — **$99/year** (the recurring cost donations offset).
+- Apple Developer Program — **$99/year** (the recurring cost tips offset). Required to sign the
+  Paid Apps Agreement for the IAP tip jar (a personal team can't).
 - Google Play Developer — **$25 one-time**.
 
 **Pipeline** (the repo already has `eas.json`)
@@ -49,7 +50,9 @@ you, and the donation setup. See also **[PRIVACY.md](./PRIVACY.md)**.
 ---
 
 ## 2. Pre-submission checklist
-- [ ] Replace `SUPPORT_URL` in `src/screens/SettingsView.tsx` with the real donation link.
+- [ ] Complete the App Store Connect IAP setup for the tip jar (see [IAP-TipJar.md](./IAP-TipJar.md)) —
+      Paid Apps Agreement active, three consumables created, submitted **with** the next binary.
+- [ ] Confirm the Android Ko-fi `SUPPORT_URL` in `src/lib/support.ts` points at the live page.
 - [ ] Confirm the dev menu is gated behind `__DEV__` (it is) — invisible in production.
 - [ ] Host `PRIVACY.md` at a public URL; add it in App Store Connect + Play Console.
 - [ ] App icon + screenshots (run demo data first) for all required device sizes.
@@ -92,7 +95,7 @@ frame everything as "the private, free alternative."
 
 **Description:** (see the full draft in the project notes / earlier listing — privacy-first
 intro, then NUTRITION / WORKOUTS / HEALTH & PROGRESS / REPORTS / PRIVACY BY DESIGN
-sections, closing with "free and always will be; optional donations, nothing paywalled.")
+sections, closing with "free and always will be; optional tips, nothing paywalled.")
 
 **Keywords (≤100, comma-sep, no spaces):**
 `calorie,counter,macro,tracker,workout,log,gym,weight,fasting,food,diary,nutrition,private,offline,fitness`
@@ -121,31 +124,32 @@ PostHog/Plausible. Recommendation: stay analytics-free to keep the cleanest priv
 
 ---
 
-## 6. Donations (free app, no 30% cut)
+## 6. Tips — "Buy the dev a coffee" (free app, optional support)
 
-Goal: keep Hale free; let users optionally donate; avoid the store cut. Implemented as
-a **"Support Hale"** card in Settings that opens an **external link in the browser**
-(`SUPPORT_URL` in `SettingsView.tsx`) — no in-app payment UI.
+Goal: keep Hale free; let users optionally support development. Implemented **per-platform**
+because Apple and Google have opposite rules for tips:
 
-**Why a browser link, not an in-app form:**
-- **Android (Google Play):** donations are **exempt** from Play Billing — Google takes
-  **0%**; any processor is fine.
-- **Apple:** Apple does **not** allow an in-app third-party payment sheet for this. A
-  link out to a website for **donations that unlock nothing** is the accepted pattern
-  (frame as "support development," not buying features). This keeps you clear of the IAP
-  rule (3.1.1). ⚠️ It's a gray area and Apple's policies shift — verify against the
-  current App Review Guidelines before submitting; the only guaranteed-0% route is routing
-  donations to a registered nonprofit.
+- **iOS — native StoreKit tip jar.** Three **consumable** in-app purchases ("A coffee /
+  A few coffees / A week of coffee" at $1.99/$4.99/$9.99), via **`expo-iap`**. Apple
+  guideline **3.1.1 explicitly permits IAP tips to the developer**; an external payment link
+  is a rejection risk outside the US storefront (anti-steering), so IAP is the robust path.
+  Wording is **"tip"/"support"/"coffee", never "donation"** — 3.2.2 reserves charitable
+  donations for nonprofits. The tip **unlocks nothing**, so StoreKit 2 verifies on-device and
+  **no server/receipt backend** is needed. Code: `src/lib/iap.ts` (`useTipJar`) + `src/app/tip.tsx`.
+  **Manual App Store Connect setup is required — see [IAP-TipJar.md](./IAP-TipJar.md).**
+- **Android — external Ko-fi link** (`SUPPORT_URL` in `src/lib/support.ts`, opened in the
+  browser). Google Play **bars** Play Billing for pure tips (they're peer-to-peer payments),
+  so the external link is the compliant, **0%-fee** path. Frame as "buy me a coffee," not a
+  charitable donation.
 
-**Where to collect (lowest fees):**
-| Platform          | Platform fee | Notes |
-|-------------------|--------------|-------|
-| **GitHub Sponsors** | **0%** | Best; only card processing. GitHub-hosted page. |
-| **Ko-fi**           | 0% on donations | ~3% processing; clean "buy me a coffee" page. |
-| **Stripe Payment Link** | ~2.9% + 30¢ | Your own branded page, most control. |
-| Buy Me a Coffee     | ~5% | Easiest, higher cut. |
+`openSupportFlow()` (`src/lib/iap.ts`) is the single entry point used by the Dashboard nudge,
+Settings → Buy the dev a coffee, and the final onboarding step; it branches on `tipJarSupported`.
 
-**Action:** pick one, create the page, paste the URL into `SUPPORT_URL`.
+> ⚠️ Apple takes ~15–30% of each IAP tip. The post-2025 US external-link allowance pays 0% but
+> is **US-storefront-only** — not worth the cross-storefront rejection risk for a tip jar.
+
+**Action:** complete the App Store Connect IAP setup in [IAP-TipJar.md](./IAP-TipJar.md), and
+keep the Ko-fi page (`ko-fi.com/haleapp`) live for Android.
 
 ---
 

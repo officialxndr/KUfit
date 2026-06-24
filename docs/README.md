@@ -10,7 +10,8 @@ backup + giving a local LLM access to the data over MCP.
 - **README.md** (this file) — overview, setup, running, seeding, building.
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)** — how the app is wired: data layer, stores, routing, theming, the two ported features (Open Food Facts search, ExerciseDB media).
 - **[ROADMAP.md](./ROADMAP.md)** — what's built vs. what's still planned. Keep this current.
-- **[LAUNCH.md](./LAUNCH.md)** — go-to-market reference: App Store/Play deployment, pre-submission checklist, marketing, listing copy, store analytics, and the donation setup.
+- **[LAUNCH.md](./LAUNCH.md)** — go-to-market reference: App Store/Play deployment, pre-submission checklist, marketing, listing copy, store analytics, and the tip-jar setup.
+- **[IAP-TipJar.md](./IAP-TipJar.md)** — the iOS "Buy the dev a coffee" StoreKit tip jar: App Store Connect setup, local testing, troubleshooting.
 - **[PRIVACY.md](./PRIVACY.md)** — the privacy policy (host this at a public URL for App Store / Play review).
 
 > **Keeping docs current:** after a change is made and reviewed/accepted, update the relevant

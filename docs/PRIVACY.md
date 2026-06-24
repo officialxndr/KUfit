@@ -63,12 +63,18 @@ and none of them send your personal information:
   photo of a meal to estimate. A meal/label photo follows the same rule as the camera above:
   on-device by default, or sent to your configured AI endpoint if you've set one up.
 
-## Donations
+## Tips ("Buy the dev a coffee")
 
-If you choose to support Hale with a donation, the donation is handled by
-**Ko-fi** (a third-party payment provider) on **their** website, opened in your
-browser. Hale does not process or receive your payment details. Ko-fi has its own
-privacy policy that applies to the payment.
+Supporting Hale with a tip is entirely optional and unlocks nothing.
+
+- **On iOS**, tips are handled by **Apple's In-App Purchase** through the App Store. Apple
+  processes the payment; Hale never sees or receives your payment details. Apple's privacy
+  policy applies to the transaction.
+- **On Android**, the tip link opens **Ko-fi** (a third-party payment provider) in your
+  browser. Hale does not process or receive your payment details. Ko-fi has its own privacy
+  policy that applies to the payment.
+
+Either way, Hale stores nothing about your payment — there is no account and no server.
 
 ## Children's privacy
 

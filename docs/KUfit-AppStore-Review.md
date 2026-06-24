@@ -2,23 +2,40 @@
 
 _Reviewed: June 3, 2026 · Re-checked & partially fixed: June 4, 2026 · Expo / React Native + TypeScript_
 
-## Status (June 4)
-- **Done:** #1 donation URL (real Ko-fi link), #2 donation compliance (nothing gated),
+## Status (June 4 · support flow updated June 21)
+- **Done:** #1 donation URL (real Ko-fi link), #2 support compliance (nothing gated),
   #3 RECORD_AUDIO stripped, #5 health disclaimer (light line on the onboarding privacy step),
   #6 generic Bluetooth wording, #7 `hale.ipa` untracked + `*.ipa/.apk/.aab` ignored.
-- **Remaining:** #4 App Privacy questionnaire + hosting the privacy policy (manual, in App Store Connect).
+- **June 21:** the iOS support flow moved from the external Ko-fi link to a **native StoreKit
+  consumable "Buy the dev a coffee" tip jar** (`expo-iap`) — see #1/#2 below. Android keeps the
+  Ko-fi link.
+- **Remaining:** #4 App Privacy questionnaire + hosting the privacy policy (manual, in App Store
+  Connect); the manual App Store Connect IAP setup (see `docs/IAP-TipJar.md`) — the three consumables
+  must ship **with the next binary** (a first IAP can't be approved standalone).
 
 ## Overall
 
-The app is in good shape for App Store review. It's local-first with no accounts, no tracking, and a clear privacy policy — which removes most of the things that get fitness apps rejected. The architecture decisions (donations via external browser, push entitlement stripped, HealthKit usage strings present) show the rules were already considered. A few must-fix items and a few worth tightening remain before submission.
+The app is in good shape for App Store review. It's local-first with no accounts, no tracking, and a clear privacy policy — which removes most of the things that get fitness apps rejected. The architecture decisions (native StoreKit tipping on iOS, external link on Android, push entitlement stripped, HealthKit usage strings present) show the rules were already considered. A few must-fix items and a few worth tightening remain before submission.
 
 ## Must fix before submitting
 
-### 1. Placeholder donation URL (Guideline 2.3.10 / broken functionality) — ✅ FIXED
-Now `SUPPORT_URL = 'https://ko-fi.com/haleapp'` (`src/lib/support.ts`), opened via `WebBrowser`. Real link, no longer a placeholder.
+### 1. Support flow — native IAP tip jar on iOS (Guideline 3.1.1) — ✅ FIXED
+iOS now collects optional support through a **native StoreKit consumable tip jar** ("Buy the dev a
+coffee", `src/lib/iap.ts` + `src/app/tip.tsx`, three consumables at $1.99/$4.99/$9.99), not an external
+link. Guideline **3.1.1** explicitly permits *"in-app purchase … to 'tip' the developer."* The earlier
+external Ko-fi link was a rejection risk on non-US storefronts (Apple's anti-steering rule); the May-2025
+US external-link allowance is US-only, so the IAP tip jar is the robust cross-storefront path. **Android
+keeps the Ko-fi link** — Google Play *bars* Play Billing for pure tips, so the external link is correct
+there. ⚠️ The three IAPs must be submitted **with the next app binary** (a first IAP can't be approved on
+its own) — see `docs/IAP-TipJar.md`.
 
-### 2. Confirm the donation is a true "free" donation, not unlocking anything — ✅ COMPLIANT
-Current copy ("free forever, nothing paywalled, optional donations only") is exactly right — keep it. Apple allows external donation links *only* if the donation gives the user nothing in return inside the app. Gating any feature behind it would force In-App Purchase. Compliant now; don't drift.
+### 2. Wording — "tip"/"coffee"/"support", never "donation" (Guideline 3.2.2) — ✅ COMPLIANT
+All user-facing copy frames it as **tipping / buying the developer a coffee / supporting development**, and
+states it **unlocks nothing** — exactly the permitted 3.1.1 tipping bucket. The word **"donation" is
+deliberately avoided** in user-facing strings: 3.2.2(iv) reserves charitable "donations"/"fundraisers" for
+approved nonprofits, and framing a for-profit IAP as a donation flips it into prohibited territory.
+(Internal code keeps `donationStore`/`markDonated` — not user-visible.) The tip unlocks no features, so no
+IAP rule is triggered beyond using Apple's purchase flow itself. Compliant; don't drift back to "donation".
 
 ### 3. RECORD_AUDIO permission on Android with no apparent use — ✅ FIXED
 Removed `android.permission.RECORD_AUDIO` from `app.json` and set `recordAudioAndroid: false` on the expo-camera plugin so prebuild won't re-add it. Android permissions are now CAMERA + the three BLUETOOTH ones only.

@@ -3,7 +3,7 @@ import { View, TextInput, StyleSheet, Pressable, ScrollView, Switch, Alert, Imag
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Device from 'expo-device';
-import { Dumbbell, ChevronLeft, Sparkles, ShieldCheck, Check, UserCircle, Camera, Heart, Download } from 'lucide-react-native';
+import { Dumbbell, ChevronLeft, Sparkles, ShieldCheck, Check, UserCircle, Camera, Coffee, Download } from 'lucide-react-native';
 
 import { FsText, Button, Chip } from '@/components/ui';
 import { MODELS, getModel } from '@/lib/llm/models';
@@ -21,7 +21,7 @@ import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { toKg, UNIT_LABELS } from '@/lib/units';
 import { haptic } from '@/lib/haptics';
 import { pickAvatar } from '@/lib/avatar';
-import { openSupport } from '@/lib/support';
+import { openSupportFlow } from '@/lib/iap';
 import { useDonationStore } from '@/stores/donationStore';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { ActiveCalorieSource, ActivityLevel, GoalType, Sex, UnitSystem } from '@/types';
@@ -38,7 +38,7 @@ const ACTIVE_CAL: { key: ActiveCalorieSource; label: string }[] = [
 const PRIVACY_POINTS: [string, string][] = [
   ['No account, no servers', "Everything you log stays on your device — we literally can't see your data."],
   ['Never sold or tracked', 'No ads, no analytics, no tracking SDKs. Your health data is yours alone.'],
-  ['Free forever', 'No subscriptions, no paywalls, nothing locked away. Optional donations only.'],
+  ['Free forever', 'No subscriptions, no paywalls, nothing locked away. Tips are optional.'],
   ['Only food lookups go out', 'Searching a food sends just the name/barcode to Open Food Facts — never your personal info.'],
 ];
 // The on-device-AI step only exists in a build that includes AI (AI=1, the default).
@@ -127,7 +127,9 @@ export default function Onboarding() {
     router.replace('/(tabs)');
   };
 
-  const finishDonate = () => { useDonationStore.getState().markDonated(); openSupport(); finish(); };
+  // Finish onboarding first (replace → tabs), then open the tip jar / Ko-fi so the modal
+  // stacks over the Dashboard rather than being discarded by the replace.
+  const finishDonate = () => { finish(); openSupportFlow(); };
   const finishRemind = () => { useDonationStore.getState().remindLater(); finish(); };
   const finishDismiss = () => { useDonationStore.getState().dismissForever(); finish(); };
 
@@ -394,19 +396,19 @@ export default function Onboarding() {
 
         {step === DONATE_STEP && (
           <>
-            <View style={styles.brand}><Heart color={colors.primary} size={36} /></View>
+            <View style={styles.brand}><Coffee color={colors.primary} size={36} /></View>
             <FsText variant="display" style={{ textAlign: 'center' }}>One last thing</FsText>
             <FsText variant="bodyMedium" style={{ textAlign: 'center', color: colors.muted, marginBottom: space[6] }}>
               Hale is free forever — no ads, no subscriptions, nothing paywalled. If you'd like to help keep it
-              that way, an optional donation means a lot. Totally your call.
+              that way, you can buy me a coffee. Totally your call, and it unlocks nothing.
             </FsText>
             <View style={{ gap: space[2] }}>
-              <Button title="Donate" onPress={finishDonate} />
+              <Button title="Buy me a coffee" onPress={finishDonate} />
               <Button title="Remind me later" variant="ghost" onPress={finishRemind} />
               <Button title="No thanks" variant="ghost" onPress={finishDismiss} />
             </View>
             <FsText variant="caption" style={{ textAlign: 'center', color: colors.muted, marginTop: space[4] }}>
-              You can always donate later from Settings → Support Hale.
+              You can always do this later from Settings → Buy the dev a coffee.
             </FsText>
           </>
         )}

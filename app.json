@@ -54,6 +54,9 @@
         {
           "android": {
             "minSdkVersion": 26
+          },
+          "ios": {
+            "deploymentTarget": "16.4"
           }
         }
       ],
@@ -98,6 +101,7 @@
         }
       ],
       "llama.rn",
+      "expo-iap",
       "@bacons/apple-targets",
       [
         "expo-alternate-app-icons",

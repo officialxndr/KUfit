@@ -561,7 +561,11 @@ above it and swallows all touches (which previously locked the header).
   old per-section tab screens were removed). Cross-section navigation goes through `navStore`.
 - Modals: `add-food`, `custom-food`, `exercises` (also a picker via `?pick=session|template`),
   `measurements`, `template/new`, `recipe/new`, `exercise/new` (custom exercise),
-  `goal-phases`, `exercise-reports`, `exercise-progress`, `reminders`.
+  `goal-phases`, `exercise-reports`, `exercise-progress`, `reminders`, `tip`.
+- `tip` — the iOS **"Buy the dev a coffee"** StoreKit tip jar (`lib/iap.ts` `useTipJar` → `expo-iap`
+  consumables; coffee tiers + confetti). Opened via `openSupportFlow()` (which branches on
+  `tipJarSupported` — iOS && not Expo Go — else opens the Android Ko-fi link). Tips unlock nothing and
+  need no server; see `docs/IAP-TipJar.md`. Wording is "tip"/"coffee", never "donation" (Apple 3.1.1 vs 3.2.2).
 - `custom-food` — manual food create; its **"Scan nutrition label"** action opens an in-screen
   `CameraView` capture overlay → `lib/nutritionOcr.ts` → prefills the form fields (Feature: on-device OCR).
 - `reminders` — the **Notifications & reminders** screen (opened from Settings): one card per reminder with

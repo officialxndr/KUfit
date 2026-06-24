@@ -1,0 +1,60 @@
+{
+  "identifier" : "HALE-TIPJAR",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayPrice" : "1.99",
+      "familyShareable" : false,
+      "internalID" : "A0000001",
+      "localizations" : [
+        {
+          "description" : "Buy the developer a coffee — supports development, unlocks nothing.",
+          "displayName" : "A coffee",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.zanderhalverson.hale.tip.small",
+      "referenceName" : "Tip - A coffee",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "4.99",
+      "familyShareable" : false,
+      "internalID" : "A0000002",
+      "localizations" : [
+        {
+          "description" : "Buy the developer a few coffees — supports development, unlocks nothing.",
+          "displayName" : "A few coffees",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.zanderhalverson.hale.tip.medium",
+      "referenceName" : "Tip - A few coffees",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "9.99",
+      "familyShareable" : false,
+      "internalID" : "A0000003",
+      "localizations" : [
+        {
+          "description" : "Keep Hale brewing for a week — supports development, unlocks nothing.",
+          "displayName" : "A week of coffee",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.zanderhalverson.hale.tip.large",
+      "referenceName" : "Tip - A week of coffee",
+      "type" : "Consumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "6776380902",
+    "_developerTeamID" : "356EHZDF23"
+  },
+  "subscriptionGroups" : [],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

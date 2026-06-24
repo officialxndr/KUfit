@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 
 import { Image } from 'react-native';
-import { UserCircle, Camera, Heart, Search, X, ExternalLink } from 'lucide-react-native';
+import { UserCircle, Camera, Coffee, Search, X, ExternalLink } from 'lucide-react-native';
 import Constants from 'expo-constants';
 import { Card, FsText, SectionHeader, Chip, Button } from '@/components/ui';
 import { SwipeToConfirm } from '@/components/SwipeToConfirm';
@@ -33,13 +33,10 @@ import {
   downloadModel, cancelDownload, deleteModel, isModelReady, modelDiskBytes, useModelDownload,
 } from '@/lib/llm/modelManager';
 import { AI_ENABLED, DEVICE_AI_SUPPORT } from '@/lib/aiConfig';
+import { openSupportFlow } from '@/lib/iap';
 import { colors, radius, space, themedStyles, SURFACE_PRESETS, ACCENT_PRESETS } from '@/theme/tokens';
 import { useThemeStore } from '@/stores/themeStore';
 import type { ActiveCalorieSource, Sex, UnitSystem } from '@/types';
-
-// Donation link — opens in the browser (no in-app payment, to stay within Apple's
-// rules; external donations are 0% on Android and exempt from Apple's IAP cut).
-const SUPPORT_URL = 'https://ko-fi.com/haleapp';
 
 // Searchable keywords per Settings section — synonyms a user might type, so the search
 // matches intent ("dark" → Appearance, "backup" → Data, "calorie" → Health) not just titles.
@@ -51,7 +48,7 @@ const T = {
   goals: 'goals goal weight target calorie calories macro macros protein carbs fat phase tdee maintenance calculator body fat activity level sedentary light moderate active very',
   help: 'help tour guide guided walkthrough onboarding tutorial intro feature guide docs documentation reference manual search how to explain features',
   feedback: 'feedback bug report issue problem crash feature request idea suggestion contact developer',
-  support: 'support hale donate donation contribute tip sponsor give back',
+  support: 'support hale coffee buy me a coffee tip donate contribute sponsor give back',
   data: 'data backup export import restore merge replace wipe delete erase reset',
   offline: 'offline download demos gifs exercise media cache',
   health: 'health apple healthkit health connect steps active calories watch import weight body fat navy estimate',
@@ -145,7 +142,6 @@ export function SettingsView() {
     }
   };
 
-  const openSupport = () => { WebBrowser.openBrowserAsync(SUPPORT_URL).catch(() => {}); };
   const openExerciseDb = () => { WebBrowser.openBrowserAsync('https://ascendapi.com').catch(() => {}); };
   const openOpenFoodFacts = () => { WebBrowser.openBrowserAsync('https://world.openfoodfacts.org').catch(() => {}); };
 
@@ -613,14 +609,14 @@ export function SettingsView() {
       </Card>
 
       <Card hidden={!show(T.support)} style={{ marginBottom: space[3] }}>
-        <SectionHeader title="Support Hale" />
+        <SectionHeader title="Buy the dev a coffee" />
         <FsText variant="caption" style={{ marginBottom: space[3] }}>
           Hale is free with no ads, no account, and nothing locked behind a paywall. If it helps you,
-          an optional donation keeps it free for everyone and covers the developer costs — never required.
+          you can buy me a coffee to support development — totally optional, and it unlocks nothing.
         </FsText>
-        <Pressable onPress={openSupport} style={styles.supportBtn}>
-          <Heart color={colors.white} size={18} />
-          <FsText variant="bodyMedium" style={{ color: colors.white, fontWeight: '600' }}>Donate / support development</FsText>
+        <Pressable onPress={openSupportFlow} style={styles.supportBtn}>
+          <Coffee color={colors.white} size={18} />
+          <FsText variant="bodyMedium" style={{ color: colors.white, fontWeight: '600' }}>Buy me a coffee</FsText>
         </Pressable>
       </Card>
 

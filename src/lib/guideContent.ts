@@ -80,7 +80,7 @@ export const GUIDE: GuideSection[] = [
       },
       {
         title: 'Due reminders & banners',
-        body: 'When a reminder is due (like logging your weight) a banner appears on the Dashboard so you can act on it in one tap. An optional, dismissible donation banner may also appear.',
+        body: 'When a reminder is due (like logging your weight) a banner appears on the Dashboard so you can act on it in one tap. An optional, dismissible "buy the dev a coffee" banner may also appear.',
         keywords: 'notifications nudges prompts',
       },
       {
@@ -484,8 +484,8 @@ export const GUIDE: GuideSection[] = [
       },
       {
         title: 'Supporting Hale',
-        body: 'Hale is free, with no ads and nothing behind a paywall. If it helps you, an optional donation (never required) keeps it free for everyone — find it at the bottom of Settings.',
-        keywords: 'donate donation support tip ko-fi contribute free',
+        body: 'Hale is free, with no ads and nothing behind a paywall. If it helps you, you can buy the developer a coffee (never required, and it unlocks nothing) — find it at the bottom of Settings.',
+        keywords: 'coffee buy me a coffee support tip donate contribute free',
       },
       {
         title: 'Credits & data sources',

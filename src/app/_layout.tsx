@@ -110,6 +110,7 @@ export default function RootLayout() {
           <Stack.Screen name="scale" options={{ presentation: 'modal' }} />
           <Stack.Screen name="reminders" options={{ presentation: 'modal' }} />
           <Stack.Screen name="feedback" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="tip" options={{ presentation: 'modal' }} />
           <Stack.Screen name="guide" options={{ presentation: 'modal' }} />
         </Stack>
       </SafeAreaProvider>
