@@ -11,14 +11,14 @@ export const FEEDBACK_EMAIL = 'haledevteam@protonmail.com';
  * Bump this whenever there's something new for testers to see. The What's-New sheet
  * shows once per version (tracked in `app_meta`). Keep the list short + tester-focused.
  */
-export const WHATS_NEW_VERSION = '1.0.0-b9';
+export const WHATS_NEW_VERSION = '1.0.0-b10';
 export const WHATS_NEW = {
   title: "What's new to test",
   items: [
+    'Apple Health weigh-ins now sync automatically: once you\'ve connected Health, a weight you log there (or from a smart scale) imports on its own — no more reopening Settings and tapping Connect. It updates when you return to the app and live while it\'s open. There\'s a new Settings → Health toggle to turn auto-import off. It never overwrites a weigh-in you logged by hand.',
     'Estimate a meal with AI: in the food "+" actions, snap or pick a photo of a plate and the AI estimates its calories + macros — review and edit before logging. Estimates are rough on small models; try it and see how close it gets.',
     'Bring your own AI: Settings → AI vision now lets you add API / cloud endpoints — your own Ollama, LM Studio, or OpenWebUI server, or OpenAI / OpenRouter / Google Gemini — each with a nickname, key, and model. They power both label scanning and meal estimates. Plus two new on-device options (Qwen3-VL 2B, Instruct + Thinking).',
     'Faster, better food search: it\'s quicker and more reliable, finds US brand/restaurant items better (try "mcdonalds apple pie"), fills in as you type (no Enter), and loads more as you scroll. There\'s also a new barcode-scan button right on the search tab.',
-    'Smarter food logging: the meal (breakfast / lunch / dinner / snack) now auto-picks by time of day, scanning a label also captures a serving description like "2 cookies", and the keyboard drops when you start scrolling.',
   ],
 };
 

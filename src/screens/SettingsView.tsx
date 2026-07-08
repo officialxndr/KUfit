@@ -16,7 +16,7 @@ import { applyAccentIcon, iconMatchesAccent } from '@/lib/appIcon';
 import { sendTestNotification } from '@/lib/reminders';
 import { writeAndShareBackup, importFromUri, wipeAllData } from '@/lib/backup';
 import { pickAvatar } from '@/lib/avatar';
-import { healthRepo } from '@/lib/repositories/HealthRepo';
+import { syncHealthWeights, ensureHealthWeightObserver } from '@/lib/healthSync';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useTourStore } from '@/stores/tourStore';
 import { useActiveCaloriesStore } from '@/stores/activeCaloriesStore';
@@ -297,15 +297,34 @@ export function SettingsView() {
       Alert.alert(healthPlatformLabel, 'Permission was denied or the health store is unavailable.');
       return;
     }
-    const all = await health.getAllWeights();
-    if (all.length) {
-      // Keep one entry per day (latest wins) to match the app's one-weigh-in-per-day model.
-      const byDay = new Map(all.map((w) => [w.date, w.weightKg]));
-      byDay.forEach((kg, date) => healthRepo.upsertWeightEntry(date, kg));
-      Alert.alert(healthPlatformLabel, `Connected. Imported ${byDay.size} weigh-in${byDay.size === 1 ? '' : 's'} from your history.`);
-    } else {
-      Alert.alert(healthPlatformLabel, 'Connected. No weight history was found to import.');
+    // Turn on auto-import, backfill history now, and start the live observer — from here on
+    // new weigh-ins sync on their own (foreground + observer), no need to reconnect.
+    setProfile({ healthWeightSync: true });
+    const n = await syncHealthWeights({ full: true, force: true });
+    ensureHealthWeightObserver();
+    Alert.alert(
+      healthPlatformLabel,
+      n
+        ? `Connected. Imported ${n} weigh-in${n === 1 ? '' : 's'} — new ones now sync automatically.`
+        : 'Connected. New weigh-ins will sync automatically.'
+    );
+  };
+
+  const toggleHealthSync = async (v: boolean) => {
+    if (v && !health.isAvailable()) {
+      Alert.alert(healthPlatformLabel, `${healthPlatformLabel} isn't available in this build.`);
+      return;
     }
+    if (v) {
+      const ok = await health.requestPermissions();
+      if (!ok) {
+        Alert.alert(healthPlatformLabel, 'Permission was denied or the health store is unavailable.');
+        return;
+      }
+    }
+    setProfile({ healthWeightSync: v });
+    ensureHealthWeightObserver();
+    if (v) syncHealthWeights({ full: true, force: true }).catch(() => {}); // backfill history, matching Connect
   };
 
   const selectActiveCalSource = (key: ActiveCalorieSource) => {
@@ -473,6 +492,18 @@ export function SettingsView() {
           health plugin enabled (cross-platform: Apple Health on iOS, Health Connect on Android).
         </FsText>
         <Button title={`Connect ${healthPlatformLabel}`} variant="ghost" onPress={connectHealth} />
+
+        <View style={[styles.toggleRow, { marginTop: space[3] }]}>
+          <View style={{ flex: 1, marginRight: space[3] }}>
+            <FsText variant="bodyMedium">Auto-import new weigh-ins</FsText>
+            <FsText variant="caption">Keep pulling weigh-ins from {healthPlatformLabel} as you add them, so you never have to reconnect.</FsText>
+          </View>
+          <Switch
+            value={profile.healthWeightSync}
+            onValueChange={toggleHealthSync}
+            trackColor={{ true: colors.primary, false: colors.border }}
+          />
+        </View>
 
         <View style={{ marginTop: space[4] }}>
           <FsText variant="bodyMedium">Add active calories to budget</FsText>

@@ -442,6 +442,12 @@ Honest status of the rebuild. **Update this when features land or plans change.*
 - [x] **Native Health activated** — `@kingstinct/react-native-healthkit` (iOS) + `react-native-health-connect`
       (Android) are installed with config plugins/permissions and wired through `lib/health.ts` (weight,
       active energy, heart rate). HealthKit needs a paid Apple account at runtime.
+- [x] **Health weight auto-import** — a weigh-in logged in Apple Health / Health Connect now imports on its
+      own (no re-tapping "Connect"). `lib/healthSync.ts` (`syncHealthWeights` + `ensureHealthWeightObserver`)
+      runs on launch + every foreground and via a live iOS HealthKit observer, gated by the new
+      `profile.healthWeightSync` flag (set on connect; a Settings toggle turns it on/off; migrated on for prior
+      auto/watch active-calorie users). Imports are conflict-safe (`HealthRepo.upsertWeightFromHealth` never
+      overwrites a hand-logged or deleted day) and refresh the UI + widget when anything changed.
 - [x] **HealthKit build toggle** — `app.config.js` reads `HEALTHKIT`; `HEALTHKIT=0` strips HealthKit so a
       free Apple ID can sideload (e.g. to test Bluetooth). `npm run ios:free` / `prebuild:ios:free`.
 - [x] **Nutrition-label OCR** — Custom Food gains a **"Scan nutrition label"** action: capture the panel

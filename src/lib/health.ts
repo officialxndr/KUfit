@@ -20,6 +20,16 @@ export interface HealthService {
   getLatestWeight(): Promise<WeightReading | null>;
   /** All weight readings (full history) for a one-time backfill. */
   getAllWeights(): Promise<WeightReading[]>;
+  /** Weight readings recorded on/after `sinceIso` — the cheap incremental read used by
+   *  the auto-import that runs on every foreground (`lib/healthSync.ts`). */
+  getWeightsSince(sinceIso: string): Promise<WeightReading[]>;
+  /**
+   * Subscribe to new weight samples landing in the health store while the app is open, so
+   * a fresh weigh-in imports immediately (not just on the next foreground). Returns an
+   * unsubscribe fn, or `null` when the platform has no observer API (Android relies on the
+   * foreground sync). The callback fires on *any* body-mass change; callers re-read.
+   */
+  subscribeToWeightChanges?(onChange: () => void): (() => void) | null;
   /**
    * Total active energy burned (kcal) in the given window — e.g. a workout's
    * start→finish. Returns `null` when no data is available (no watch / not
@@ -42,9 +52,11 @@ const unavailable: HealthService = {
   requestPermissions: async () => false,
   getLatestWeight: async () => null,
   getAllWeights: async () => [],
+  getWeightsSince: async () => [],
   getActiveEnergyBurned: async () => null,
   getHeartRateSamples: async () => null,
   getLatestHeartRate: async () => null,
+  subscribeToWeightChanges: () => null,
 };
 
 const appleHealth: HealthService = {
@@ -88,6 +100,32 @@ const appleHealth: HealthService = {
         .map((s: any) => ({ weightKg: s.quantity, date: isoDay(s.endDate ?? s.startDate ?? Date.now()) }));
     } catch {
       return [];
+    }
+  },
+  async getWeightsSince(sinceIso) {
+    try {
+      const hk = require('@kingstinct/react-native-healthkit');
+      const samples = await hk.queryQuantitySamples('HKQuantityTypeIdentifierBodyMass', {
+        unit: 'kg',
+        limit: 10000,
+        ascending: true,
+        filter: { date: { startDate: new Date(sinceIso), endDate: new Date() } },
+      });
+      return (samples ?? [])
+        .filter((s: any) => typeof s?.quantity === 'number')
+        .map((s: any) => ({ weightKg: s.quantity, date: isoDay(s.endDate ?? s.startDate ?? Date.now()) }));
+    } catch {
+      return [];
+    }
+  },
+  subscribeToWeightChanges(onChange) {
+    try {
+      const hk = require('@kingstinct/react-native-healthkit');
+      if (typeof hk.subscribeToChanges !== 'function') return null;
+      const sub = hk.subscribeToChanges('HKQuantityTypeIdentifierBodyMass', () => onChange());
+      return () => { try { sub?.remove?.(); } catch {} };
+    } catch {
+      return null;
     }
   },
   async getActiveEnergyBurned(startIso, endIso) {
@@ -199,6 +237,20 @@ const androidHealth: HealthService = {
       const start = new Date(end.getTime() - 5 * 365 * 86400000);
       const res = await hc.readRecords('Weight', {
         timeRangeFilter: { operator: 'between', startTime: start.toISOString(), endTime: end.toISOString() },
+      });
+      return (res?.records ?? [])
+        .map((r: any) => ({ weightKg: r?.weight?.inKilograms, date: isoDay(r?.time ?? Date.now()) }))
+        .filter((r: any) => typeof r.weightKg === 'number');
+    } catch {
+      return [];
+    }
+  },
+  async getWeightsSince(sinceIso) {
+    try {
+      const hc = require('react-native-health-connect');
+      await hc.initialize();
+      const res = await hc.readRecords('Weight', {
+        timeRangeFilter: { operator: 'between', startTime: new Date(sinceIso).toISOString(), endTime: new Date().toISOString() },
       });
       return (res?.records ?? [])
         .map((r: any) => ({ weightKg: r?.weight?.inKilograms, date: isoDay(r?.time ?? Date.now()) }))

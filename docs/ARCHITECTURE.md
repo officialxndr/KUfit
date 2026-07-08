@@ -246,11 +246,21 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
   `syncNow()` is a documented stub (full push/pull pending the `apps/api` contract).
 - `lib/health.ts` — **cross-platform health seam** (`HealthService` interface + `healthPlatformLabel`).
   Default impl reports unavailable; a native/dev build wires Apple HealthKit (iOS) / Health Connect
-  (Android). Surfaced in Settings → "Health". Reads weight history, `getActiveEnergyBurned(start,
-  end)` (active calories for a workout window; `null` when unavailable → MET fallback), and heart
-  rate: `getHeartRateSamples(start, end)` (BPM series for a finished workout) + `getLatestHeartRate()`
-  (most recent BPM in the last ~2 min, polled for the live session readout). All return `null` in
-  Expo Go / without a watch, so HR UI just hides.
+  (Android). Surfaced in Settings → "Health". Reads weight history (`getAllWeights` full backfill +
+  `getWeightsSince(iso)` cheap incremental), `getActiveEnergyBurned(start, end)` (active calories for
+  a workout window; `null` when unavailable → MET fallback), heart rate (`getHeartRateSamples(start,
+  end)` BPM series + `getLatestHeartRate()` last ~2 min for the live readout), and — iOS only —
+  `subscribeToWeightChanges(cb)` (HealthKit observer query; returns an unsubscribe, `null` where
+  unsupported). All return `null`/`[]` in Expo Go / without a watch, so HR UI just hides.
+- `lib/healthSync.ts` — **auto-import of weigh-ins** so a weight logged in Apple Health / Health Connect
+  shows up without re-tapping "Connect". Gated by `profile.healthWeightSync` (set the first time the user
+  connects; migrated on for prior `activeCalorieSource: auto/watch` users). `syncHealthWeights({full,force})`
+  reads Health, dedupes to one/day (latest wins), and upserts via **`HealthRepo.upsertWeightFromHealth`** —
+  which **never clobbers a hand-logged (`MANUAL`/`DEXA`) or soft-deleted day**, only inserts empty days or
+  refreshes an existing `source='HEALTH'` row — then bumps `refreshStore` + `syncWidget()` when anything
+  changed. Runs on launch + every AppState `active` (`_layout.tsx`), and `ensureHealthWeightObserver()`
+  keeps a live iOS observer so new weigh-ins land while the app is open. A `running` guard makes overlapping
+  foreground/observer fires idempotent; the incremental read is bounded to the last imported day − 3 days.
 - `lib/supersets.ts` — pure superset ordering for the active session: `supersetRuns` (maximal runs of
   adjacent same-`supersetGroup` exercises), `buildSetSequence`/`nextSetCell` (round-interleaved set
   order — A1→B1→A2→B2…, which also gives "Next carries into the next exercise" for solo runs),

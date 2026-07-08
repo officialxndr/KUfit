@@ -96,6 +96,44 @@ export class HealthRepo {
     return row ? mapWeightEntry(row as any) : null;
   }
 
+  /** Date (YYYY-MM-DD) of the most recent weigh-in that came from the health store, or
+   *  null. Used to bound the incremental Apple Health / Health Connect read. */
+  getLatestHealthWeightDate(): string | null {
+    const row = db.getFirstSync(
+      `SELECT date FROM weight_entries WHERE deleted = 0 AND source = 'HEALTH' ORDER BY date DESC LIMIT 1`
+    ) as any;
+    return row?.date ?? null;
+  }
+
+  /**
+   * Import one weigh-in from Apple Health / Health Connect (source `'HEALTH'`). Upserts on
+   * `date` but **never clobbers a hand-logged entry**: inserts when the day is empty, and only
+   * refreshes an existing row when it is itself `'HEALTH'`-sourced (so a value edited in Health
+   * propagates). A MANUAL/DEXA entry — or a day the user soft-deleted — is left untouched so
+   * auto-import can't undo the user's own edits. Returns true when a row was inserted/changed.
+   */
+  upsertWeightFromHealth(date: string, weightKg: number): boolean {
+    const existing = db.getFirstSync(
+      `SELECT localId, weightKg, source, deleted FROM weight_entries WHERE date = ?`, [date]
+    ) as any;
+    if (!existing) {
+      db.runSync(
+        `INSERT INTO weight_entries (localId, date, weightKg, source, syncStatus, updatedAt)
+         VALUES (?, ?, ?, 'HEALTH', 'pending', ?)`,
+        [Crypto.randomUUID(), date, weightKg, new Date().toISOString()]
+      );
+      return true;
+    }
+    // Respect a deletion (don't resurrect) and never overwrite a hand-logged entry.
+    if (existing.deleted || existing.source !== 'HEALTH') return false;
+    if (Math.abs((existing.weightKg ?? 0) - weightKg) < 1e-6) return false; // unchanged
+    db.runSync(
+      `UPDATE weight_entries SET weightKg = ?, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
+      [weightKg, new Date().toISOString(), existing.localId]
+    );
+    return true;
+  }
+
   upsertWeightEntry(date: string, weightKg: number, bodyFat?: number, source = 'MANUAL'): void {
     const existing = db.getFirstSync(
       `SELECT localId FROM weight_entries WHERE date = ?`, [date]

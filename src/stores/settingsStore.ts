@@ -69,6 +69,10 @@ export interface Profile {
   lockedMacro: 'protein' | 'carbs' | 'fat' | null;
   /** Where the daily budget eats active calories back from (off by default). */
   activeCalorieSource: ActiveCalorieSource;
+  /** When true, weigh-ins added to Apple Health / Health Connect are imported automatically
+   *  (on every foreground + via a live observer) — no need to re-tap "Connect". Set the first
+   *  time the user connects health; see `lib/healthSync.ts`. */
+  healthWeightSync: boolean;
   /** When false, hide proactive goal-coaching nudges (pace alerts, "cut calories", etc.). */
   showCoachingNudges: boolean;
   /** When false, skip the celebratory summary screen after finishing a workout. */
@@ -134,6 +138,7 @@ const DEFAULT_PROFILE: Profile = {
   macroTargetMode: 'GRAMS',
   lockedMacro: null,
   activeCalorieSource: 'off',
+  healthWeightSync: false,
   showCoachingNudges: true,
   showWorkoutSummary: true,
   restEndHaptic: 'pulse',
@@ -185,6 +190,12 @@ export const useSettingsStore = create<SettingsState>()(
         const legacy = p.profile as { countActiveCalories?: boolean } | undefined;
         if (legacy?.countActiveCalories && (p.profile as Partial<Profile>)?.activeCalorieSource == null) {
           profile.activeCalorieSource = 'inapp';
+        }
+        // Auto-import of Health weigh-ins is new: enable it for users who already connected
+        // Health for active-calorie data (auto/watch imply the permission was granted), so
+        // they don't have to reconnect. Everyone else opts in by connecting.
+        if ((p.profile as Partial<Profile>)?.healthWeightSync == null) {
+          profile.healthWeightSync = profile.activeCalorieSource === 'auto' || profile.activeCalorieSource === 'watch';
         }
         // Migrate the old on-device AI on/off boolean to the provider enum.
         const aiLegacy = p.profile as { aiVisionEnabled?: boolean; aiProvider?: string } | undefined;

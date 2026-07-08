@@ -98,6 +98,16 @@ for backup + Home Assistant / **MCP** access (`serverStore` is null by default).
   `AI=0` (strips `llama.rn` + entitlements; see native-builds section). Model loading needs the memory
   entitlements + a paid team + an 8 GB-class iPhone. Settings → "AI label scanning"; onboarding has a
   model-choice step. Attribution (Gemma + llama.cpp) is in Settings → About & credits — keep it.
+- **Health integration**: `src/lib/health.ts` is the cross-platform seam (Apple HealthKit / Android Health
+  Connect; lazy-required native module, so it no-ops in Expo Go). `src/lib/healthSync.ts` **auto-imports
+  weigh-ins** so a weight logged in Health lands in the app without re-tapping "Connect": `syncHealthWeights`
+  runs on launch + every AppState `active` (`_layout.tsx`) and via a live iOS HealthKit observer
+  (`ensureHealthWeightObserver` → `health.subscribeToWeightChanges`), gated by `profile.healthWeightSync`
+  (set on connect; Settings → Health toggle; migrated on for prior `activeCalorieSource: auto/watch` users).
+  Imports go through **`HealthRepo.upsertWeightFromHealth`** (source `'HEALTH'`), which **never overwrites a
+  hand-logged (`MANUAL`/`DEXA`) or soft-deleted day** — so re-running on every foreground is idempotent. It
+  bumps `refreshStore` + `syncWidget()` only when a row actually changed. Keep the weight `source` values
+  (`MANUAL`/`DEXA`/`HEALTH`) — the conflict policy keys on them.
 - **Reminders/notifications**: `remindersStore` + `src/lib/reminders.ts` (schedules `expo-notifications`)
   + pure `src/lib/reminderStatus.ts` (Dashboard banner due-logic). Managed in `src/app/reminders.tsx`
   (Settings → Notifications & reminders). Each reminder is a **discriminated union on `mode`** with its own

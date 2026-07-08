@@ -12,6 +12,7 @@ import { recoverTourPreview } from '@/lib/tourPreview';
 import { syncWidget } from '@/lib/widget';
 import { endLiveActivity } from '@/lib/liveActivity';
 import { initWatchBridge, syncWatch } from '@/lib/watch';
+import { syncHealthWeights, ensureHealthWeightObserver } from '@/lib/healthSync';
 import { syncNow } from '@/lib/sync';
 import { configureNotifications, syncScheduledNotifications } from '@/lib/reminders';
 import { useRemindersStore } from '@/stores/remindersStore';
@@ -56,8 +57,18 @@ export default function RootLayout() {
     // Wire the Apple Watch bridge (watch → phone commands) and push the current state so a
     // freshly opened watch app is populated (active workout, or the start menu when idle).
     initWatchBridge();
+    // Import any weigh-ins added to Apple Health / Health Connect since we last looked, and
+    // start a live observer so new ones land automatically while the app is open.
+    syncHealthWeights().catch(() => {});
+    ensureHealthWeightObserver();
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'background' || state === 'active') { syncWidget(); syncWatch(); }
+      // Returning to the app: pull any weigh-ins added to Health while we were away, and
+      // re-assert the observer (a permission grant may have happened outside the app).
+      if (state === 'active') {
+        syncHealthWeights().catch(() => {});
+        ensureHealthWeightObserver();
+      }
       // Push a snapshot to the optional Hale Hub when leaving the foreground. Upload-only
       // (reads the DB, never writes it) and fire-and-forget, so a failure can't affect teardown.
       if (state === 'background' && useServerStore.getState().serverUrl) {

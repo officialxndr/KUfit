@@ -17,7 +17,7 @@ import { useTourStore } from '@/stores/tourStore';
 import { useNavStore } from '@/stores/navStore';
 import { ACTIVITY_DESCRIPTIONS } from '@/lib/tdee';
 import { health, healthPlatformLabel } from '@/lib/health';
-import { healthRepo } from '@/lib/repositories/HealthRepo';
+import { syncHealthWeights, ensureHealthWeightObserver } from '@/lib/healthSync';
 import { toKg, UNIT_LABELS } from '@/lib/units';
 import { haptic } from '@/lib/haptics';
 import { pickAvatar } from '@/lib/avatar';
@@ -82,16 +82,17 @@ export default function Onboarding() {
       Alert.alert(healthPlatformLabel, 'Permission wasn’t granted. You can connect later in Settings → Health.');
       return;
     }
-    // Backfill weight history now (matching Settings → Connect), so data actually
-    // imports during setup rather than only when you later open Settings.
-    const all = await health.getAllWeights();
-    if (all.length) {
-      const byDay = new Map(all.map((w) => [w.date, w.weightKg])); // one weigh-in per day, latest wins
-      byDay.forEach((kg, date) => healthRepo.upsertWeightEntry(date, kg));
-      Alert.alert(healthPlatformLabel, `Connected — imported ${byDay.size} weigh-in${byDay.size === 1 ? '' : 's'} from your history.`);
-    } else {
-      Alert.alert(healthPlatformLabel, 'Connected — your weight, activity and heart rate can sync.');
-    }
+    // Turn on auto-import + backfill history now (matching Settings → Connect), so data
+    // imports during setup and keeps syncing afterwards without reconnecting.
+    setProfile({ healthWeightSync: true });
+    const n = await syncHealthWeights({ full: true, force: true });
+    ensureHealthWeightObserver();
+    Alert.alert(
+      healthPlatformLabel,
+      n
+        ? `Connected — imported ${n} weigh-in${n === 1 ? '' : 's'}; new ones sync automatically.`
+        : 'Connected — your weight, activity and heart rate will sync automatically.'
+    );
   };
 
   const changeAvatar = async () => {
