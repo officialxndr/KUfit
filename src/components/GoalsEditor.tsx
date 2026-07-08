@@ -16,8 +16,8 @@ import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { resolveTargets, goalSafetyWarning, ageFromBirthDate } from '@/lib/targets';
 import { safeRateWarning, calcTDEE, ACTIVITY_DESCRIPTIONS } from '@/lib/tdee';
 import { MACRO_PRESETS, presetMacros, rescaleToCalories, rebalanceMacro, activePresetKey, type MacroKey } from '@/lib/macros';
-import { bodyFatForEntry, leanMassKg, targetWeightForBodyFat } from '@/lib/bodyComposition';
-import { syncBodyFatGoalWeight } from '@/lib/goalWeight';
+import { targetWeightForBodyFat } from '@/lib/bodyComposition';
+import { syncBodyFatGoalWeight, currentLeanMassKg } from '@/lib/goalWeight';
 import { useSettingsStore, type NutrientGoal, type Profile } from '@/stores/settingsStore';
 import { NUTRIENT_DEFS } from '@/lib/offNutrients';
 import { toDisplay, toKg, formatWeight, UNIT_LABELS } from '@/lib/units';
@@ -83,14 +83,13 @@ export function GoalsEditor({ focusSection, onOpenPhases }: { focusSection?: str
   const refresh = useCallback(() => {
     const latest = healthRepo.getLatestWeightEntry();
     setCurrentKg(latest?.weightKg ?? null);
-    // Best-effort current lean mass (measured/baseline body-fat) to translate a
-    // body-fat goal into a target weight. Falls back to null without a body-fat reading.
-    const bf = latest ? bodyFatForEntry(latest, healthRepo.getLatestBodyFatBaseline()) : null;
-    setLeanKg(latest && bf ? leanMassKg(latest.weightKg, bf.bf) : null);
+    // Current lean mass via the shared resolver (honors bodyFatSource + estimate basis) so
+    // the editor's target matches the derived goal weight. Null without a body-fat reading.
+    setLeanKg(currentLeanMassKg(profile));
     setPhase(healthRepo.getActiveGoalPhase());
     // Keep the derived goal weight fresh when opening Goals (body-fat mode only).
     syncBodyFatGoalWeight();
-  }, []);
+  }, [profile]);
   useFocusEffect(refresh);
 
   const byBodyFat = profile.goalMode === 'bodyfat';

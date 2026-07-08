@@ -257,10 +257,17 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
   connects; migrated on for prior `activeCalorieSource: auto/watch` users). `syncHealthWeights({full,force})`
   reads Health, dedupes to one/day (latest wins), and upserts via **`HealthRepo.upsertWeightFromHealth`** —
   which **never clobbers a hand-logged (`MANUAL`/`DEXA`) or soft-deleted day**, only inserts empty days or
-  refreshes an existing `source='HEALTH'` row — then bumps `refreshStore` + `syncWidget()` when anything
-  changed. Runs on launch + every AppState `active` (`_layout.tsx`), and `ensureHealthWeightObserver()`
-  keeps a live iOS observer so new weigh-ins land while the app is open. A `running` guard makes overlapping
-  foreground/observer fires idempotent; the incremental read is bounded to the last imported day − 3 days.
+  refreshes an existing `source='HEALTH'` row — then bumps `refreshStore` + `syncWidget()` +
+  `syncBodyFatGoalWeight()` when anything changed. Runs on launch + every AppState `active` (`_layout.tsx`),
+  and `ensureHealthWeightObserver()` keeps a live iOS observer so new weigh-ins land while the app is open.
+  Syncs are **serialized on a promise chain** (a forced full backfill can't be dropped by an in-flight
+  incremental run; observer/foreground bursts coalesce into one trailing run); non-finite samples are dropped
+  and the incremental read is bounded to the last imported day − 3 days.
+  **Opt-in body-fat import** (`profile.healthBodyFatImport`, default off): when on, `runSync` also reads
+  `health.getBodyFatSince` (iOS normalizes HealthKit's fraction → %; Android reads Health Connect `BodyFat`)
+  and attaches it via **`HealthRepo.upsertBodyFatFromHealth`** — only ever onto a `source='HEALTH'` weigh-in,
+  **never a DEXA/hand-logged or missing day**. Enabling it also turns weight sync on (body fat needs a weigh-in
+  to attach to). With `bodyFatEstimateBasis: 'dexaOnly'` these imported values are ignored by the estimate anyway.
 - `lib/supersets.ts` — pure superset ordering for the active session: `supersetRuns` (maximal runs of
   adjacent same-`supersetGroup` exercises), `buildSetSequence`/`nextSetCell` (round-interleaved set
   order — A1→B1→A2→B2…, which also gives "Next carries into the next exercise" for solo runs),
@@ -272,16 +279,19 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
 - `lib/bodyComposition.ts` — body-fat math. `leanMassKg(weight, bf%)`; **`estimateBodyFat(baselineWeight,
   baselineBf, currentWeight)`** holds the measured baseline's lean mass constant to estimate current
   BF% as weight changes (accurate on a cut; re-baseline after muscle gain); **`navyBodyFat({sex, heightCm,
-  neckCm, waistCm, hipCm})`** is the U.S. Navy (Hodgdon–Beckett) tape estimate, metric form. Consumed by
-  `screens/HealthBody.tsx` (source priority: measured % on the latest weigh-in → lean-mass estimate from
-  a DEXA baseline → Navy tape estimate), with `HealthRepo.getLatestBodyFatBaseline()` supplying the baseline.
-  When **both** a DEXA-anchored value (measured/baseline) **and** a Navy estimate are available, the Body card
-  shows a two-up **`SourceToggle`** (each option surfaces its own %) so the user can switch which drives the
-  whole card — composition, FFMI, the body-fat goal all recompute live; the choice persists as
-  `profile.bodyFatSource` (`'dexa' | 'navy'`, default `'dexa'` = the existing priority). With only one source
-  the toggle is hidden. The Navy fallback is gated by `profile.navyBodyFatEnabled` (Settings → Body composition;
-  default on) — off means only a measured % or DEXA-baseline estimate is shown (and no toggle), in `HealthBody`,
-  `HealthTrends` and `DashboardReports`.
+  neckCm, waistCm, hipCm})`** is the U.S. Navy (Hodgdon–Beckett) tape estimate, metric form.
+- `lib/bodyFatResolve.ts` — **single body-fat resolver** (`computeBodyFatView(profile)`) shared by
+  `screens/HealthBody.tsx`, `goalWeight.currentLeanMassKg`, `GoalsEditor` and (for its trend) `HealthTrends`,
+  so the % on screen and the % that drives the derived goal weight can never disagree. It honors two knobs:
+  `profile.bodyFatSource` (`'dexa' | 'navy'`, default `'dexa'`) picks which source wins when both exist; and
+  **`profile.bodyFatEstimateBasis`** (`'anyMeasured' | 'dexaOnly'`, default `'anyMeasured'`) anchors the
+  non-Navy source — `anyMeasured` uses any logged % (`getLatestBodyFatBaseline()`), `dexaOnly` uses strictly
+  DEXA scans (`getLatestDexa()`; a latest entry's own % counts as measured only if `isDexaEntry()`), so a
+  scale/hand-typed % can't pollute the estimate. When **both** the non-Navy value **and** a Navy estimate are
+  available the Body card shows a two-up **`SourceToggle`**; picking one recomputes the whole card **and**
+  (via `syncBodyFatGoalWeight()` on change) the derived body-fat-goal weight — previously the toggle was
+  ignored by the goal-weight math. The Navy source is gated by `profile.navyBodyFatEnabled` (Settings → Body
+  composition; default on).
   **DEXA scans**: a dedicated "Log DEXA scan" flow (`app/log-dexa.tsx` → `HealthRepo.logDexaScan`, stored as a
   weigh-in with `source='DEXA'` + `boneMassKg`/`visceralFatKg`/`boneTScore` columns) unlocks a true
   **3-compartment** Body view via `composition(weight, bf%, boneKg)` → fat + lean soft tissue + bone (FFMI still
@@ -293,10 +303,13 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
 - `lib/goalWeight.ts` — **body-fat-goal ⇆ goal-weight bridge.** The goal can be expressed two ways
   (`profile.goalMode`: `'weight' | 'bodyfat'`). The whole weight/calorie/pacing/chart engine reads one field,
   `profile.goalWeightKg`, so in **body-fat mode** that field is kept *derived & fresh*: `currentLeanMassKg`
-  (mirrors `HealthBody`'s measured → baseline → Navy priority) feeds `targetWeightForBodyFat`, and
-  `syncBodyFatGoalWeight()` recomputes + persists `goalWeightKg` (only when changed, so it converges).
-  Called after every weigh-in / DEXA (`log-weight`, `log-dexa`, `HealthBody.logReading`) and on Goals-editor
-  focus / goal-mode or goal-BF edit. The Goals editor shows the derived weight read-only; weight mode is
+  (now the **same `computeBodyFatView`** the Body card uses, so it honors `bodyFatSource` + `bodyFatEstimateBasis`)
+  feeds `targetWeightForBodyFat`, and `syncBodyFatGoalWeight()` recomputes + persists `goalWeightKg` (only when
+  changed, so it converges). Called after every weigh-in / DEXA (`log-weight`, `log-dexa`, `HealthBody.logReading`),
+  on Goals-editor focus / goal-mode or goal-BF edit, on the Body-card source toggle + the Settings estimate-basis
+  toggle, and after a Health body-fat import. **Editing** a logged reading: `HealthWeight` recent rows tap into
+  `log-weight?date=` (edit mode) — `HealthRepo.updateWeightEntryValues` changes weight/body-fat **in place**,
+  preserving `source` + DEXA columns (a blank body-fat field clears just that reading); the row still swipes to delete. The Goals editor shows the derived weight read-only; weight mode is
   unchanged. No downstream rewiring — by design only the *input method* differs.
 - `lib/load.ts` — **per-side load** for volume. `defaultPerSide(equipment)` (true for Dumbbell/Kettlebell),
   `isPerSide(ex)` (explicit `exercise.perSide` override else the equipment default), `loadFactor(ex)` (×2

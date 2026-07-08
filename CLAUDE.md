@@ -107,7 +107,17 @@ for backup + Home Assistant / **MCP** access (`serverStore` is null by default).
   Imports go through **`HealthRepo.upsertWeightFromHealth`** (source `'HEALTH'`), which **never overwrites a
   hand-logged (`MANUAL`/`DEXA`) or soft-deleted day** — so re-running on every foreground is idempotent. It
   bumps `refreshStore` + `syncWidget()` only when a row actually changed. Keep the weight `source` values
-  (`MANUAL`/`DEXA`/`HEALTH`) — the conflict policy keys on them.
+  (`MANUAL`/`DEXA`/`HEALTH`) — the conflict policy keys on them. An **opt-in body-fat import**
+  (`profile.healthBodyFatImport`, default off) similarly attaches Health body-fat % via
+  `upsertBodyFatFromHealth` — only onto `HEALTH` weigh-ins, never DEXA/manual.
+- **Body-fat resolution**: `src/lib/bodyFatResolve.ts` `computeBodyFatView(profile)` is the **single** resolver
+  for "what body-fat % to show/use" — used by `HealthBody`, `goalWeight.currentLeanMassKg`, `GoalsEditor`, and
+  `HealthTrends`, so the displayed % and the body-fat-goal weight always agree. It honors `profile.bodyFatSource`
+  (`'dexa'|'navy'`) and `profile.bodyFatEstimateBasis` (`'anyMeasured'|'dexaOnly'` — dexaOnly anchors strictly
+  on `getLatestDexa()`). **Changing the source/basis must call `syncBodyFatGoalWeight()`** (else the derived goal
+  weight goes stale — that was the bug). Editing a logged reading goes through
+  `HealthRepo.updateWeightEntryValues` (preserves `source` + DEXA columns; blank body-fat clears it), reachable
+  by tapping a row in Health → Weight.
 - **Reminders/notifications**: `remindersStore` + `src/lib/reminders.ts` (schedules `expo-notifications`)
   + pure `src/lib/reminderStatus.ts` (Dashboard banner due-logic). Managed in `src/app/reminders.tsx`
   (Settings → Notifications & reminders). Each reminder is a **discriminated union on `mode`** with its own

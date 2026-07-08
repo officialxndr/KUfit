@@ -14,6 +14,11 @@ export interface WeightReading {
   date: string; // ISO date (YYYY-MM-DD)
 }
 
+export interface BodyFatReading {
+  pct: number; // body-fat percentage 0–100 (normalized inside the adapter)
+  date: string; // ISO date (YYYY-MM-DD)
+}
+
 export interface HealthService {
   isAvailable(): boolean;
   requestPermissions(): Promise<boolean>;
@@ -23,6 +28,9 @@ export interface HealthService {
   /** Weight readings recorded on/after `sinceIso` — the cheap incremental read used by
    *  the auto-import that runs on every foreground (`lib/healthSync.ts`). */
   getWeightsSince(sinceIso: string): Promise<WeightReading[]>;
+  /** Body-fat % readings recorded on/after `sinceIso`, normalized to 0–100. Only imported
+   *  when the user opts in (`profile.healthBodyFatImport`); off by default. */
+  getBodyFatSince(sinceIso: string): Promise<BodyFatReading[]>;
   /**
    * Subscribe to new weight samples landing in the health store while the app is open, so
    * a fresh weigh-in imports immediately (not just on the next foreground). Returns an
@@ -53,6 +61,7 @@ const unavailable: HealthService = {
   getLatestWeight: async () => null,
   getAllWeights: async () => [],
   getWeightsSince: async () => [],
+  getBodyFatSince: async () => [],
   getActiveEnergyBurned: async () => null,
   getHeartRateSamples: async () => null,
   getLatestHeartRate: async () => null,
@@ -74,6 +83,7 @@ const appleHealth: HealthService = {
       return await hk.requestAuthorization({
         toRead: [
           'HKQuantityTypeIdentifierBodyMass',
+          'HKQuantityTypeIdentifierBodyFatPercentage',
           'HKQuantityTypeIdentifierStepCount',
           'HKQuantityTypeIdentifierActiveEnergyBurned',
           'HKQuantityTypeIdentifierHeartRate',
@@ -114,6 +124,24 @@ const appleHealth: HealthService = {
       return (samples ?? [])
         .filter((s: any) => typeof s?.quantity === 'number')
         .map((s: any) => ({ weightKg: s.quantity, date: isoDay(s.endDate ?? s.startDate ?? Date.now()) }));
+    } catch {
+      return [];
+    }
+  },
+  async getBodyFatSince(sinceIso) {
+    try {
+      const hk = require('@kingstinct/react-native-healthkit');
+      const samples = await hk.queryQuantitySamples('HKQuantityTypeIdentifierBodyFatPercentage', {
+        unit: '%',
+        limit: 10000,
+        ascending: true,
+        filter: { date: { startDate: new Date(sinceIso), endDate: new Date() } },
+      });
+      return (samples ?? [])
+        .filter((s: any) => typeof s?.quantity === 'number')
+        // HealthKit's percent unit yields a fraction (0.22 = 22%); a value ≤ 1 is a fraction.
+        .map((s: any) => ({ pct: s.quantity <= 1 ? s.quantity * 100 : s.quantity, date: isoDay(s.endDate ?? s.startDate ?? Date.now()) }))
+        .filter((r: any) => r.pct >= 1 && r.pct <= 75);
     } catch {
       return [];
     }
@@ -216,6 +244,7 @@ const androidHealth: HealthService = {
       await hc.initialize();
       const granted = await hc.requestPermission([
         { accessType: 'read', recordType: 'Weight' },
+        { accessType: 'read', recordType: 'BodyFat' },
         { accessType: 'read', recordType: 'Steps' },
         { accessType: 'read', recordType: 'ActiveCaloriesBurned' },
         { accessType: 'read', recordType: 'HeartRate' },
@@ -255,6 +284,21 @@ const androidHealth: HealthService = {
       return (res?.records ?? [])
         .map((r: any) => ({ weightKg: r?.weight?.inKilograms, date: isoDay(r?.time ?? Date.now()) }))
         .filter((r: any) => typeof r.weightKg === 'number');
+    } catch {
+      return [];
+    }
+  },
+  async getBodyFatSince(sinceIso) {
+    try {
+      const hc = require('react-native-health-connect');
+      await hc.initialize();
+      const res = await hc.readRecords('BodyFat', {
+        timeRangeFilter: { operator: 'between', startTime: new Date(sinceIso).toISOString(), endTime: new Date().toISOString() },
+      });
+      // Health Connect BodyFat.percentage.value is already 0–100.
+      return (res?.records ?? [])
+        .map((r: any) => ({ pct: r?.percentage?.value, date: isoDay(r?.time ?? Date.now()) }))
+        .filter((r: any) => typeof r.pct === 'number' && r.pct >= 1 && r.pct <= 75);
     } catch {
       return [];
     }

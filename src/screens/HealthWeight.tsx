@@ -137,17 +137,19 @@ export function HealthWeight() {
         </View>
       )}
 
-      {/* Recent entries */}
+      {/* Recent entries — tap to edit weight / body fat, swipe to delete */}
       <SectionHeader title="Recent entries" />
       {recent.length === 0 ? (
         <Card><FsText variant="caption">No entries yet.</FsText></Card>
       ) : (
         recent.map((e) => (
           <SwipeToDelete key={e.id} onDelete={() => remove(e)} confirmTitle="Delete entry?" confirmMessage={`Remove the ${e.date} weigh-in?`}>
-            <Card style={{ marginBottom: space[2], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <FsText variant="bodyMedium">{formatWeight(e.weightKg, unit)}</FsText>
-              <FsText variant="caption">{e.date}{e.bodyFat ? ` · ${e.bodyFat}% BF` : ''}</FsText>
-            </Card>
+            <Pressable onPress={() => router.push({ pathname: '/log-weight', params: { date: e.date } })}>
+              <Card style={{ marginBottom: space[2], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <FsText variant="bodyMedium">{formatWeight(e.weightKg, unit)}</FsText>
+                <FsText variant="caption">{e.date}{e.bodyFat ? ` · ${e.bodyFat}% BF` : ''}</FsText>
+              </Card>
+            </Pressable>
           </SwipeToDelete>
         ))
       )}

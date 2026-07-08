@@ -8,38 +8,19 @@
  * current lean (fat-free) mass constant. Recompute + persist it whenever body composition
  * changes (a weigh-in / DEXA) or the goal is edited, and nothing downstream has to change.
  */
-import { healthRepo } from '@/lib/repositories/HealthRepo';
-import { bodyFatForEntry, leanMassKg, navyBodyFat, targetWeightForBodyFat } from '@/lib/bodyComposition';
+import { leanMassKg, targetWeightForBodyFat } from '@/lib/bodyComposition';
+import { computeBodyFatView } from '@/lib/bodyFatResolve';
 import { useSettingsStore, type Profile } from '@/stores/settingsStore';
 
 /**
- * Current lean (fat-free) mass in kg from the latest weigh-in, mirroring the Body
- * subview's body-fat source priority: a measured % on the entry → estimate from the
- * last measured/DEXA baseline → U.S. Navy tape estimate. Null when there's no weigh-in
- * or no way to estimate body fat.
+ * Current lean (fat-free) mass in kg from the latest weigh-in, using the **same** resolved
+ * body fat the Body card shows (`computeBodyFatView`) — so it honors the user's source
+ * toggle (`bodyFatSource`) and estimate basis (`bodyFatEstimateBasis`). Null when there's
+ * no weigh-in or no way to determine body fat.
  */
 export function currentLeanMassKg(profile: Profile): number | null {
-  const latest = healthRepo.getLatestWeightEntry();
-  if (!latest) return null;
-  let bf = bodyFatForEntry(latest, healthRepo.getLatestBodyFatBaseline())?.bf ?? null;
-  if (
-    bf == null &&
-    profile.navyBodyFatEnabled &&
-    profile.heightCm &&
-    (profile.sex === 'MALE' || profile.sex === 'FEMALE')
-  ) {
-    const m = healthRepo.getLatestMeasurementBySite();
-    if (m) {
-      bf = navyBodyFat({
-        sex: profile.sex,
-        heightCm: profile.heightCm,
-        neckCm: m.neck ?? 0,
-        waistCm: m.waist ?? 0,
-        hipCm: m.hips,
-      });
-    }
-  }
-  return bf != null ? leanMassKg(latest.weightKg, bf) : null;
+  const { latest, bf } = computeBodyFatView(profile);
+  return latest && bf != null ? leanMassKg(latest.weightKg, bf) : null;
 }
 
 /**

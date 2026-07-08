@@ -78,6 +78,30 @@ export class HealthRepo {
     return row ? mapWeightEntry(row as any) : null;
   }
 
+  getWeightEntryByDate(date: string): WeightEntry | null {
+    const row = db.getFirstSync(
+      `SELECT * FROM weight_entries WHERE date = ? AND deleted = 0`, [date]
+    );
+    return row ? mapWeightEntry(row as any) : null;
+  }
+
+  /**
+   * Edit an existing weigh-in's weight + body-fat % in place, preserving its DEXA compartments.
+   * Pass `bodyFat = null` to clear just the body-fat reading while keeping the weigh-in. A
+   * `HEALTH`-sourced row is **promoted to `MANUAL`** so the edit is user-owned — otherwise the
+   * next Health import would silently overwrite the correction (DEXA stays DEXA).
+   */
+  updateWeightEntryValues(localId: string, weightKg: number, bodyFat: number | null): void {
+    db.runSync(
+      `UPDATE weight_entries
+         SET weightKg = ?, bodyFat = ?,
+             source = CASE WHEN source = 'HEALTH' THEN 'MANUAL' ELSE source END,
+             syncStatus = 'pending', updatedAt = ?
+       WHERE localId = ?`,
+      [weightKg, bodyFat, new Date().toISOString(), localId]
+    );
+  }
+
   /** Most recent entry that has a *measured* body-fat % — the baseline for estimates. */
   getLatestBodyFatBaseline(): WeightEntry | null {
     const row = db.getFirstSync(
@@ -134,13 +158,34 @@ export class HealthRepo {
     return true;
   }
 
+  /**
+   * Attach a body-fat % imported from the health store to that day's weigh-in. Only ever
+   * touches a `'HEALTH'`-sourced, non-deleted entry (so a DEXA/hand-logged reading is never
+   * overwritten) and only when a weigh-in exists for the day (body fat has nowhere to live
+   * otherwise). Returns true when a value was set/changed. Opt-in — see `lib/healthSync.ts`.
+   */
+  upsertBodyFatFromHealth(date: string, bodyFat: number): boolean {
+    const existing = db.getFirstSync(
+      `SELECT localId, bodyFat, source, deleted FROM weight_entries WHERE date = ?`, [date]
+    ) as any;
+    if (!existing || existing.deleted || existing.source !== 'HEALTH') return false;
+    if (existing.bodyFat != null && Math.abs(existing.bodyFat - bodyFat) < 1e-6) return false; // unchanged
+    db.runSync(
+      `UPDATE weight_entries SET bodyFat = ?, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
+      [bodyFat, new Date().toISOString(), existing.localId]
+    );
+    return true;
+  }
+
   upsertWeightEntry(date: string, weightKg: number, bodyFat?: number, source = 'MANUAL'): void {
     const existing = db.getFirstSync(
       `SELECT localId FROM weight_entries WHERE date = ?`, [date]
     ) as any;
     if (existing) {
+      // `deleted = 0` revives a soft-deleted day so deleting then re-logging the same date
+      // isn't silently swallowed (the row is UNIQUE per date, so we can't INSERT a fresh one).
       db.runSync(
-        `UPDATE weight_entries SET weightKg = ?, bodyFat = ?, source = ?, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
+        `UPDATE weight_entries SET weightKg = ?, bodyFat = ?, source = ?, deleted = 0, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
         [weightKg, bodyFat ?? null, source, new Date().toISOString(), existing.localId]
       );
     } else {
@@ -167,7 +212,7 @@ export class HealthRepo {
     if (existing) {
       db.runSync(
         `UPDATE weight_entries SET weightKg = ?, bodyFat = ?, boneMassKg = ?, visceralFatKg = ?, boneTScore = ?,
-                source = 'DEXA', syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
+                source = 'DEXA', deleted = 0, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
         [weightKg, bodyFat ?? null, boneMassKg ?? null, visceralFatKg ?? null, boneTScore ?? null, now, existing.localId]
       );
     } else {

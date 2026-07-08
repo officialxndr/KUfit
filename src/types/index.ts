@@ -9,7 +9,8 @@ export type MacroTargetMode = 'GRAMS' | 'PERCENT'
 /** Source for eating active calories back into the daily budget. */
 export type ActiveCalorieSource = 'off' | 'auto' | 'watch' | 'inapp'
 export type FoodSource = 'MANUAL' | 'OPEN_FOOD_FACTS' | 'USDA' | 'BASE'
-export type DataSource = 'MANUAL' | 'APPLE_HEALTH' | 'SHORTCUT' | 'DEXA'
+// 'HEALTH' = cross-platform import (Apple Health / Android Health Connect) via lib/healthSync.
+export type DataSource = 'MANUAL' | 'APPLE_HEALTH' | 'HEALTH' | 'SHORTCUT' | 'DEXA'
 
 export interface UserProfile {
   id: string

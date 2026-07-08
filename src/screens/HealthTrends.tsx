@@ -11,6 +11,7 @@ import { usePullRefresh } from '@/stores/refreshStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { formatWeight, toDisplay, UNIT_LABELS } from '@/lib/units';
 import { bodyFatForEntry, navyBodyFat } from '@/lib/bodyComposition';
+import { isDexaEntry } from '@/lib/bodyFatResolve';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { BodyMeasurement, WeightEntry } from '@/types';
 
@@ -33,11 +34,13 @@ export function HealthTrends() {
   // lean-mass estimate for weigh-ins that have only a weight.
   const [baseline, setBaseline] = useState<WeightEntry | null>(null);
 
+  const dexaOnly = profile.bodyFatEstimateBasis === 'dexaOnly';
   const refresh = useCallback(() => {
     setWeights(healthRepo.getWeightEntries(fromIso, endIso));
     setMeasurements(healthRepo.getMeasurements().filter((m) => m.date >= fromIso && m.date <= endIso));
-    setBaseline(healthRepo.getLatestBodyFatBaseline());
-  }, [fromIso, endIso]);
+    // Anchor the estimate on DEXA scans only, or any logged body-fat %, per the setting.
+    setBaseline(dexaOnly ? healthRepo.getLatestDexa() : healthRepo.getLatestBodyFatBaseline());
+  }, [fromIso, endIso, dexaOnly]);
   useFocusEffect(refresh);
   usePullRefresh(refresh);
 
@@ -53,7 +56,10 @@ export function HealthTrends() {
   const canNavy = profile.navyBodyFatEnabled && !!profile.heightCm && (profile.sex === 'MALE' || profile.sex === 'FEMALE');
   const leanSeries = weights
     .map((w) => {
-      const r = bodyFatForEntry(w, baseline);
+      // In DEXA-only mode a non-DEXA entry's own body-fat % doesn't count as measured — it
+      // must be estimated from the DEXA baseline like a weight-only day.
+      const entry = dexaOnly && w.bodyFat != null && !isDexaEntry(w) ? { ...w, bodyFat: null } : w;
+      const r = bodyFatForEntry(entry, baseline);
       return r ? { date: w.date, bf: r.bf, measured: r.measured } : null;
     })
     .filter((p): p is { date: string; bf: number; measured: boolean } => p != null);
@@ -66,12 +72,15 @@ export function HealthTrends() {
         })
         .filter((p): p is { date: string; bf: number; measured: boolean } => p != null)
     : [];
-  const bfSeries = leanSeries.length ? leanSeries : navySeries;
+  // Honor the Body card's source toggle: show the Navy series when the user prefers it and
+  // it's available; otherwise the DEXA/measured series, falling back to Navy.
+  const preferNavy = profile.bodyFatSource === 'navy';
+  const bfSeries = preferNavy && navySeries.length ? navySeries : leanSeries.length ? leanSeries : navySeries;
   const bfMethod: string | null = !bfSeries.length
     ? null
-    : leanSeries.length
-      ? (leanSeries.every((p) => p.measured) ? 'Measured' : 'Estimated')
-      : 'U.S. Navy';
+    : bfSeries === navySeries
+      ? 'U.S. Navy'
+      : leanSeries.every((p) => p.measured) ? 'Measured' : 'Estimated';
   const bfFirst = bfSeries[0]?.bf ?? null;
   const bfLast = bfSeries[bfSeries.length - 1]?.bf ?? null;
   const bfChange = bfFirst != null && bfLast != null ? bfLast - bfFirst : null;

@@ -17,6 +17,7 @@ import { sendTestNotification } from '@/lib/reminders';
 import { writeAndShareBackup, importFromUri, wipeAllData } from '@/lib/backup';
 import { pickAvatar } from '@/lib/avatar';
 import { syncHealthWeights, ensureHealthWeightObserver } from '@/lib/healthSync';
+import { syncBodyFatGoalWeight } from '@/lib/goalWeight';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useTourStore } from '@/stores/tourStore';
 import { useActiveCaloriesStore } from '@/stores/activeCaloriesStore';
@@ -327,6 +328,26 @@ export function SettingsView() {
     if (v) syncHealthWeights({ full: true, force: true }).catch(() => {}); // backfill history, matching Connect
   };
 
+  const toggleHealthBodyFat = async (v: boolean) => {
+    if (v && !health.isAvailable()) {
+      Alert.alert(healthPlatformLabel, `${healthPlatformLabel} isn't available in this build.`);
+      return;
+    }
+    if (v) {
+      const ok = await health.requestPermissions();
+      if (!ok) {
+        Alert.alert(healthPlatformLabel, 'Permission was denied or the health store is unavailable.');
+        return;
+      }
+      // Body fat attaches to imported weigh-ins, so turning it on also turns on weigh-in import.
+      setProfile({ healthBodyFatImport: true, healthWeightSync: true });
+      ensureHealthWeightObserver();
+      syncHealthWeights({ full: true, force: true }).catch(() => {});
+    } else {
+      setProfile({ healthBodyFatImport: false });
+    }
+  };
+
   const selectActiveCalSource = (key: ActiveCalorieSource) => {
     setProfile({ activeCalorieSource: key });
     if ((key === 'auto' || key === 'watch') && !health.isAvailable()) {
@@ -470,7 +491,24 @@ export function SettingsView() {
           </View>
           <Switch
             value={profile.navyBodyFatEnabled}
-            onValueChange={(v) => setProfile({ navyBodyFatEnabled: v })}
+            onValueChange={(v) => {
+              setProfile({ navyBodyFatEnabled: v });
+              syncBodyFatGoalWeight(); // toggling the Navy source changes lean mass → refresh the derived goal weight
+            }}
+            trackColor={{ true: colors.primary, false: colors.border }}
+          />
+        </View>
+        <View style={styles.toggleRow}>
+          <View style={{ flex: 1, marginRight: space[3] }}>
+            <FsText variant="bodyMedium">Estimate body fat from DEXA only</FsText>
+            <FsText variant="caption">Anchor the non-Navy estimate strictly to your latest DEXA scan, ignoring any other logged body-fat % (e.g. a body scale you don't trust). Off = any measured % can anchor the estimate.</FsText>
+          </View>
+          <Switch
+            value={profile.bodyFatEstimateBasis === 'dexaOnly'}
+            onValueChange={(v) => {
+              setProfile({ bodyFatEstimateBasis: v ? 'dexaOnly' : 'anyMeasured' });
+              syncBodyFatGoalWeight(); // changes current lean mass → refresh a body-fat-mode goal weight
+            }}
             trackColor={{ true: colors.primary, false: colors.border }}
           />
         </View>
@@ -501,6 +539,18 @@ export function SettingsView() {
           <Switch
             value={profile.healthWeightSync}
             onValueChange={toggleHealthSync}
+            trackColor={{ true: colors.primary, false: colors.border }}
+          />
+        </View>
+
+        <View style={styles.toggleRow}>
+          <View style={{ flex: 1, marginRight: space[3] }}>
+            <FsText variant="bodyMedium">Also import body-fat %</FsText>
+            <FsText variant="caption">Off by default. When on, body-fat % from {healthPlatformLabel} is attached to imported weigh-ins — but it never overwrites a DEXA or hand-logged reading. (Body scales are often inaccurate; leave off to trust only DEXA + the Navy estimate.)</FsText>
+          </View>
+          <Switch
+            value={profile.healthBodyFatImport}
+            onValueChange={toggleHealthBodyFat}
             trackColor={{ true: colors.primary, false: colors.border }}
           />
         </View>

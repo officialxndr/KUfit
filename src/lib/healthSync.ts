@@ -4,6 +4,7 @@ import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useRefreshStore } from '@/stores/refreshStore';
 import { syncWidget } from '@/lib/widget';
+import { syncBodyFatGoalWeight } from '@/lib/goalWeight';
 
 /**
  * Keeps the local weight log in step with Apple Health / Health Connect **without the user
@@ -15,9 +16,13 @@ import { syncWidget } from '@/lib/widget';
  * hand-logged entry, so re-running this on every foreground is idempotent and harmless.
  */
 
-const enabled = () => useSettingsStore.getState().profile.healthWeightSync && health.isAvailable();
+const enabled = () => {
+  const p = useSettingsStore.getState().profile;
+  return (p.healthWeightSync || p.healthBodyFatImport) && health.isAvailable();
+};
 
 const DAY = 86_400_000;
+const FULL_SINCE = new Date(0).toISOString(); // epoch — full-history read for body fat
 
 /** ISO lower bound for the incremental read: a few days before our latest imported day, so
  *  the window tightens over time instead of re-scanning ~90 days on every foreground. For
@@ -37,18 +42,35 @@ let trailingQueued = false;
 
 async function runSync(full: boolean): Promise<number> {
   if (!health.isAvailable()) return 0;
-  const readings = full ? await health.getAllWeights() : await health.getWeightsSince(incrementalSince());
-  // Collapse to one weigh-in per day (latest sample wins); drop non-finite weights so a bad
-  // sample can't hit the `weightKg REAL NOT NULL` constraint.
-  const byDay = new Map<string, number>();
-  for (const r of readings) if (Number.isFinite(r.weightKg)) byDay.set(r.date, r.weightKg);
+  const profile = useSettingsStore.getState().profile;
+  const since = full ? FULL_SINCE : incrementalSince();
   let changed = 0;
-  byDay.forEach((kg, date) => {
-    try { if (healthRepo.upsertWeightFromHealth(date, kg)) changed++; } catch {} // one bad row can't abort the batch
-  });
+
+  if (profile.healthWeightSync) {
+    const readings = full ? await health.getAllWeights() : await health.getWeightsSince(since);
+    // Collapse to one weigh-in per day (latest sample wins); drop non-finite weights so a bad
+    // sample can't hit the `weightKg REAL NOT NULL` constraint.
+    const byDay = new Map<string, number>();
+    for (const r of readings) if (Number.isFinite(r.weightKg)) byDay.set(r.date, r.weightKg);
+    byDay.forEach((kg, date) => {
+      try { if (healthRepo.upsertWeightFromHealth(date, kg)) changed++; } catch {} // one bad row can't abort the batch
+    });
+  }
+
+  // Opt-in: attach imported body-fat % to that day's HEALTH weigh-in (never DEXA/manual).
+  if (profile.healthBodyFatImport) {
+    const bfReadings = await health.getBodyFatSince(since);
+    const bfByDay = new Map<string, number>();
+    for (const r of bfReadings) if (Number.isFinite(r.pct)) bfByDay.set(r.date, r.pct);
+    bfByDay.forEach((pct, date) => {
+      try { if (healthRepo.upsertBodyFatFromHealth(date, pct)) changed++; } catch {}
+    });
+  }
+
   if (changed > 0) {
     useRefreshStore.getState().bump(); // refresh any focused screen without a remount
     syncWidget();
+    syncBodyFatGoalWeight(); // body composition may have changed → refresh a body-fat-mode goal weight
   }
   return changed;
 }

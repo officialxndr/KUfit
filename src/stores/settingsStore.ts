@@ -90,6 +90,13 @@ export interface Profile {
    *  'dexa' = a measured % / DEXA-baseline estimate, 'navy' = the U.S. Navy tape estimate.
    *  Only consulted when both exist; otherwise the available source is shown. */
   bodyFatSource: 'dexa' | 'navy';
+  /** What anchors the non-Navy ("measured/estimate") body-fat source:
+   *  'anyMeasured' = any logged body-fat % (default), 'dexaOnly' = strictly DEXA scans, so
+   *  a scale/manually-typed % never pollutes the estimate. See `lib/bodyFatResolve.ts`. */
+  bodyFatEstimateBasis: 'anyMeasured' | 'dexaOnly';
+  /** When true, import body-fat % from Apple Health / Health Connect alongside weight
+   *  (off by default — many body scales write inaccurate values). See `lib/healthSync.ts`. */
+  healthBodyFatImport: boolean;
   /** Chosen on-device AI label-scanning model id (a `lib/llm/models` id), or null = none.
    *  The model *files* live on disk (see `lib/llm/modelManager`); this only records the pick. */
   aiModelId: string | null;
@@ -146,6 +153,8 @@ const DEFAULT_PROFILE: Profile = {
   confettiEnabled: true,
   navyBodyFatEnabled: true,
   bodyFatSource: 'dexa',
+  bodyFatEstimateBasis: 'anyMeasured',
+  healthBodyFatImport: false,
   aiModelId: null,
   aiProvider: 'off',
   aiThinking: true,

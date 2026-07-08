@@ -442,6 +442,14 @@ Honest status of the rebuild. **Update this when features land or plans change.*
 - [x] **Native Health activated** — `@kingstinct/react-native-healthkit` (iOS) + `react-native-health-connect`
       (Android) are installed with config plugins/permissions and wired through `lib/health.ts` (weight,
       active energy, heart rate). HealthKit needs a paid Apple account at runtime.
+- [x] **Body-fat sources reworked** — a single resolver (`lib/bodyFatResolve.ts` `computeBodyFatView`) now drives
+      the Body card, the body-fat-goal weight (`goalWeight.currentLeanMassKg`), the Goals editor and the trend, so
+      they always agree. Fixes the bug where the DEXA/Navy source toggle didn't move the derived goal weight
+      (toggling now calls `syncBodyFatGoalWeight`). New `profile.bodyFatEstimateBasis` ('anyMeasured' | 'dexaOnly')
+      + Settings → Body toggle anchors the estimate strictly on DEXA when chosen. Opt-in Apple Health / Health
+      Connect **body-fat import** (`profile.healthBodyFatImport`, default off; `HealthRepo.upsertBodyFatFromHealth`
+      never overwrites DEXA/manual). Logged readings are now **editable/deletable** — tap a weigh-in under
+      Health → Weight → `log-weight?date=` (`HealthRepo.updateWeightEntryValues`, preserves source + DEXA columns).
 - [x] **Health weight auto-import** — a weigh-in logged in Apple Health / Health Connect now imports on its
       own (no re-tapping "Connect"). `lib/healthSync.ts` (`syncHealthWeights` + `ensureHealthWeightObserver`)
       runs on launch + every foreground and via a live iOS HealthKit observer, gated by the new

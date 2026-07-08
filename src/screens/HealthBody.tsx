@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Scale, TrendingDown, TrendingUp, Minus, Target } from 'lucide-react-native';
@@ -9,7 +9,8 @@ import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useNavStore } from '@/stores/navStore';
 import { formatWeight, toDisplay, UNIT_LABELS } from '@/lib/units';
-import { estimateBodyFat, navyBodyFat, composition, targetWeightForBodyFat } from '@/lib/bodyComposition';
+import { composition, targetWeightForBodyFat } from '@/lib/bodyComposition';
+import { computeBodyFatView } from '@/lib/bodyFatResolve';
 import { syncBodyFatGoalWeight } from '@/lib/goalWeight';
 import { haptic } from '@/lib/haptics';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
@@ -48,36 +49,22 @@ export function HealthBody() {
   const profile = useSettingsStore((s) => s.profile);
   const setProfile = useSettingsStore((s) => s.setProfile);
   const unit = profile.unitSystem;
-  const [latest, setLatest] = useState<WeightEntry | null>(null);
-  const [baseline, setBaseline] = useState<WeightEntry | null>(null);
-  const [measurement, setMeasurement] = useState<BodyMeasurement | null>(null);
-  const [dexa, setDexa] = useState<WeightEntry | null>(null);
+  const [tick, setTick] = useState(0);
   const [measurements, setMeasurements] = useState<BodyMeasurement[]>([]);
 
   const refresh = useCallback(() => {
-    setLatest(healthRepo.getLatestWeightEntry());
-    setBaseline(healthRepo.getLatestBodyFatBaseline());
-    // Coalesce the latest non-null value per site — waist & neck may live on
-    // different dated rows, and the Navy estimate needs them together.
-    setMeasurement(healthRepo.getLatestMeasurementBySite());
-    setDexa(healthRepo.getLatestDexa());
     setMeasurements(healthRepo.getMeasurements()); // newest-first; powers the waist-trend cue
+    setTick((t) => t + 1); // re-resolve body fat off fresh repo data
   }, []);
   useFocusEffect(refresh);
 
-  const openDexa = () => router.push('/log-dexa');
+  // Single resolution shared with the goal-weight bridge — honors bodyFatSource +
+  // bodyFatEstimateBasis. Recomputes on focus (tick) and when the profile changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const view = useMemo(() => computeBodyFatView(profile), [profile, tick]);
+  const { latest, measurement, dexa, baseline, navyBf } = view;
 
-  // U.S. Navy estimate from the latest tape measurement + height/sex, when available.
-  const navyBf =
-    profile.navyBodyFatEnabled && measurement && profile.heightCm && (profile.sex === 'MALE' || profile.sex === 'FEMALE')
-      ? navyBodyFat({
-          sex: profile.sex,
-          heightCm: profile.heightCm,
-          neckCm: measurement.neck ?? 0,
-          waistCm: measurement.waist ?? 0,
-          hipCm: measurement.hips,
-        })
-      : null;
+  const openDexa = () => router.push('/log-dexa');
 
   // Save a value as today's measured reading (becomes the baseline). Carries the latest
   // weight forward if there's no weigh-in today yet.
@@ -93,35 +80,12 @@ export function HealthBody() {
     return <Empty message="Log your weight — or a full DEXA scan — to see body composition." action={{ label: 'Log DEXA scan', onPress: openDexa }} />;
   }
 
-  // Two body-fat sources can coexist: a DEXA-anchored number (a % measured on the
-  // latest weigh-in, else the lean-mass estimate from a DEXA baseline) and the Navy
-  // tape estimate. When both exist the user picks which drives the card
-  // (`profile.bodyFatSource`); otherwise we show whichever is available.
-  let dexaBf: number | null = null;
-  let dexaSource: 'measured' | 'baseline' = 'measured';
-  if (latest.bodyFat != null) {
-    dexaBf = latest.bodyFat;
-    dexaSource = 'measured';
-  } else if (baseline?.bodyFat != null) {
-    dexaBf = estimateBodyFat(baseline.weightKg, baseline.bodyFat, latest.weightKg);
-    dexaSource = 'baseline';
-  }
-
-  const canChooseSource = dexaBf != null && navyBf != null;
+  // Two body-fat sources can coexist: the non-Navy number (a measured %/DEXA estimate,
+  // anchored per `bodyFatEstimateBasis`) and the Navy tape estimate. When both exist the
+  // user picks which drives the card (`bodyFatSource`); otherwise we show what's available.
+  // Resolved once in `computeBodyFatView` so this matches the derived goal weight exactly.
+  const { dexaBf, dexaSource, canChooseSource, bf, source } = view;
   const preferNavy = profile.bodyFatSource === 'navy';
-
-  let bf: number | null = null;
-  let source: 'measured' | 'baseline' | 'navy' = 'measured';
-  if (preferNavy && navyBf != null) {
-    bf = navyBf;
-    source = 'navy';
-  } else if (dexaBf != null) {
-    bf = dexaBf;
-    source = dexaSource;
-  } else if (navyBf != null) {
-    bf = navyBf;
-    source = 'navy';
-  }
 
   if (bf == null) {
     // With the Navy estimate turned off, the only sources are a value you enter or a
@@ -214,7 +178,11 @@ export function HealthBody() {
             dexaBf={dexaBf as number}
             navyBf={navyBf as number}
             value={preferNavy ? 'navy' : 'dexa'}
-            onChange={(v) => setProfile({ bodyFatSource: v })}
+            onChange={(v) => {
+              setProfile({ bodyFatSource: v });
+              // Switching source changes current lean mass → refresh a body-fat-mode goal weight.
+              syncBodyFatGoalWeight();
+            }}
           />
         )}
         {source === 'baseline' && baseline?.bodyFat != null ? (
