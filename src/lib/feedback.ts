@@ -11,15 +11,15 @@ export const FEEDBACK_EMAIL = 'haledevteam@protonmail.com';
  * Bump this whenever there's something new for testers to see. The What's-New sheet
  * shows once per version (tracked in `app_meta`). Keep the list short + tester-focused.
  */
-export const WHATS_NEW_VERSION = '1.0.0-b11';
+export const WHATS_NEW_VERSION = '1.0.0-b12';
 export const WHATS_NEW = {
   title: "What's new to test",
   items: [
-    'Body-fat sources cleaned up: on Health → Body the DEXA/Estimate ↔ U.S. Navy toggle now actually moves your body-fat-% goal weight (it used to be ignored). New Settings → Body option "Estimate body fat from DEXA only" anchors the estimate strictly to your latest DEXA, ignoring any other logged % — handy if you don\'t trust a body scale. You can now tap any weigh-in under Health → Weight to edit or clear its body-fat reading (or delete it).',
-    'Optional Apple Health body-fat import (Settings → Health, off by default): pull body-fat % from Health alongside weight. It never overwrites a DEXA or hand-logged reading.',
-    'Apple Health weigh-ins sync automatically once connected — no reopening Settings to reconnect; updates on return and live while open.',
-    'Estimate a meal with AI: snap or pick a photo of a plate and the AI estimates its calories + macros — review and edit before logging.',
-    'Bring your own AI: Settings → AI vision lets you add API / cloud endpoints (Ollama, LM Studio, OpenWebUI, OpenAI, OpenRouter, Gemini) for label scanning + meal estimates.',
+    'Drag food between meals: press and hold a logged item, then drag it onto another meal (breakfast → lunch). Tap still edits, swipe still deletes.',
+    'Copy specific items: "Copy from another day" now lets you pick exactly which items to bring over (all pre-checked — uncheck what you don\'t want), instead of only the whole day/meal.',
+    'Goal date vs. projection: the goal date around the app now shows YOUR set target date, and you can tap it (on Health → Weight) to flip between your target and the "at current pace" projection.',
+    'Date fix: weigh-in dates on the weight trend no longer show a day early, and evening entries are filed under the correct local day.',
+    'Earlier betas: Apple Health weight auto-import + optional body-fat import, DEXA-only body-fat estimate, and tap-to-edit weigh-ins.',
   ],
 };
 

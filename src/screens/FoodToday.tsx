@@ -1,6 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { View, StyleSheet, Pressable, Modal, ScrollView, Dimensions, TextInput, Alert, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
-import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import Animated, { FadeInDown, FadeOut, LinearTransition, useSharedValue, useAnimatedStyle, runOnJS, type SharedValue } from 'react-native-reanimated';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
   Plus,
@@ -14,16 +15,20 @@ import {
   Cookie,
   Copy,
   BookmarkPlus,
+  CheckSquare,
+  Square,
   type LucideIcon,
 } from 'lucide-react-native';
 
 import { Card, FsText, Button } from '@/components/ui';
+import { isoLocalDay, parseLocalDay, addDays, shortDate } from '@/lib/date';
 import { KebabMenu, type KebabMenuItem } from '@/components/KebabMenu';
 import { CalorieMacroCard } from '@/components/CalorieMacroCard';
 import { MonthCalendar } from '@/components/MonthCalendar';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { FoodQuantitySheet, type SheetFood } from '@/components/FoodQuantitySheet';
 import { useMotion } from '@/lib/useMotion';
+import { haptic } from '@/lib/haptics';
 import { usePullRefresh } from '@/stores/refreshStore';
 import { DURATION } from '@/theme/motion';
 import { foodRepo, type DayNutrients } from '@/lib/repositories/FoodRepo';
@@ -63,7 +68,7 @@ function logToSheetFood(l: FoodLog): SheetFood | null {
 }
 
 const DAY_MS = 86_400_000;
-const isoDate = (d: Date) => d.toISOString().slice(0, 10);
+const isoDate = isoLocalDay;
 const firstOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
 const PAGE_W = Dimensions.get('window').width - PAGE_PADDING * 2;
 
@@ -76,6 +81,49 @@ const MEALS: { key: MealType; label: string; icon: LucideIcon }[] = [
   { key: 'DINNER', label: 'Dinner', icon: Moon },
   { key: 'SNACK', label: 'Snacks', icon: Cookie },
 ];
+
+/** A logged-item row that lifts on long-press and can be dragged onto another meal card.
+ *  Wraps the row's existing swipe-to-delete + tap-to-edit; the drag only activates after a
+ *  long press so a tap still edits and a horizontal swipe still deletes. */
+function DraggableFoodRow({
+  id, dragX, dragY, activeId, onLift, onUpdate, onDrop, onEnd, children,
+}: {
+  id: string;
+  dragX: SharedValue<number>;
+  dragY: SharedValue<number>;
+  activeId: SharedValue<string>;
+  onLift: (id: string) => void;
+  onUpdate: (absY: number) => void;
+  onDrop: (id: string, absY: number) => void;
+  onEnd: () => void;
+  children: React.ReactNode;
+}) {
+  const style = useAnimatedStyle(() => {
+    const active = activeId.value === id;
+    return {
+      transform: [
+        { translateX: active ? dragX.value : 0 },
+        { translateY: active ? dragY.value : 0 },
+        { scale: active ? 1.03 : 1 },
+      ],
+      zIndex: active ? 50 : 0,
+      opacity: active ? 0.97 : 1,
+    };
+  });
+  const pan = Gesture.Pan()
+    .activateAfterLongPress(250)
+    // onStart = the long-press actually activated a drag (not a tap/swipe/scroll), so measure
+    // drop zones + lift here rather than onBegin (which fires on every touch-down).
+    .onStart(() => { activeId.value = id; runOnJS(onLift)(id); })
+    .onUpdate((e) => { dragX.value = e.translationX; dragY.value = e.translationY; runOnJS(onUpdate)(e.absoluteY); })
+    .onEnd((e) => { runOnJS(onDrop)(id, e.absoluteY); })
+    .onFinalize(() => { dragX.value = 0; dragY.value = 0; activeId.value = ''; runOnJS(onEnd)(); });
+  return (
+    <GestureDetector gesture={pan}>
+      <Animated.View style={style}>{children}</Animated.View>
+    </GestureDetector>
+  );
+}
 
 export function FoodToday() {
   const profile = useSettingsStore((s) => s.profile);
@@ -109,8 +157,8 @@ export function FoodToday() {
     setMarked(new Set(foodRepo.getDailyCalories(from, to).filter((r) => r.calories > 0).map((r) => r.date)));
   }, []);
 
-  const openCalendar = () => { const m = firstOfMonth(new Date(date)); setCalMonth(m); loadMarks(m); setCalOpen(true); };
-  const shiftDay = (delta: number) => setDate((d) => isoDate(new Date(new Date(d).getTime() + delta * DAY_MS)));
+  const openCalendar = () => { const m = firstOfMonth(parseLocalDay(date)); setCalMonth(m); loadMarks(m); setCalOpen(true); };
+  const shiftDay = (delta: number) => setDate((d) => addDays(d, delta));
 
   const targets = resolveTargets(profile);
   const goal = targets.calorieTarget ?? 0;
@@ -125,16 +173,67 @@ export function FoodToday() {
 
   const remove = (id: string) => { foodRepo.deleteLog(id); refresh(); };
 
+  // ── Drag a logged item to another meal (long-press to lift, drop on a meal card) ──
+  const dragX = useSharedValue(0);
+  const dragY = useSharedValue(0);
+  const activeId = useSharedValue('');
+  const [dragTargetMeal, setDragTargetMeal] = useState<MealType | null>(null);
+  // The dragged item's origin meal — its card wrapper is z-elevated so the lifted row paints
+  // ABOVE later (opaque) meal cards when dragged downward.
+  const [draggingMeal, setDraggingMeal] = useState<MealType | null>(null);
+  const mealRefs = useRef<Partial<Record<MealType, View | null>>>({});
+  const mealBounds = useRef<{ meal: MealType; top: number; bottom: number }[]>([]);
+  const measureMeals = () => {
+    const out: { meal: MealType; top: number; bottom: number }[] = [];
+    MEALS.forEach((m) => mealRefs.current[m.key]?.measureInWindow((_x, y, _w, h) => { out.push({ meal: m.key, top: y, bottom: y + h }); }));
+    mealBounds.current = out;
+  };
+  const mealAtY = (absY: number): MealType | null => mealBounds.current.find((b) => absY >= b.top && absY <= b.bottom)?.meal ?? null;
+  const onLift = (id: string) => {
+    measureMeals();
+    const meal = logs.find((l) => l.id === id)?.meal ?? null;
+    setDraggingMeal(meal);
+    setDragTargetMeal(meal);
+  };
+  const onDragUpdate = (absY: number) => { const m = mealAtY(absY); setDragTargetMeal((prev) => (prev === m ? prev : m)); };
+  const onDrop = (id: string, absY: number) => {
+    const target = mealAtY(absY);
+    const log = logs.find((l) => l.id === id);
+    if (target && log && target !== log.meal) { foodRepo.updateLogMeal(id, target); haptic.success(); refresh(); }
+  };
+  const onDragEnd = () => { setDragTargetMeal(null); setDraggingMeal(null); };
+
   // Copy meal / day (A1): pick a source day from the calendar, then re-log into `date`.
   // `copyMode` is the target meal, or 'DAY' for the whole day.
   const [copyMode, setCopyMode] = useState<MealType | 'DAY' | null>(null);
-  const startCopy = (mode: MealType | 'DAY') => { setCopyMode(mode); const m = firstOfMonth(new Date(date)); setCalMonth(m); loadMarks(m); setCalOpen(true); };
+  const startCopy = (mode: MealType | 'DAY') => { setCopyMode(mode); const m = firstOfMonth(parseLocalDay(date)); setCalMonth(m); loadMarks(m); setCalOpen(true); };
+  // After picking a source day, choose which items to copy (all pre-selected).
+  const [copySource, setCopySource] = useState<{ date: string; logs: FoodLog[] } | null>(null);
+  const [copySel, setCopySel] = useState<Set<string>>(new Set());
   const onPickSourceDay = (picked: string) => {
     if (!copyMode) { setDate(picked); setCalOpen(false); return; }
-    const n = copyMode === 'DAY' ? foodRepo.copyDay(picked, date) : foodRepo.copyMeal(picked, date, copyMode);
-    setCalOpen(false); setCopyMode(null);
+    let srcLogs = foodRepo.getLogs(picked);
+    if (copyMode !== 'DAY') srcLogs = srcLogs.filter((l) => l.meal === copyMode);
+    setCalOpen(false);
+    if (!srcLogs.length) {
+      setCopyMode(null);
+      Alert.alert('Nothing to copy', copyMode === 'DAY' ? 'That day has no logged items.' : 'That day has no items for this meal.');
+      return;
+    }
+    setCopySource({ date: picked, logs: srcLogs });
+    setCopySel(new Set(srcLogs.map((l) => l.id))); // everything checked by default
+  };
+  const toggleCopySel = (id: string) => setCopySel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const allCopySelected = !!copySource && copySource.logs.every((l) => copySel.has(l.id));
+  const toggleCopyAll = () => { if (copySource) setCopySel(allCopySelected ? new Set() : new Set(copySource.logs.map((l) => l.id))); };
+  const closeCopy = () => { setCopySource(null); setCopyMode(null); setCopySel(new Set()); };
+  const confirmCopy = () => {
+    if (!copySource) return;
+    const ids = copySource.logs.filter((l) => copySel.has(l.id)).map((l) => l.id);
+    const forceMeal = copyMode && copyMode !== 'DAY' ? copyMode : null;
+    const n = ids.length ? foodRepo.copyLogsByLocalIds(ids, date, forceMeal) : 0;
+    closeCopy();
     if (n > 0) refresh();
-    else Alert.alert('Nothing to copy', copyMode === 'DAY' ? 'That day has no logged items.' : 'That day has no items for this meal.');
   };
 
   // Save as meal (A5): name the current meal's items as a reusable saved meal.
@@ -165,7 +264,7 @@ export function FoodToday() {
     refresh();
   };
 
-  const d = new Date(date);
+  const d = parseLocalDay(date);
   const todayIso = isoDate(new Date());
   const dayLabel = date === todayIso ? 'Today'
     : date === isoDate(new Date(Date.now() - DAY_MS)) ? 'Yesterday'
@@ -242,7 +341,8 @@ export function FoodToday() {
           ...(items.length > 0 ? [{ icon: BookmarkPlus, label: 'Save as meal', onPress: () => { setMealName(''); setSavingMeal(meal.key); } }] : []),
         ];
         return (
-          <Card key={meal.key} style={{ marginBottom: space[3], padding: 0 }}>
+          <View key={meal.key} ref={(r) => { mealRefs.current[meal.key] = r; }} collapsable={false} style={{ marginBottom: space[3], zIndex: draggingMeal === meal.key ? 20 : 0 }}>
+          <Card style={dragTargetMeal === meal.key ? { padding: 0, borderWidth: 2, borderColor: colors.primary } : { padding: 0 }}>
             <Pressable style={styles.mealHead} onPress={() => setOpen((o) => ({ ...o, [meal.key]: !o[meal.key] }))}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
                 <MealIcon color={colors.muted} size={16} />
@@ -275,21 +375,24 @@ export function FoodToday() {
                       exiting={animate ? FadeOut.duration(DURATION.fast) : undefined}
                       layout={animate ? LinearTransition.duration(DURATION.base) : undefined}
                     >
-                      <SwipeToDelete marginBottom={0} onDelete={() => remove(l.id)} confirmTitle="Remove item?" confirmMessage={`Remove ${name} from ${meal.label}?`}>
-                        <Pressable style={styles.itemRow} onPress={() => openEdit(l)}>
-                          <View style={{ flex: 1 }}>
-                            <FsText variant="bodyMedium" numberOfLines={1}>{name}</FsText>
-                            <FsText variant="caption">{sub}</FsText>
-                          </View>
-                          <FsText variant="body">{c} kcal</FsText>
-                        </Pressable>
-                      </SwipeToDelete>
+                      <DraggableFoodRow id={l.id} dragX={dragX} dragY={dragY} activeId={activeId} onLift={onLift} onUpdate={onDragUpdate} onDrop={onDrop} onEnd={onDragEnd}>
+                        <SwipeToDelete marginBottom={0} onDelete={() => remove(l.id)} confirmTitle="Remove item?" confirmMessage={`Remove ${name} from ${meal.label}?`}>
+                          <Pressable style={styles.itemRow} onPress={() => openEdit(l)}>
+                            <View style={{ flex: 1 }}>
+                              <FsText variant="bodyMedium" numberOfLines={1}>{name}</FsText>
+                              <FsText variant="caption">{sub}</FsText>
+                            </View>
+                            <FsText variant="body">{c} kcal</FsText>
+                          </Pressable>
+                        </SwipeToDelete>
+                      </DraggableFoodRow>
                     </Animated.View>
                   );
                 })}
               </View>
             )}
           </Card>
+          </View>
         );
       })}
 
@@ -316,8 +419,47 @@ export function FoodToday() {
               </Pressable>
             )}
             <FsText variant="caption" style={{ textAlign: 'center', marginTop: space[2] }}>
-              {copyMode ? 'Dots mark days with logged food. Tap one to copy it into today.' : 'Dots mark days with logged food.'}
+              {copyMode ? 'Dots mark days with logged food. Tap a day to choose what to copy.' : 'Dots mark days with logged food.'}
             </FsText>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Item-selection copy: pick which items from the source day to copy (A1). */}
+      <Modal visible={!!copySource} transparent animationType="fade" onRequestClose={closeCopy}>
+        <Pressable style={styles.backdrop} onPress={closeCopy}>
+          <Pressable style={styles.calCard} onPress={(e) => e.stopPropagation()}>
+            <FsText variant="cardTitle" style={{ marginBottom: 2 }}>Copy items</FsText>
+            {copySource && (
+              <FsText variant="caption" style={{ marginBottom: space[3] }}>
+                From {shortDate(copySource.date)} into {shortDate(date)}{copyMode && copyMode !== 'DAY' ? ` · ${MEALS.find((x) => x.key === copyMode)?.label}` : ''}
+              </FsText>
+            )}
+            <Pressable onPress={toggleCopyAll} style={styles.copyRow}>
+              {allCopySelected ? <CheckSquare color={colors.primary} size={18} /> : <Square color={colors.muted} size={18} />}
+              <FsText variant="bodyMedium">{allCopySelected ? 'Deselect all' : 'Select all'}</FsText>
+            </Pressable>
+            <ScrollView style={{ maxHeight: 300 }} keyboardShouldPersistTaps="handled">
+              {copySource?.logs.map((l) => {
+                const sel = copySel.has(l.id);
+                const nm = l.foodItem?.name ?? l.custom?.name ?? l.recipe?.name ?? 'Item';
+                const kc = Math.round((l.foodItem ? l.foodItem.calories : l.custom ? l.custom.calories : l.recipe?.nutrition?.perServingCalories ?? 0) * l.servingQty);
+                return (
+                  <Pressable key={l.id} onPress={() => toggleCopySel(l.id)} style={styles.copyRow}>
+                    {sel ? <CheckSquare color={colors.primary} size={18} /> : <Square color={colors.muted} size={18} />}
+                    <View style={{ flex: 1 }}>
+                      <FsText variant="bodyMedium" numberOfLines={1}>{nm}</FsText>
+                      {copyMode === 'DAY' && <FsText variant="caption">{MEALS.find((x) => x.key === l.meal)?.label ?? l.meal}</FsText>}
+                    </View>
+                    <FsText variant="caption">{kc} kcal</FsText>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+            <View style={{ flexDirection: 'row', gap: space[2], marginTop: space[3] }}>
+              <View style={{ flex: 1 }}><Button title="Cancel" variant="ghost" onPress={closeCopy} /></View>
+              <View style={{ flex: 1 }}><Button title={`Copy ${copySel.size}`} onPress={confirmCopy} disabled={copySel.size === 0} /></View>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>
@@ -393,6 +535,7 @@ const styles = themedStyles(() => StyleSheet.create({
   itemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: space[2], paddingHorizontal: space[4], borderTopWidth: 1, borderTopColor: colors.border, gap: space[3] },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: space[4] },
   calCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: space[4] },
+  copyRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[2] },
   todayBtn: { marginTop: space[3], backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 11, alignItems: 'center' },
   nameInput: { backgroundColor: colors.surfaceHigh, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12, color: colors.text, fontSize: 15 },
 }));

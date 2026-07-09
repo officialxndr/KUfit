@@ -15,8 +15,9 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useNavStore } from '@/stores/navStore';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { MealType } from '@/types';
+import { todayLocal } from '@/lib/date';
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = todayLocal;
 const MEALS: { key: MealType; label: string }[] = [
   { key: 'BREAKFAST', label: 'Breakfast' }, { key: 'LUNCH', label: 'Lunch' },
   { key: 'DINNER', label: 'Dinner' }, { key: 'SNACK', label: 'Snack' },

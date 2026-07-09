@@ -6,6 +6,7 @@ import { useRoutineStore } from '@/stores/routineStore';
 import { useRemindersStore, REMINDER_KEYS } from '@/stores/remindersStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { syncScheduledNotifications } from '@/lib/reminders';
+import { todayLocal } from '@/lib/date';
 
 /**
  * User-owned data backup / restore / wipe. Local-first means there's no server,
@@ -73,7 +74,7 @@ export async function writeAndShareBackup(): Promise<void> {
   catch { throw new Error('Sharing needs a dev build of the app — rebuild and try again.'); }
 
   const json = exportData();
-  const uri = `${FileSystem.cacheDirectory}hale-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  const uri = `${FileSystem.cacheDirectory}hale-backup-${todayLocal()}.json`;
   await FileSystem.writeAsStringAsync(uri, json);
   if (await Sharing.isAvailableAsync()) {
     await Sharing.shareAsync(uri, { mimeType: 'application/json', dialogTitle: 'Export Hale data' });

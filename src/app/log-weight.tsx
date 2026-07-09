@@ -4,6 +4,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { X } from 'lucide-react-native';
 
 import { FsText, Button } from '@/components/ui';
+import { todayLocal } from '@/lib/date';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { syncBodyFatGoalWeight } from '@/lib/goalWeight';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -11,7 +12,7 @@ import { toKg, toDisplay, formatWeight, UNIT_LABELS } from '@/lib/units';
 import { haptic } from '@/lib/haptics';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = todayLocal;
 const shortDate = (d: string) =>
   new Date(`${d}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 const round1 = (n: number) => String(Math.round(n * 10) / 10);

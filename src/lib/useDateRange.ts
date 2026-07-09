@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { isoLocalDay, addDays } from '@/lib/date';
 
 /**
  * Shared date-window state for screens that browse a time range (Dashboard
@@ -8,9 +9,9 @@ import { useState } from 'react';
  * picker + Today button.
  */
 const DAY_MS = 86_400_000;
-const isoDate = (d: Date) => d.toISOString().slice(0, 10);
+const isoDate = isoLocalDay;
 const parse = (iso: string) => new Date(`${iso}T00:00:00`);
-const addDaysIso = (iso: string, n: number) => isoDate(new Date(parse(iso).getTime() + n * DAY_MS));
+const addDaysIso = addDays; // calendar-day (DST-safe) step, not a fixed 24h grid
 const dayDiff = (a: string, b: string) => Math.round((parse(b).getTime() - parse(a).getTime()) / DAY_MS);
 
 export type PeriodKey = 'week' | 'month' | 'q' | 'year';

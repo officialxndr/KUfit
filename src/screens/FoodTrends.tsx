@@ -11,9 +11,10 @@ import { useDateRange } from '@/lib/useDateRange';
 import { usePullRefresh } from '@/stores/refreshStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
+import { isoLocalDay, addDays } from '@/lib/date';
 
 const DAY_MS = 86_400_000;
-const isoDate = (d: Date) => d.toISOString().slice(0, 10);
+const isoDate = isoLocalDay;
 const parse = (iso: string) => new Date(`${iso}T00:00:00`);
 const WEEKDAY = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const CHART_H = 80;
@@ -31,7 +32,6 @@ export function FoodTrends() {
   const [nutrientAvg, setNutrientAvg] = useState({ fiber: 0, sugar: 0, saturatedFat: 0, sodium: 0 });
 
   const refresh = useCallback(() => {
-    const fromMs = parse(fromIso).getTime();
     const n = foodRepo.getRangeNutrition(fromIso, endIso);
     setLoggedDays(n.days);
     setAvgCalories(Math.round(n.avgCalories));
@@ -41,7 +41,7 @@ export function FoodTrends() {
     // Per-day calories → bars, bucketed (averaged) past MAX_BARS so a year fits.
     const byDate = new Map(foodRepo.getDailyCalories(fromIso, endIso).map((r) => [r.date, r.calories]));
     const per: number[] = [];
-    for (let i = 0; i < days; i++) per.push(byDate.get(isoDate(new Date(fromMs + i * DAY_MS))) ?? 0);
+    for (let i = 0; i < days; i++) per.push(byDate.get(addDays(fromIso, i)) ?? 0);
     if (days <= MAX_BARS) {
       setCals(per);
     } else {

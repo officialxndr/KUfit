@@ -60,6 +60,9 @@ export interface Profile {
    *  mode `goalWeightKg` is derived (kept fresh from current lean mass) and read-only. */
   goalMode: GoalMode;
   goalDate: string | null;
+  /** Which date the goal stat shows: 'projection' = ETA at current pace, 'target' = your set
+   *  goalDate. Tappable to flip; defaults to showing your target date when one is set. */
+  goalDateMode: 'projection' | 'target';
   calorieGoal: number | null; // manual override; null = auto from TDEE
   proteinTarget: number | null;
   carbsTarget: number | null;
@@ -138,6 +141,7 @@ const DEFAULT_PROFILE: Profile = {
   goalBodyFat: null,
   goalMode: 'weight',
   goalDate: null,
+  goalDateMode: 'target',
   calorieGoal: null,
   proteinTarget: null,
   carbsTarget: null,

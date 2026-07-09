@@ -324,7 +324,10 @@ export interface HealthStats {
   avg7: number | null
   avg14: number | null
   weeklyChange: number | null
+  /** Projected date to reach the goal WEIGHT at the current pace (a projection). */
   goalEta: string | null
+  /** The user's set target date (`goalDate`/phase endDate), formatted — not a projection. */
+  goalTargetDate: string | null
   etaReason: EtaReason | null
   requiredWeeklyRate: number | null
   dailyCalorieDelta: number | null

@@ -10,6 +10,7 @@ import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { useSettingsStore, type Profile } from '@/stores/settingsStore';
 import { useRoutineStore, getNextTemplateId } from '@/stores/routineStore';
 import { colors, getActiveTheme, SURFACE_PRESETS } from '@/theme/tokens';
+import { isoLocalDay } from '@/lib/date';
 
 /**
  * iOS widget bridge. Three home/lock-screen widgets (Food / Workout / Health) read a small
@@ -28,7 +29,7 @@ const DAY_MS = 86_400_000;
 
 const storage = new ExtensionStorage(APP_GROUP);
 
-const isoDate = (d: Date) => d.toISOString().slice(0, 10);
+const isoDate = isoLocalDay;
 
 // ── Nutrition ────────────────────────────────────────────────────────────────
 function buildNutrition(profile: Profile) {

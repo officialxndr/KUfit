@@ -10,14 +10,14 @@ import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { ActivitySuggestions } from '@/components/ActivitySuggestions';
 import { GoalWarning } from '@/components/GoalWarning';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
-import { goalSafetyWarning, describePace } from '@/lib/targets';
+import { goalSafetyWarning, describePace, goalDateStat } from '@/lib/targets';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { usePullRefresh } from '@/stores/refreshStore';
 import { toDisplay, formatWeight, UNIT_LABELS } from '@/lib/units';
+import { shortDate, parseLocalDay } from '@/lib/date';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { HealthStats, WeightEntry } from '@/types';
 
-const today = () => new Date().toISOString().slice(0, 10);
 const DAY_MS = 86_400_000;
 const PERIODS: { key: string; label: string; days: number }[] = [
   { key: '7', label: '7 Day', days: 7 },
@@ -28,14 +28,20 @@ const PERIODS: { key: string; label: string; days: number }[] = [
 export function HealthWeight() {
   const router = useRouter();
   const profile = useSettingsStore((s) => s.profile);
+  const setProfile = useSettingsStore((s) => s.setProfile);
   const unit = profile.unitSystem;
 
   const [stats, setStats] = useState<HealthStats | null>(null);
   const [period, setPeriod] = useState('30');
 
   const refresh = useCallback(() => {
-    setStats(healthRepo.computeStats(profile.goalWeightKg, profile.goalDate));
+    // Phase endDate overrides the profile goal date when a goal phase is active.
+    const effectiveGoalDate = healthRepo.getActiveGoalPhase()?.endDate ?? profile.goalDate;
+    setStats(healthRepo.computeStats(profile.goalWeightKg, effectiveGoalDate));
   }, [profile.goalWeightKg, profile.goalDate]);
+
+  const toggleGoalDateMode = () =>
+    setProfile({ goalDateMode: profile.goalDateMode === 'target' ? 'projection' : 'target' });
 
   useFocusEffect(refresh);
   usePullRefresh(refresh);
@@ -49,7 +55,7 @@ export function HealthWeight() {
   const recent = [...entries].reverse().slice(0, 14);
   const days = PERIODS.find((p) => p.key === period)!.days;
   const cutoff = Date.now() - days * DAY_MS;
-  const windowed = entries.filter((e) => new Date(e.date).getTime() >= cutoff);
+  const windowed = entries.filter((e) => parseLocalDay(e.date).getTime() >= cutoff);
 
   const weeklyChange = stats?.weeklyChange ?? null;
   const ChangeIcon = (weeklyChange ?? 0) < 0 ? TrendingDown : TrendingUp;
@@ -118,7 +124,10 @@ export function HealthWeight() {
             value={stats?.weeklyChange != null ? `${stats.weeklyChange > 0 ? '+' : ''}${toDisplay(stats.weeklyChange, unit)} ${UNIT_LABELS[unit].weight}` : '—'}
             tone={changeColor}
           />
-          <Stat label="Goal ETA" value={stats?.goalEta ?? '—'} />
+          {(() => {
+            const gd = goalDateStat(stats, profile.goalDateMode);
+            return <Stat label={gd.label} value={gd.value} onPress={gd.canToggle ? toggleGoalDateMode : undefined} />;
+          })()}
         </View>
         {stats?.dailyCalorieDelta != null && !stats.onTrack && profile.showCoachingNudges && (() => {
           const pace = describePace(stats.dailyCalorieDelta, (stats.requiredWeeklyRate ?? 0) >= 0 ? 'lose' : 'gain');
@@ -157,7 +166,6 @@ export function HealthWeight() {
   );
 }
 
-const shortDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
 function WeightChart({ entries, goalKg, unit }: { entries: WeightEntry[]; goalKg: number | null; unit: import('@/types').UnitSystem }) {
   const W = 320, H = 140;
@@ -270,12 +278,13 @@ function WeightChart({ entries, goalKg, unit }: { entries: WeightEntry[]; goalKg
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
+function Stat({ label, value, tone, onPress }: { label: string; value: string; tone?: string; onPress?: () => void }) {
+  const Wrap: typeof View | typeof Pressable = onPress ? Pressable : View;
   return (
-    <View style={styles.statCell}>
+    <Wrap style={styles.statCell} onPress={onPress}>
       <FsText variant="caption">{label}</FsText>
       <FsText variant="cardTitle" style={tone ? { color: tone } : undefined}>{value}</FsText>
-    </View>
+    </Wrap>
   );
 }
 

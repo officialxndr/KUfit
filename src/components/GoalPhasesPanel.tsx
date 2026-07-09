@@ -11,9 +11,10 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { toKg, formatWeight, UNIT_LABELS } from '@/lib/units';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { GoalPhase, GoalType } from '@/types';
+import { todayLocal } from '@/lib/date';
 
 const GOALS: GoalType[] = ['LOSE', 'MAINTAIN', 'GAIN'];
-const todayIso = () => new Date().toISOString().slice(0, 10);
+const todayIso = todayLocal;
 const isActive = (p: GoalPhase) => {
   const t = todayIso();
   return p.startDate <= t && p.endDate >= t;

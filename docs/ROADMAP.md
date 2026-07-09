@@ -442,6 +442,16 @@ Honest status of the rebuild. **Update this when features land or plans change.*
 - [x] **Native Health activated** — `@kingstinct/react-native-healthkit` (iOS) + `react-native-health-connect`
       (Android) are installed with config plugins/permissions and wired through `lib/health.ts` (weight,
       active energy, heart rate). HealthKit needs a paid Apple account at runtime.
+- [x] **Local-date cleanup** — new `lib/date.ts` (`todayLocal`/`parseLocalDay`/`shortDate`/`addDays`) is the single
+      date seam; migrated ~21 files off UTC `new Date(dateStr)` / `toISOString().slice(0,10)`. Fixes the weight-trend
+      date showing a day early and evening entries filing under tomorrow.
+- [x] **Goal date vs. projection toggle** — the goal date around the app now shows your set target (`goalTargetDate`
+      in `computeStats`, phase-aware), tappable on Health → Weight to flip `profile.goalDateMode` between your target
+      and the pace ETA (`targets.goalDateStat`). Previously every "Goal ETA" was a projection that ignored your date.
+- [x] **Copy specific food items** — "Copy from another day" opens an item-selection sheet (all pre-checked, select-all)
+      so you can copy one item, several, or the whole day/meal (`FoodRepo.copyLogsByLocalIds`).
+- [x] **Drag food between meals** — long-press a logged item and drag it onto another meal card (`DraggableFoodRow`
+      = long-press `Gesture.Pan` + reanimated, over the existing swipe/tap; `FoodRepo.updateLogMeal`).
 - [x] **Body-fat sources reworked** — a single resolver (`lib/bodyFatResolve.ts` `computeBodyFatView`) now drives
       the Body card, the body-fat-goal weight (`goalWeight.currentLeanMassKg`), the Goals editor and the trend, so
       they always agree. Fixes the bug where the DEXA/Navy source toggle didn't move the derived goal weight

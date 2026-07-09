@@ -16,7 +16,7 @@ import { PressableScale } from '@/components/anim/PressableScale';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
-import { resolveTargets, describePace } from '@/lib/targets';
+import { resolveTargets, describePace, goalDateStat } from '@/lib/targets';
 import { navyBodyFat, estimateBodyFat } from '@/lib/bodyComposition';
 import { useDateRange } from '@/lib/useDateRange';
 import { formatWeight, formatVolume } from '@/lib/units';
@@ -25,10 +25,11 @@ import { useNavStore } from '@/stores/navStore';
 import { usePullRefresh } from '@/stores/refreshStore';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { GoalPhase } from '@/types';
+import { isoLocalDay, addDays } from '@/lib/date';
 
 const DAY_MS = 86_400_000;
 const MAX_TREND_POINTS = 180;
-const isoDate = (d: Date) => d.toISOString().slice(0, 10);
+const isoDate = isoLocalDay;
 const parse = (iso: string) => new Date(`${iso}T00:00:00`);
 
 interface ReportData {
@@ -39,7 +40,7 @@ interface ReportData {
   recentPRs: { name: string; detail: string; date: string }[];
   muscleCounts: Record<string, number>; weeklyVolume: number[]; daysActive: number;
   currentKg: number | null; windowAvg: number | null; windowChange: number | null;
-  goalEta: string | null; pace: { title: string; message: string } | null;
+  goalEta: string | null; goalTargetDate: string | null; pace: { title: string; message: string } | null;
   bf: number | null; leanKg: number | null; fatKg: number | null; bmi: number | null; ffmi: number | null;
   phase: GoalPhase | null; goalProgress: number | null; startKg: number | null; goalKg: number | null;
 }
@@ -80,7 +81,7 @@ export function DashboardReports() {
     const tSum = new Array(buckets).fill(0);
     const tCnt = new Array(buckets).fill(0);
     for (let i = 0; i < days; i++) {
-      const cal = byDate.get(isoDate(new Date(fromMs + i * DAY_MS)));
+      const cal = byDate.get(addDays(fromIso, i));
       if (cal == null) continue;
       const b = Math.min(buckets - 1, Math.floor((i / days) * buckets));
       tSum[b] += cal; tCnt[b] += 1;
@@ -154,10 +155,12 @@ export function DashboardReports() {
     const windowAvg = windowEntries.length ? windowEntries.reduce((a, e) => a + e.weightKg, 0) / windowEntries.length : null;
 
     let goalEta: string | null = null;
+    let goalTargetDate: string | null = null;
     let pace: ReportData['pace'] = null;
     if (current) {
-      const stats = healthRepo.computeStats(profile.goalWeightKg, profile.goalDate);
+      const stats = healthRepo.computeStats(profile.goalWeightKg, healthRepo.getActiveGoalPhase()?.endDate ?? profile.goalDate);
       goalEta = stats.goalEta;
+      goalTargetDate = stats.goalTargetDate;
       if (stats.dailyCalorieDelta != null && !stats.onTrack && profile.showCoachingNudges) {
         pace = describePace(stats.dailyCalorieDelta, (stats.requiredWeeklyRate ?? 0) >= 0 ? 'lose' : 'gain');
       }
@@ -192,7 +195,7 @@ export function DashboardReports() {
       loggedDays: n.days, totalDays: days, avgCalories: n.avgCalories, avgProtein: n.avgProtein,
       avgCarbs: n.avgCarbs, avgFat: n.avgFat, calorieTrend, foodStreak, workoutStreak, workouts,
       totalVolume, burned, prCount, recentPRs, muscleCounts, weeklyVolume, daysActive,
-      currentKg, windowAvg, windowChange, goalEta, pace, bf, leanKg, fatKg, bmi, ffmi,
+      currentKg, windowAvg, windowChange, goalEta, goalTargetDate, pace, bf, leanKg, fatKg, bmi, ffmi,
       phase, goalProgress, startKg, goalKg,
     });
   }, [fromIso, endIso, days, todayIso, profile.goalWeightKg, profile.goalDate, profile.heightCm, profile.sex, profile.navyBodyFatEnabled, profile.showCoachingNudges, unit]);
@@ -201,6 +204,7 @@ export function DashboardReports() {
   usePullRefresh(refresh);
 
   const targets = resolveTargets(profile);
+  const goalStat = goalDateStat(data, profile.goalDateMode);
 
   return (
     <>
@@ -263,8 +267,8 @@ export function DashboardReports() {
               <View style={{ alignItems: 'flex-end' }}>
                 {isCurrent ? (
                   <>
-                    <FsText variant="caption">Goal ETA</FsText>
-                    <FsText variant="bodyMedium" style={{ marginTop: 2 }}>{data.goalEta ?? '—'}</FsText>
+                    <FsText variant="caption">{goalStat.label}</FsText>
+                    <FsText variant="bodyMedium" style={{ marginTop: 2 }}>{goalStat.value}</FsText>
                   </>
                 ) : (
                   <FsText variant="caption">Period avg</FsText>

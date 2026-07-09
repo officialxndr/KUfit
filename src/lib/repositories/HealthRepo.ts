@@ -1,6 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import { db } from '@/lib/db';
 import type { BodyMeasurement, GoalPhase, GoalType, HealthStats, WeightEntry } from '@/types';
+import { todayLocal, longDate } from '@/lib/date';
 
 // ── Mappers ───────────────────────────────────────────────────────────────────
 
@@ -262,7 +263,7 @@ export class HealthRepo {
 
   computeStats(goalWeightKg?: number | null, goalDate?: string | null): HealthStats {
     const ninety = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayLocal();
     const entries = this.getWeightEntries(ninety, today);
     const current = entries.length > 0 ? entries[entries.length - 1] : null;
 
@@ -318,6 +319,7 @@ export class HealthRepo {
       avg14,
       weeklyChange,
       goalEta,
+      goalTargetDate: goalDate ? longDate(goalDate) : null,
       etaReason: !current ? 'no-trend' : null,
       requiredWeeklyRate,
       dailyCalorieDelta,
@@ -445,7 +447,7 @@ export class HealthRepo {
   }
 
   getActiveGoalPhase(): GoalPhase | null {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayLocal();
     const row = db.getFirstSync(
       `SELECT * FROM goal_phases WHERE deleted = 0 AND startDate <= ? AND endDate >= ? LIMIT 1`,
       [today, today]

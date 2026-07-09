@@ -6,6 +6,10 @@
 - **Server-optional & server-compatible.** The SQLite schema mirrors the server's Prisma models
   (each table carries `localId`, `serverId`, `syncStatus`, `updatedAt`). When a user later points
   the app at their own Hale server, the sync layer can push/pull with no schema translation.
+- **Dates are local calendar days.** Stored `date` columns are `YYYY-MM-DD` calendar days; `src/lib/date.ts`
+  is the single seam — `todayLocal()` (local today), `parseLocalDay(d)`/`shortDate`/`longDate` (parse/format),
+  `addDays`. Never `new Date(dateStr)` (UTC-parses → a day early in US zones) or `toISOString().slice(0,10)`
+  (UTC today → evening entries under tomorrow); both were live bugs now routed through this util.
 - **Stored metric, displayed either.** Weights are kg, lengths cm in the DB; conversion happens at
   the display edge via `src/lib/units.ts`. Height input uses `components/HeightField.tsx` (ft+in in
   imperial, cm in metric → stored cm); birth dates use `DateField` `mode="cascade"` (year → month → day).
@@ -482,7 +486,10 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
   calorie + optional macros with no food, for restaurant meals; reached from the Food FAB / add-food →
   `app/quick-add.tsx`). Every totals query coalesces `fi.<macro>` → `customCalories`/etc. **Copy
   meal/day** (`copyMeal`/`copyDay`) re-logs a chosen source day's items into today (meal-section kebab /
-  date-header kebab → pick the day on the calendar). **Saved meals** (`saved_meals` +
+  date-header kebab → pick the day on the calendar); picking a day then opens an **item-selection sheet**
+  (`copyLogsByLocalIds` re-logs just the checked items — all pre-checked). **Drag a logged item to another
+  meal**: each row is a `DraggableFoodRow` (long-press-activated `Gesture.Pan` + reanimated, nested around
+  the existing swipe-to-delete/tap-to-edit) that lifts and drops onto a measured meal card → `updateLogMeal`. **Saved meals** (`saved_meals` +
   `saved_meal_items`) bundle a meal's items under a name (meal kebab → "Save as meal") and **fan out**
   into individual editable logs when re-added from add-food (`addSavedMeal`) — distinct from a recipe,
   which logs as one combined entry. Saved meals are editable in `app/saved-meal.tsx` (add-food row kebab →
@@ -690,6 +697,11 @@ intentionally **not** bottom sheets and keep their `animationType="fade"` modals
   "Goal Pace Unrealistic" instead of quoting an absurd number. NB: in `HealthRepo.computeStats`,
   `requiredWeeklyRate` is signed `(current − goal)` and `weeklyChange` is `avg7 − avg14`, so the gap is
   `requiredWeeklyRate + weeklyChange` (a **sum** — the desired weeklyChange is `−requiredWeeklyRate`).
+  **Goal date vs. projection**: `computeStats` returns both `goalEta` (projected date to hit the goal
+  *weight* at current pace) and `goalTargetDate` (your set `goalDate`, phase-aware via `phase?.endDate ??
+  profile.goalDate`, formatted local). The pure `targets.goalDateStat(stats, profile.goalDateMode)` picks
+  which to show (`'target'` | `'projection'`, default `'target'`); the Health → Weight stat is **tappable
+  to flip** `goalDateMode` (persisted), and Dashboard/Reports reflect it.
   `milestones.ts` (`computeMilestones({start,current,goal,weeklyRate,step})` → bar `progress`, `direction`,
   and a list of milestone `markers` with `fraction` + projected `etaDate`; **unit-agnostic** — pass display
   values so the round milestone numbers come out in lb/kg, and ETAs/positions are ratios so the unit cancels;

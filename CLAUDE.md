@@ -269,6 +269,10 @@ for backup + Home Assistant / **MCP** access (`serverStore` is null by default).
 
 ## Conventions
 - Stored units are **metric** (kg, cm). Convert at the display edge with `lib/units.ts`.
+- **Dates are local calendar days.** Stored `date` columns are `YYYY-MM-DD` *calendar days*, so use
+  `lib/date.ts` — **`todayLocal()`** for "today" and **`parseLocalDay(d)`** / `shortDate`/`longDate` to
+  parse/format. **Never** `new Date(dateStr)` (parses as UTC midnight → renders a day early in US zones) or
+  `new Date().toISOString().slice(0,10)` (UTC day → evening entries file under tomorrow). This was a real bug.
 - Screens read from repos in a `useFocusEffect(refresh)` callback so data refreshes on tab focus.
 - Calorie/macro targets resolve via `resolveTargets(profile)` (active GoalPhase → profile → TDEE).
 - Native dirs (`ios/`, `android/`) are git-ignored and regenerated via `expo prebuild` / EAS.

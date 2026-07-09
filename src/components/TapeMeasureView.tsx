@@ -10,6 +10,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { haptic } from '@/lib/haptics';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { BodyMeasurement } from '@/types';
+import { todayLocal } from '@/lib/date';
 
 type SiteKey = keyof BodyMeasurement;
 const SITES: { key: SiteKey; label: string; hint: string }[] = [
@@ -26,7 +27,7 @@ const SITES: { key: SiteKey; label: string; hint: string }[] = [
   { key: 'rightCalf', label: 'Right Calf', hint: 'Around the largest part of the calf.' },
 ];
 const SITE = (k: SiteKey) => SITES.find((s) => s.key === k)!;
-const today = () => new Date().toISOString().slice(0, 10);
+const today = todayLocal;
 
 const CONN: Record<TapeStatus, { color: string; label: string }> = {
   idle: { color: colors.muted, label: 'Disconnected' },

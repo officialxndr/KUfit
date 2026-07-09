@@ -248,6 +248,22 @@ export class FoodRepo {
     return this._copyLogs(`date = ?`, [fromDate], toDate, null);
   }
 
+  /** Re-log a chosen subset of source rows (by localId) into `toDate`, preserving each row's
+   *  own meal unless `forceMeal` is given. Powers item-level copy. Returns how many copied. */
+  copyLogsByLocalIds(localIds: string[], toDate: string, forceMeal: string | null = null): number {
+    if (!localIds.length) return 0;
+    const placeholders = localIds.map(() => '?').join(',');
+    return this._copyLogs(`localId IN (${placeholders})`, localIds, toDate, forceMeal);
+  }
+
+  /** Change a logged item's meal (drag-to-meal). */
+  updateLogMeal(localId: string, meal: string): void {
+    db.runSync(
+      `UPDATE food_logs SET meal = ?, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
+      [meal, new Date().toISOString(), localId]
+    );
+  }
+
   // ── Saved meals (A5) ──────────────────────────────────────────────────────────
   saveMeal(name: string, items: { foodItemLocalId?: string | null; recipeLocalId?: string | null; servingQty: number; custom?: CustomLog | null }[]): string {
     const id = Crypto.randomUUID();

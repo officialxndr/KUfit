@@ -17,9 +17,10 @@ import { toDisplay, toKg, formatWeight, UNIT_LABELS } from '@/lib/units';
 import { CHART, EASE } from '@/theme/motion';
 import { colors, radius, space, tintBg, themedStyles } from '@/theme/tokens';
 import type { UnitSystem } from '@/types';
+import { todayLocal } from '@/lib/date';
 
 const LB_PER_KG = 2.20462;
-const today = () => new Date().toISOString().slice(0, 10);
+const today = todayLocal;
 const fmtDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 const fmtVal = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1));
 

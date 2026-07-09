@@ -42,8 +42,9 @@ import { SettingsView } from '@/screens/SettingsView';
 import { GoalsEditorModal } from '@/components/GoalsEditor';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { registerMainScroll, emitMainScrollNearEnd } from '@/lib/appScroll';
+import { todayLocal } from '@/lib/date';
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = todayLocal;
 
 // Section order (left→right) so a tab change can slide in the right direction.
 const SECTION_ORDER: SectionKey[] = ['dashboard', 'food', 'workout', 'health', 'settings'];

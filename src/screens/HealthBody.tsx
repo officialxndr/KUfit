@@ -15,6 +15,7 @@ import { syncBodyFatGoalWeight } from '@/lib/goalWeight';
 import { haptic } from '@/lib/haptics';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { WeightEntry, BodyMeasurement, UnitSystem } from '@/types';
+import { todayLocal } from '@/lib/date';
 
 /** Waist change since a scan — direction only; visceral fat tracks waist directionally. */
 function computeWaistTrend(measurements: BodyMeasurement[], scanDate: string | null): { deltaCm: number } | null {
@@ -29,7 +30,7 @@ function computeWaistTrend(measurements: BodyMeasurement[], scanDate: string | n
 
 const shortDate = (d: string) =>
   new Date(`${d}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-const today = () => new Date().toISOString().slice(0, 10);
+const today = todayLocal;
 
 /** "a", "a and b", "a, b and c" — for listing what's missing in a sentence. */
 function joinList(items: string[]): string {

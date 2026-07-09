@@ -76,6 +76,25 @@ export function describePace(deltaKcal: number, goalDirection: 'lose' | 'gain'):
 }
 
 /**
+ * Resolve the goal-date stat for display: your set **target** date vs the pace **projection**
+ * (ETA), honoring `mode`. When both exist the stat is togglable; with only one it shows that
+ * one (no toggle). Pure — the caller flips `profile.goalDateMode` on tap.
+ */
+export function goalDateStat(
+  stats: { goalEta: string | null; goalTargetDate: string | null } | null | undefined,
+  mode: 'projection' | 'target'
+): { label: string; value: string; canToggle: boolean } {
+  const eta = stats?.goalEta ?? null;
+  const target = stats?.goalTargetDate ?? null;
+  const showTarget = target != null && (mode === 'target' || eta == null);
+  return {
+    label: showTarget ? 'Goal date' : 'Goal ETA',
+    value: (showTarget ? target : eta) ?? '—',
+    canToggle: eta != null && target != null,
+  };
+}
+
+/**
  * Today's active-calorie "eat-back" that `resolveTargets` folds into the calorie
  * budget — exposed so the UI can show how much burned energy was added. Returns 0
  * when the source is off or nothing has been burned/cached yet.

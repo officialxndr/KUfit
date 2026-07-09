@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { computeActiveCaloriesToday } from '@/lib/activeCalories';
 import type { ActiveCalorieSource } from '@/types';
+import { todayLocal } from '@/lib/date';
 
-const todayStr = () => new Date().toISOString().slice(0, 10);
+const todayStr = todayLocal;
 
 /**
  * Caches today's active-calorie eat-back so the synchronous `resolveTargets`

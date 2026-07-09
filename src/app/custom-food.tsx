@@ -15,6 +15,7 @@ import { isVisionConfigured, resolveAiConfig } from '@/lib/llm/visionProviders';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { MealType } from '@/types';
+import { todayLocal } from '@/lib/date';
 
 export default function CustomFood() {
   const router = useRouter();
@@ -157,7 +158,7 @@ export default function CustomFood() {
     });
     if (thenLog && params.meal) {
       foodRepo.addLog({
-        date: params.date ?? new Date().toISOString().slice(0, 10),
+        date: params.date ?? todayLocal(),
         meal: params.meal,
         foodItemLocalId: localId,
         servingQty: 1,

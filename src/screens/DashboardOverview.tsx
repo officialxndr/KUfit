@@ -18,7 +18,7 @@ import { useMotion } from '@/lib/useMotion';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
-import { resolveTargets, goalSafetyWarning, describePace, activeCaloriesForDisplay } from '@/lib/targets';
+import { resolveTargets, goalSafetyWarning, describePace, activeCaloriesForDisplay, goalDateStat } from '@/lib/targets';
 import { topDueReminder } from '@/lib/reminderStatus';
 import { syncScheduledNotifications } from '@/lib/reminders';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -30,11 +30,12 @@ import { usePullRefresh } from '@/stores/refreshStore';
 import { formatWeight } from '@/lib/units';
 import { colors, space, radius, themedStyles } from '@/theme/tokens';
 import type { HealthStats, WorkoutSession } from '@/types';
+import { isoLocalDay } from '@/lib/date';
 
 const DAY_MS = 86_400_000;
 const WEEKDAY = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
-const isoDate = (d: Date) => d.toISOString().slice(0, 10);
+const isoDate = isoLocalDay;
 
 function greeting() {
   const h = new Date().getHours();
@@ -79,7 +80,7 @@ export function DashboardOverview() {
     const dayTotals = foodRepo.getDayTotals(todayIso);
     const sessions = workoutRepo.getSessions(3);
     setTotals(dayTotals);
-    setStats(healthRepo.computeStats(profile.goalWeightKg, profile.goalDate));
+    setStats(healthRepo.computeStats(profile.goalWeightKg, healthRepo.getActiveGoalPhase()?.endDate ?? profile.goalDate));
     setRecent(sessions);
 
     // Pick the top "due" reminder for the Dashboard banner from current settings.
@@ -146,6 +147,7 @@ export function DashboardOverview() {
   }, [stats]);
 
   const targets = resolveTargets(profile);
+  const goalStat = goalDateStat(stats, profile.goalDateMode);
   const goal = targets.calorieTarget ?? 0;
   const maxV = Math.max(goal, ...week.map((b) => b.calories), 1) * 1.1;
 
@@ -285,8 +287,8 @@ export function DashboardOverview() {
               )}
             </View>
             <View style={{ alignItems: 'flex-end' }}>
-              <FsText variant="caption">Goal ETA</FsText>
-              <FsText variant="bodyMedium" style={{ marginTop: 2 }}>{stats?.goalEta ?? '—'}</FsText>
+              <FsText variant="caption">{goalStat.label}</FsText>
+              <FsText variant="bodyMedium" style={{ marginTop: 2 }}>{goalStat.value}</FsText>
             </View>
           </View>
         </Card>

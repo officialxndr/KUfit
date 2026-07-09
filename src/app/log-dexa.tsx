@@ -12,8 +12,9 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { toKg, UNIT_LABELS } from '@/lib/units';
 import { haptic } from '@/lib/haptics';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
+import { todayLocal } from '@/lib/date';
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = todayLocal;
 const numOrNull = (s: string) => (s.trim() ? Number(s) : null);
 
 /**

@@ -8,8 +8,9 @@ import { FoodQuantitySheet, type SheetFood } from '@/components/FoodQuantityShee
 import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { colors, radius, space, tintBg, themedStyles } from '@/theme/tokens';
 import type { MealType, Recipe } from '@/types';
+import { todayLocal } from '@/lib/date';
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = todayLocal;
 const MEALS: { key: MealType; label: string }[] = [
   { key: 'BREAKFAST', label: 'Breakfast' },
   { key: 'LUNCH', label: 'Lunch' },

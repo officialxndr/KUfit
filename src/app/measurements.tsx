@@ -13,6 +13,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { inchesToCm } from '@/lib/units';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { BodyMeasurement } from '@/types';
+import { todayLocal } from '@/lib/date';
 
 const SITES: { key: keyof BodyMeasurement; label: string }[] = [
   { key: 'neck', label: 'Neck' },
@@ -28,7 +29,7 @@ const SITES: { key: keyof BodyMeasurement; label: string }[] = [
   { key: 'rightCalf', label: 'Right Calf' },
 ];
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = todayLocal;
 
 export default function MeasurementsScreen() {
   const router = useRouter();

@@ -16,6 +16,7 @@ import { searchFood, barcodeLookup, ensureFoodItem, type FoodCandidate } from '@
 import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { FoodItem, MealType, Recipe, SavedMeal } from '@/types';
+import { todayLocal } from '@/lib/date';
 
 type Tab = 'search' | 'recent' | 'favorites';
 const TABS: { key: Tab; label: string }[] = [
@@ -55,7 +56,7 @@ export default function AddFoodModal() {
   const router = useRouter();
   const params = useLocalSearchParams<{ meal?: MealType; date?: string; scan?: string }>();
   const meal = (params.meal ?? 'SNACK') as MealType;
-  const date = params.date ?? new Date().toISOString().slice(0, 10);
+  const date = params.date ?? todayLocal();
 
   const [q, setQ] = useState('');
   const [tab, setTab] = useState<Tab>('search');

@@ -9,6 +9,7 @@ import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { useNavStore } from '@/stores/navStore';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { MealType } from '@/types';
+import { todayLocal } from '@/lib/date';
 
 const MEAL_LABEL: Record<MealType, string> = { BREAKFAST: 'Breakfast', LUNCH: 'Lunch', DINNER: 'Dinner', SNACK: 'Snacks' };
 
@@ -20,7 +21,7 @@ export default function QuickAdd() {
   const router = useRouter();
   const params = useLocalSearchParams<{ meal?: MealType; date?: string }>();
   const meal = (params.meal ?? 'SNACK') as MealType;
-  const date = params.date ?? new Date().toISOString().slice(0, 10);
+  const date = params.date ?? todayLocal();
 
   const [name, setName] = useState('');
   const [calories, setCalories] = useState('');
