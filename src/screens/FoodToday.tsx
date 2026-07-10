@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, Pressable, Modal, ScrollView, Dimensions, TextInput, Alert, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, { FadeInDown, FadeOut, LinearTransition, useSharedValue, useAnimatedStyle, runOnJS, type SharedValue } from 'react-native-reanimated';
@@ -32,7 +32,8 @@ import { haptic } from '@/lib/haptics';
 import { usePullRefresh } from '@/stores/refreshStore';
 import { DURATION } from '@/theme/motion';
 import { foodRepo, type DayNutrients } from '@/lib/repositories/FoodRepo';
-import { resolveTargets, activeCaloriesForDisplay } from '@/lib/targets';
+import { resolveBaseTargets, activeCaloriesForDisplay } from '@/lib/targets';
+import { computeActiveCaloriesForRange } from '@/lib/activeCalories';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useActiveCaloriesStore } from '@/stores/activeCaloriesStore';
 import { colors, radius, space, PAGE_PADDING, themedStyles } from '@/theme/tokens';
@@ -138,6 +139,7 @@ export function FoodToday() {
   const [calOpen, setCalOpen] = useState(false);
   const [calMonth, setCalMonth] = useState(() => firstOfMonth(new Date()));
   const [marked, setMarked] = useState<Set<string>>(new Set());
+  const [pastBurn, setPastBurn] = useState(0); // computed active-calorie burn for a non-today selected day
 
   // Subscribe so the budget re-renders when the async active-calorie value lands.
   useActiveCaloriesStore((s) => s.kcal);
@@ -160,11 +162,24 @@ export function FoodToday() {
   const openCalendar = () => { const m = firstOfMonth(parseLocalDay(date)); setCalMonth(m); loadMarks(m); setCalOpen(true); };
   const shiftDay = (delta: number) => setDate((d) => addDays(d, delta));
 
-  const targets = resolveTargets(profile);
-  const goal = targets.calorieTarget ?? 0;
+  // Per-day active-calorie burn: today's is live (recomputed each render); a past day is computed
+  // async from THAT day's own workouts + Apple Health active energy (not today's value).
+  const isToday = date === isoDate(new Date());
+  useEffect(() => {
+    if (isToday) return; // today handled inline below
+    let cancelled = false;
+    const start = parseLocalDay(date).toISOString();
+    const end = parseLocalDay(addDays(date, 1)).toISOString();
+    computeActiveCaloriesForRange(profile.activeCalorieSource, start, end)
+      .then((v) => { if (!cancelled) setPastBurn(v); })
+      .catch(() => { if (!cancelled) setPastBurn(0); });
+    return () => { cancelled = true; };
+  }, [date, isToday, profile.activeCalorieSource]);
+  const burned = isToday ? activeCaloriesForDisplay(profile) : pastBurn;
+
+  const targets = resolveBaseTargets(profile); // base target; the day's own burn is added below
+  const goal = (targets.calorieTarget ?? 0) + burned;
   const remaining = goal - totals.calories;
-  // Active-calorie burn is today's value, so only surface it on today's ring.
-  const burned = date === isoDate(new Date()) ? activeCaloriesForDisplay(profile) : 0;
 
   // Custom nutrient goals override the soft REF defaults on the "Other nutrients" page.
   const nutrientGoals = profile.nutrientGoals ?? [];

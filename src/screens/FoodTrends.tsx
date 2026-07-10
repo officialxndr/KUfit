@@ -6,7 +6,7 @@ import { Card, FsText } from '@/components/ui';
 import { MacroBars } from '@/components/MacroBar';
 import { DateRangeBar } from '@/components/DateRangeBar';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
-import { resolveTargets } from '@/lib/targets';
+import { resolveBaseTargets } from '@/lib/targets';
 import { useDateRange } from '@/lib/useDateRange';
 import { usePullRefresh } from '@/stores/refreshStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -59,7 +59,7 @@ export function FoodTrends() {
   const nutrientGoals = profile.nutrientGoals ?? [];
   const targetFor = (key: string, fallback: number) => nutrientGoals.find((g) => g.key === key)?.target ?? fallback;
 
-  const targets = resolveTargets(profile);
+  const targets = resolveBaseTargets(profile); // window goal line = base target (burn is per-day, added on the day)
   const goal = targets.calorieTarget ?? 0;
   const maxV = Math.max(...cals, goal + 200, 1);
 

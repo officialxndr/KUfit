@@ -20,7 +20,7 @@ import { health, healthPlatformLabel } from '@/lib/health';
 import { syncHealthWeights, ensureHealthWeightObserver } from '@/lib/healthSync';
 import { toKg, UNIT_LABELS } from '@/lib/units';
 import { haptic } from '@/lib/haptics';
-import { pickAvatar } from '@/lib/avatar';
+import { pickAvatar, resolveAvatarUri } from '@/lib/avatar';
 import { openSupportFlow } from '@/lib/iap';
 import { useDonationStore } from '@/stores/donationStore';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
@@ -99,6 +99,7 @@ export default function Onboarding() {
     const uri = await pickAvatar();
     if (uri) setAvatarUri(uri);
   };
+  const avatarPreview = resolveAvatarUri(avatarUri);
 
   const finish = () => {
     setProfile({
@@ -195,8 +196,8 @@ export default function Onboarding() {
             <FsText variant="display">About you</FsText>
             <FsText variant="caption" style={{ marginBottom: space[6] }}>Used to estimate your calorie needs (TDEE).</FsText>
             <Pressable onPress={changeAvatar} style={styles.avatarRow}>
-              {avatarUri ? (
-                <Image source={{ uri: avatarUri }} style={styles.avatarImg} />
+              {avatarPreview ? (
+                <Image source={{ uri: avatarPreview }} style={styles.avatarImg} />
               ) : (
                 <View style={[styles.avatarImg, styles.avatarPlaceholder]}><UserCircle color={colors.muted} size={36} /></View>
               )}

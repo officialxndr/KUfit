@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Pressable, StyleSheet, Alert, Image } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { UserCircle, Dumbbell, Ruler, AlertTriangle, Flame } from 'lucide-react-native';
@@ -15,6 +15,7 @@ import { GrowBar } from '@/components/anim/GrowBar';
 import { PressableScale } from '@/components/anim/PressableScale';
 import { Confetti } from '@/components/anim/Confetti';
 import { useMotion } from '@/lib/useMotion';
+import { resolveAvatarUri } from '@/lib/avatar';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
@@ -148,6 +149,7 @@ export function DashboardOverview() {
 
   const targets = resolveTargets(profile);
   const goalStat = goalDateStat(stats, profile.goalDateMode);
+  const avatarUri = useMemo(() => resolveAvatarUri(profile.avatarUri), [profile.avatarUri]);
   const goal = targets.calorieTarget ?? 0;
   const maxV = Math.max(goal, ...week.map((b) => b.calories), 1) * 1.1;
 
@@ -184,8 +186,8 @@ export function DashboardOverview() {
       {/* Greeting */}
       <View style={styles.greetRow}>
         <View style={styles.greetLeft}>
-          {profile.avatarUri ? (
-            <Image source={{ uri: profile.avatarUri }} style={styles.greetAvatar} />
+          {avatarUri ? (
+            <Image source={{ uri: avatarUri }} style={styles.greetAvatar} />
           ) : (
             <UserCircle color={colors.muted} size={44} strokeWidth={1.25} />
           )}

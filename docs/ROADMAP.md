@@ -442,6 +442,22 @@ Honest status of the rebuild. **Update this when features land or plans change.*
 - [x] **Native Health activated** — `@kingstinct/react-native-healthkit` (iOS) + `react-native-health-connect`
       (Android) are installed with config plugins/permissions and wired through `lib/health.ts` (weight,
       active energy, heart rate). HealthKit needs a paid Apple account at runtime.
+- [x] **OFF serving-size fix** — `foodSearch.ts` `offNutrition()` normalizes Open Food Facts onto one basis
+      (numeric `serving_quantity`, per-100g scaled, or serving-only), fixing "30 g → 15,000 kcal". A one-time
+      `lib/offRepair.ts` re-fetches corrupt (>9 kcal/g) saved items by barcode (cache-free `fetchOffByBarcode`)
+      and rescales their logs/recipe/saved-meal refs to keep the logged grams.
+- [x] **Per-day active calories** — burned calories are now counted per day (incl. Apple Health):
+      `activeCalories.computeActiveCaloriesForRange(source,start,end)` + `WorkoutRepo.getCaloriesBurnedBetween`;
+      window/trend contexts use the exported `resolveBaseTargets` (no burn), FoodToday adds the selected day's
+      own burn. Fixes today's burn inflating every day's budget.
+- [x] **Avatar persistence** — `lib/avatar.ts` stores a stable filename + `resolveAvatarUri` re-derives the
+      absolute URI against the live `Documents` dir, so the profile photo survives app updates (iOS container UUID changes).
+- [x] **Pick the next routine workout** — `routineStore` `nextOverride` + `setNextWorkout`; tap a routine's
+      "Next:" chip → picker (WorkoutLibrary). `getNextTemplateId` honors the pin; `markDone` clears it.
+- [x] **Consistency grid + chart numbers** — DashboardReports consistency card is now a GitHub-style per-day
+      activity grid (weight+food+workout → grey→green); weight change keeps its minus sign. WorkoutStats
+      Training Volume chart gained a y-axis + range labels.
+- [x] **Keyboard-aware bottom sheet** — shared `BottomSheet` lifts above the keyboard (measurement goal input etc.).
 - [x] **Local-date cleanup** — new `lib/date.ts` (`todayLocal`/`parseLocalDay`/`shortDate`/`addDays`) is the single
       date seam; migrated ~21 files off UTC `new Date(dateStr)` / `toISOString().slice(0,10)`. Fixes the weight-trend
       date showing a day early and evening entries filing under tomorrow.

@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { View, Pressable, StyleSheet, Modal, Image, PanResponder } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronsUpDown, UserCircle, type LucideIcon } from 'lucide-react-native';
 
 import { FsText } from '@/components/ui';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { resolveAvatarUri } from '@/lib/avatar';
 import { haptic } from '@/lib/haptics';
 import { colors, space, radius, shadow, themedStyles } from '@/theme/tokens';
 import { SECTIONS, type SectionKey } from './config';
@@ -27,7 +28,8 @@ export function AppHeader({
 }) {
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
-  const avatarUri = useSettingsStore((s) => s.profile.avatarUri);
+  const storedAvatar = useSettingsStore((s) => s.profile.avatarUri);
+  const avatarUri = useMemo(() => resolveAvatarUri(storedAvatar), [storedAvatar]);
   const current = SECTIONS.find((s) => s.key === section) ?? SECTIONS[0];
   const CurrentIcon = current.icon;
 

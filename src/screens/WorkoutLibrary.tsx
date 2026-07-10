@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
-import { View, Pressable, TextInput, StyleSheet, Alert } from 'react-native';
+import { View, Pressable, TextInput, StyleSheet, Alert, Modal } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { ChevronRight, Play, Plus, Repeat, Trash2, ArrowRightCircle, Pencil, Star, Search, Sparkles } from 'lucide-react-native';
+import { ChevronRight, Play, Plus, Repeat, Trash2, ArrowRightCircle, Pencil, Star, Search, Sparkles, Check } from 'lucide-react-native';
 import { formatDistanceToNow } from 'date-fns';
 
 import { Card, FsText, Button, SectionHeader, Badge } from '@/components/ui';
@@ -15,7 +15,8 @@ import type { WorkoutTemplate } from '@/types';
 export function WorkoutLibrary() {
   const router = useRouter();
   const session = useSessionStore();
-  const { routines, defaultRoutineId, addRoutine, updateRoutine, deleteRoutine, setDefaultRoutine, markDone } = useRoutineStore();
+  const { routines, defaultRoutineId, addRoutine, updateRoutine, deleteRoutine, setDefaultRoutine, setNextWorkout, markDone } = useRoutineStore();
+  const [pickNext, setPickNext] = useState<Routine | null>(null); // routine whose "next" is being chosen
 
   const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
   const [exerciseCount, setExerciseCount] = useState(0);
@@ -222,12 +223,13 @@ export function WorkoutLibrary() {
               <Button title="Start" onPress={() => startRoutine(r)} style={{ paddingVertical: 8, paddingHorizontal: 14 }} />
             </View>
             {nextId && (
-              <View style={styles.nextChip}>
+              <Pressable style={styles.nextChip} onPress={() => setPickNext(r)} hitSlop={6} disabled={r.templateIds.length < 2}>
                 <ArrowRightCircle color={colors.primary} size={14} />
                 <FsText variant="caption" style={{ color: colors.primary, fontWeight: '600' }}>
                   Next: {templateName(nextId)}
                 </FsText>
-              </View>
+                {r.templateIds.length > 1 && <ChevronRight color={colors.primary} size={13} />}
+              </Pressable>
             )}
             <View style={styles.routineActions}>
               <Pressable
@@ -367,6 +369,29 @@ export function WorkoutLibrary() {
           </View>
         </Card>
       </Pressable>
+
+      {/* Pick which workout is next in a routine (tap the "Next:" chip). */}
+      <Modal visible={!!pickNext} transparent animationType="fade" onRequestClose={() => setPickNext(null)}>
+        <Pressable style={styles.pickBackdrop} onPress={() => setPickNext(null)}>
+          <Pressable style={styles.pickCard} onPress={(e) => e.stopPropagation()}>
+            <FsText variant="cardTitle" style={{ marginBottom: 2 }}>Start next</FsText>
+            <FsText variant="caption" style={{ marginBottom: space[3] }}>Pick which workout in {pickNext?.name} comes next.</FsText>
+            {pickNext?.templateIds.map((id) => {
+              const isNext = pickNext ? getNextTemplateId(pickNext) === id : false;
+              return (
+                <Pressable
+                  key={id}
+                  style={styles.pickRow}
+                  onPress={() => { if (pickNext) setNextWorkout(pickNext.id, id); setPickNext(null); }}
+                >
+                  <FsText variant="bodyMedium" style={{ flex: 1, color: isNext ? colors.primary : colors.text }}>{templateName(id)}</FsText>
+                  {isNext && <Check color={colors.primary} size={18} />}
+                </Pressable>
+              );
+            })}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </>
   );
 }
@@ -444,4 +469,7 @@ const styles = themedStyles(() => StyleSheet.create({
   filterChipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   tplActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: space[3], marginTop: space[2], paddingTop: space[2], borderTopWidth: 1, borderTopColor: colors.border },
   tplActionBtn: { padding: 2 },
+  pickBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: space[4] },
+  pickCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: space[4] },
+  pickRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: space[3], borderTopWidth: 1, borderTopColor: colors.border },
 }));

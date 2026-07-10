@@ -11,15 +11,15 @@ export const FEEDBACK_EMAIL = 'haledevteam@protonmail.com';
  * Bump this whenever there's something new for testers to see. The What's-New sheet
  * shows once per version (tracked in `app_meta`). Keep the list short + tester-focused.
  */
-export const WHATS_NEW_VERSION = '1.0.0-b12';
+export const WHATS_NEW_VERSION = '1.0.0-b13';
 export const WHATS_NEW = {
   title: "What's new to test",
   items: [
-    'Drag food between meals: press and hold a logged item, then drag it onto another meal (breakfast → lunch). Tap still edits, swipe still deletes.',
-    'Copy specific items: "Copy from another day" now lets you pick exactly which items to bring over (all pre-checked — uncheck what you don\'t want), instead of only the whole day/meal.',
-    'Goal date vs. projection: the goal date around the app now shows YOUR set target date, and you can tap it (on Health → Weight) to flip between your target and the "at current pace" projection.',
-    'Date fix: weigh-in dates on the weight trend no longer show a day early, and evening entries are filed under the correct local day.',
-    'Earlier betas: Apple Health weight auto-import + optional body-fat import, DEXA-only body-fat estimate, and tap-to-edit weigh-ins.',
+    'Profile photo sticks: it no longer disappears after an app update.',
+    'Per-day calorie budget: burned calories are now counted for the day they happened (incl. Apple Health), instead of today\'s burn showing on every day.',
+    'Pick your next routine workout: tap the "Next:" chip on a routine to choose which one comes next.',
+    'Overview → Stats: the consistency card is now a GitHub-style grid — each day greys→greens as you log weight, food, and a workout. A weight loss now shows a minus sign.',
+    'Training Volume chart now has numbers (a scale + date range), and food-search foods with grams no longer show wild calorie totals (a bad OpenFoodFacts serving-size bug). Measurement goal input no longer hides behind the keyboard.',
   ],
 };
 

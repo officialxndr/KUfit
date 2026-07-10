@@ -151,7 +151,9 @@ export function resolveTargets(profile: Profile): ResolvedTargets {
   return base;
 }
 
-function resolveBaseTargets(profile: Profile): ResolvedTargets {
+/** Daily targets WITHOUT any active-calorie eat-back — the right base for a past day or a
+ *  multi-day window (burn is a per-day credit, not a window constant). */
+export function resolveBaseTargets(profile: Profile): ResolvedTargets {
   const phase: GoalPhase | null = healthRepo.getActiveGoalPhase();
   const latest = healthRepo.getLatestWeightEntry();
   const currentWeightKg = latest?.weightKg ?? null;

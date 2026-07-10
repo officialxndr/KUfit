@@ -100,6 +100,7 @@ export function WorkoutStats() {
     );
   }
 
+  const hasVol = data.volBars.some((v) => v > 0);
   const maxVol = Math.max(...data.volBars, 1);
 
   return (
@@ -132,18 +133,30 @@ export function WorkoutStats() {
       )}
 
       <Card style={{ marginBottom: space[3] }}>
-        <FsText variant="cardTitle" style={{ marginBottom: space[3] }}>Training Volume</FsText>
-        <View style={styles.bars}>
-          {data.volBars.map((v, i) => (
-            <View key={i} style={styles.barCol}>
-              <GrowBar
-                index={i}
-                height={Math.max((v / maxVol) * CHART_H, v > 0 ? 4 : 2)}
-                style={{ width: '100%', maxWidth: data.volBars.length <= 8 ? 22 : undefined, borderTopLeftRadius: 3, borderTopRightRadius: 3, backgroundColor: colors.primary, opacity: v === 0 ? 0.25 : i === data.volBars.length - 1 ? 1 : 0.6 }}
-              />
-            </View>
-          ))}
+        <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: space[3] }}>
+          <FsText variant="cardTitle">Training Volume</FsText>
+          {hasVol && <FsText variant="caption">peak {formatVolume(maxVol, unit)}</FsText>}
         </View>
+        <View style={{ flexDirection: 'row' }}>
+          {/* y-axis: total volume at top → 0 at bottom (0/0/0 when there's no volume yet) */}
+          <View style={styles.volAxis}>
+            <FsText variant="caption" numberOfLines={1} style={styles.volTick}>{hasVol ? formatVolume(maxVol, unit) : '0'}</FsText>
+            <FsText variant="caption" numberOfLines={1} style={styles.volTick}>{hasVol ? formatVolume(maxVol / 2, unit) : '0'}</FsText>
+            <FsText variant="caption" numberOfLines={1} style={styles.volTick}>0</FsText>
+          </View>
+          <View style={[styles.bars, { flex: 1 }]}>
+            {data.volBars.map((v, i) => (
+              <View key={i} style={styles.barCol}>
+                <GrowBar
+                  index={i}
+                  height={Math.max((v / maxVol) * CHART_H, v > 0 ? 4 : 2)}
+                  style={{ width: '100%', maxWidth: data.volBars.length <= 8 ? 22 : undefined, borderTopLeftRadius: 3, borderTopRightRadius: 3, backgroundColor: colors.primary, opacity: v === 0 ? 0.25 : i === data.volBars.length - 1 ? 1 : 0.6 }}
+                />
+              </View>
+            ))}
+          </View>
+        </View>
+        <FsText variant="caption" style={{ marginTop: space[2], textAlign: 'center' }}>{range.rangeLabel}</FsText>
       </Card>
 
       <Card>
@@ -194,6 +207,8 @@ const styles = themedStyles(() => StyleSheet.create({
   statCard: { width: '48%', flexGrow: 1 },
   bars: { flexDirection: 'row', alignItems: 'flex-end', height: CHART_H, gap: 2 },
   barCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: '100%' },
+  volAxis: { width: 46, height: CHART_H, justifyContent: 'space-between', alignItems: 'flex-end', paddingRight: 6 },
+  volTick: { fontSize: 9, color: colors.muted, lineHeight: 10 },
   prRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: space[2] },
   divider: { borderTopWidth: 1, borderTopColor: colors.border },
 }));

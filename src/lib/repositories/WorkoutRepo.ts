@@ -766,13 +766,30 @@ export class WorkoutRepo {
   getCaloriesBurnedToday(): number {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
+    return this.getCaloriesBurnedBetween(start.toISOString(), new Date().toISOString());
+  }
+
+  /** In-app burned calories from workouts finished in the half-open [startIso, endIso) window (each
+   *  capped at 2500). Half-open so a session at exactly local midnight isn't counted on two days. */
+  getCaloriesBurnedBetween(startIso: string, endIso: string): number {
     const row = db.getFirstSync(
       `SELECT COALESCE(SUM(MIN(COALESCE(caloriesBurned, 0), 2500)), 0) AS total
        FROM workout_sessions
-       WHERE finishedAt IS NOT NULL AND deleted = 0 AND finishedAt >= ?`,
-      [start.toISOString()]
+       WHERE finishedAt IS NOT NULL AND deleted = 0 AND finishedAt >= ? AND finishedAt < ?`,
+      [startIso, endIso]
     ) as any;
     return Math.round(row?.total ?? 0);
+  }
+
+  /** Just the start/finish timestamps of finished sessions in [startIso, endIso) — a cheap indexed
+   *  read for per-day active-calorie math, without hydrating exercises/sets. */
+  getSessionTimesBetween(startIso: string, endIso: string): { startedAt: string; finishedAt: string }[] {
+    return db.getAllSync(
+      `SELECT startedAt, finishedAt FROM workout_sessions
+       WHERE finishedAt IS NOT NULL AND deleted = 0 AND finishedAt >= ? AND finishedAt < ?
+       ORDER BY startedAt`,
+      [startIso, endIso]
+    ) as { startedAt: string; finishedAt: string }[];
   }
 
   // Volume data for stats/charts. Computed from sets × per-side factor (so dumbbell

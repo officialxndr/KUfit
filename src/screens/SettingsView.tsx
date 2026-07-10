@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, TextInput, StyleSheet, Pressable, Alert, Switch, Modal, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -15,7 +15,7 @@ import { REST_END_HAPTICS, fireDiagnosticHaptic, playRestEndHaptic } from '@/lib
 import { applyAccentIcon, iconMatchesAccent } from '@/lib/appIcon';
 import { sendTestNotification } from '@/lib/reminders';
 import { writeAndShareBackup, importFromUri, wipeAllData } from '@/lib/backup';
-import { pickAvatar } from '@/lib/avatar';
+import { pickAvatar, resolveAvatarUri } from '@/lib/avatar';
 import { syncHealthWeights, ensureHealthWeightObserver } from '@/lib/healthSync';
 import { syncBodyFatGoalWeight } from '@/lib/goalWeight';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -363,6 +363,7 @@ export function SettingsView() {
     if (uri) setProfile({ avatarUri: uri });
     else Alert.alert('Photo', 'No photo selected (or photos permission is unavailable in this build).');
   };
+  const avatarUri = useMemo(() => resolveAvatarUri(profile.avatarUri), [profile.avatarUri]);
 
   const switchUnit = (next: UnitSystem) => setProfile({ unitSystem: next });
 
@@ -447,14 +448,14 @@ export function SettingsView() {
       <Card hidden={!show(T.profile)} style={{ marginBottom: space[3] }}>
         <SectionHeader title="Profile" />
         <Pressable onPress={changeAvatar} style={styles.avatarRow}>
-          {profile.avatarUri ? (
-            <Image source={{ uri: profile.avatarUri }} style={styles.avatar} />
+          {avatarUri ? (
+            <Image source={{ uri: avatarUri }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatar, styles.avatarPlaceholder]}><UserCircle color={colors.muted} size={36} /></View>
           )}
           <View style={{ flex: 1 }}>
             <FsText variant="bodyMedium">Profile photo</FsText>
-            <FsText variant="caption">Tap to {profile.avatarUri ? 'change' : 'add'} your picture</FsText>
+            <FsText variant="caption">Tap to {avatarUri ? 'change' : 'add'} your picture</FsText>
           </View>
           <Camera color={colors.primary} size={20} />
         </Pressable>

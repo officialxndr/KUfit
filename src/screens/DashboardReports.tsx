@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import {
-  Flame, Dumbbell, Utensils, Trophy, Activity, ChevronRight, CalendarCheck, Scale, Target,
+  Flame, Dumbbell, Utensils, Trophy, Activity, ChevronRight, CalendarCheck, Scale,
 } from 'lucide-react-native';
 
 import { Card, FsText, Badge, SectionHeader } from '@/components/ui';
@@ -16,7 +16,7 @@ import { PressableScale } from '@/components/anim/PressableScale';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
-import { resolveTargets, describePace, goalDateStat } from '@/lib/targets';
+import { resolveBaseTargets, describePace, goalDateStat } from '@/lib/targets';
 import { navyBodyFat, estimateBodyFat } from '@/lib/bodyComposition';
 import { useDateRange } from '@/lib/useDateRange';
 import { formatWeight, formatVolume } from '@/lib/units';
@@ -32,6 +32,12 @@ const MAX_TREND_POINTS = 180;
 const isoDate = isoLocalDay;
 const parse = (iso: string) => new Date(`${iso}T00:00:00`);
 
+/** Grey → green cell tint for a 0–3 daily activity score (weight + food + workout logged). */
+function activityStyle(score: number) {
+  if (score <= 0) return { backgroundColor: colors.surfaceHigh };
+  return { backgroundColor: colors.success, opacity: score === 1 ? 0.35 : score === 2 ? 0.62 : 1 };
+}
+
 interface ReportData {
   loggedDays: number; totalDays: number;
   avgCalories: number; avgProtein: number; avgCarbs: number; avgFat: number; calorieTrend: number[];
@@ -43,6 +49,7 @@ interface ReportData {
   goalEta: string | null; goalTargetDate: string | null; pace: { title: string; message: string } | null;
   bf: number | null; leanKg: number | null; fatKg: number | null; bmi: number | null; ffmi: number | null;
   phase: GoalPhase | null; goalProgress: number | null; startKg: number | null; goalKg: number | null;
+  activityScores: { date: string; score: number }[];
 }
 
 /** Consecutive days ending at `endMs` (the end day may be empty) present in `dayset`. */
@@ -154,6 +161,14 @@ export function DashboardReports() {
     const windowChange = windowEntries.length >= 2 ? windowEntries[windowEntries.length - 1].weightKg - windowEntries[0].weightKg : null;
     const windowAvg = windowEntries.length ? windowEntries.reduce((a, e) => a + e.weightKg, 0) / windowEntries.length : null;
 
+    // ── Per-day activity for the consistency grid: food + weigh-in + workout that day (0–3) ──
+    const weightDaysWindow = new Set(windowEntries.map((e) => e.date));
+    const activityScores: { date: string; score: number }[] = [];
+    for (let i = 0; i < days; i++) {
+      const d = addDays(fromIso, i);
+      activityScores.push({ date: d, score: (foodDaysWindow.has(d) ? 1 : 0) + (weightDaysWindow.has(d) ? 1 : 0) + (windowWorkoutDays.has(d) ? 1 : 0) });
+    }
+
     let goalEta: string | null = null;
     let goalTargetDate: string | null = null;
     let pace: ReportData['pace'] = null;
@@ -195,7 +210,7 @@ export function DashboardReports() {
       loggedDays: n.days, totalDays: days, avgCalories: n.avgCalories, avgProtein: n.avgProtein,
       avgCarbs: n.avgCarbs, avgFat: n.avgFat, calorieTrend, foodStreak, workoutStreak, workouts,
       totalVolume, burned, prCount, recentPRs, muscleCounts, weeklyVolume, daysActive,
-      currentKg, windowAvg, windowChange, goalEta, goalTargetDate, pace, bf, leanKg, fatKg, bmi, ffmi,
+      currentKg, windowAvg, windowChange, goalEta, goalTargetDate, pace, bf, leanKg, fatKg, bmi, ffmi, activityScores,
       phase, goalProgress, startKg, goalKg,
     });
   }, [fromIso, endIso, days, todayIso, profile.goalWeightKg, profile.goalDate, profile.heightCm, profile.sex, profile.navyBodyFatEnabled, profile.showCoachingNudges, unit]);
@@ -203,7 +218,7 @@ export function DashboardReports() {
   useFocusEffect(refresh);
   usePullRefresh(refresh);
 
-  const targets = resolveTargets(profile);
+  const targets = resolveBaseTargets(profile); // window target = base (per-day burn isn't a window constant)
   const goalStat = goalDateStat(data, profile.goalDateMode);
 
   return (
@@ -260,7 +275,7 @@ export function DashboardReports() {
                   : <FsText variant="stat">—</FsText>}
                 {data.windowChange != null && (
                   <FsText variant="caption" style={{ color: data.windowChange < 0 ? colors.success : data.windowChange > 0 ? colors.danger : colors.muted, marginTop: 2 }}>
-                    {data.windowChange > 0 ? '+' : ''}{formatWeight(Math.abs(data.windowChange), unit)} this period
+                    {data.windowChange > 0 ? '+' : ''}{formatWeight(data.windowChange, unit)} this period
                   </FsText>
                 )}
               </View>
@@ -320,33 +335,23 @@ export function DashboardReports() {
             )}
           </Card>
 
-          {/* Consistency & goals */}
+          {/* Consistency grid — each day greys→greens as you log weight + food + a workout */}
           <Card style={styles.card}>
-            <SectionHeader title="Goals &amp; consistency" />
-            {data.phase ? (
-              <View style={[styles.rowBetween, { marginBottom: space[3] }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
-                  <Target color={colors.primary} size={16} />
-                  <FsText variant="bodyMedium">{data.phase.name}</FsText>
-                </View>
-                <Badge label={data.phase.goalType[0] + data.phase.goalType.slice(1).toLowerCase()} tone="primary" />
-              </View>
-            ) : null}
-            {data.goalProgress != null && data.goalKg != null && data.startKg != null && (
-              <View style={{ marginBottom: space[3] }}>
-                <View style={styles.rowBetween}>
-                  <FsText variant="caption">{formatWeight(data.startKg, unit)}</FsText>
-                  <FsText variant="caption" style={{ color: colors.primary }}>{Math.round(data.goalProgress * 100)}%</FsText>
-                  <FsText variant="caption">{formatWeight(data.goalKg, unit)}</FsText>
-                </View>
-                <View style={styles.track}>
-                  <View style={{ width: `${data.goalProgress * 100}%`, height: '100%', backgroundColor: colors.primary, borderRadius: radius.full }} />
-                </View>
-              </View>
-            )}
-            <View style={styles.rowBetween}>
-              <FsText variant="caption">Days active this period</FsText>
-              <FsText variant="bodyMedium">{data.daysActive} / {data.totalDays}</FsText>
+            <SectionHeader title="Consistency" />
+            <FsText variant="caption" style={{ marginBottom: space[3] }}>
+              Each box is a day — greener means more logged that day (weight, food, workout).
+            </FsText>
+            <View style={styles.activityGrid}>
+              {data.activityScores.map((d) => (
+                <View key={d.date} style={[styles.activityCell, activityStyle(d.score)]} />
+              ))}
+            </View>
+            <View style={styles.activityLegend}>
+              <FsText variant="caption" style={{ fontSize: 10 }}>Less</FsText>
+              {[0, 1, 2, 3].map((s) => (
+                <View key={s} style={[styles.activityLegendCell, activityStyle(s)]} />
+              ))}
+              <FsText variant="caption" style={{ fontSize: 10 }}>More</FsText>
             </View>
           </Card>
 
@@ -427,6 +432,9 @@ const styles = themedStyles(() => StyleSheet.create({
   barCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: '100%' },
   prRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: space[2] },
   divider: { borderTopWidth: 1, borderTopColor: colors.border },
-  track: { height: 10, borderRadius: radius.full, backgroundColor: colors.surfaceHigh, overflow: 'hidden', marginTop: space[2] },
   detailRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[3] },
+  activityGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 3 },
+  activityCell: { width: 12, height: 12, borderRadius: 3 },
+  activityLegend: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: space[3], justifyContent: 'flex-end' },
+  activityLegendCell: { width: 11, height: 11, borderRadius: 3 },
 }));

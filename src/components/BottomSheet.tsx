@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, Pressable, Modal, Animated, PanResponder, Dimensions } from 'react-native';
+import { View, StyleSheet, Pressable, Modal, Animated, PanResponder, Dimensions, Keyboard, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
@@ -32,8 +32,18 @@ export function BottomSheet({
   contentStyle?: object;
 }) {
   const insets = useSafeAreaInsets();
-  const sheetMaxHeight = SCREEN_H - insets.top - 24;
+  const [kbHeight, setKbHeight] = useState(0);
+  const sheetMaxHeight = SCREEN_H - insets.top - 24 - kbHeight;
   const [mounted, setMounted] = useState(visible);
+
+  // Lift the sheet above the keyboard so a focused input (e.g. a measurement goal field) stays visible.
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(showEvt, (e) => setKbHeight(e.endCoordinates?.height ?? 0));
+    const hide = Keyboard.addListener(hideEvt, () => setKbHeight(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
   const translateY = useRef(new Animated.Value(SCREEN_H)).current;
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -81,11 +91,11 @@ export function BottomSheet({
         {/* Dim backdrop (fades in, full screen) + a transparent tap layer to dismiss. */}
         <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]} pointerEvents="none" />
         <Pressable style={styles.backdropTouch} onPress={onClose} />
-        <View style={styles.wrap} pointerEvents="box-none">
+        <View style={[styles.wrap, { paddingBottom: kbHeight }]} pointerEvents="box-none">
           <Animated.View
             style={[
               styles.sheet,
-              { maxHeight: sheetMaxHeight, paddingBottom: insets.bottom + space[4], transform: [{ translateY }] },
+              { maxHeight: sheetMaxHeight, paddingBottom: (kbHeight > 0 ? space[4] : insets.bottom + space[4]), transform: [{ translateY }] },
               contentStyle,
             ]}
           >

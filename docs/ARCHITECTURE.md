@@ -460,7 +460,9 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
 - `components/SwipeToDelete.tsx` — standard swipe-left → red Delete + confirm for user logs
   (food items, weight entries, measurements, history). Built on gesture-handler `ReanimatedSwipeable`;
   the button tracks the finger via `useAnimatedStyle`. `lib/avatar.ts` picks a profile picture
-  (`expo-image-picker`) and persists it to the document dir; shown in `AppHeader` + Settings.
+  (`expo-image-picker`), copies it into the document dir, and **stores only the filename** — display sites
+  resolve the live absolute URI via **`resolveAvatarUri`** (iOS's container path changes on update, so a
+  persisted absolute URI would dangle — that was the "photo vanishes after every update" bug).
 - `components/BottomSheet.tsx` — **shared draggable bottom sheet** (the one place that owns sheet
   behavior). Slides up on `visible`, a full-screen dim backdrop whose **opacity is driven by the
   sheet's `translateY`** (fades in/out and lightens as you drag), a generous **grab strip**
@@ -724,18 +726,22 @@ intentionally **not** bottom sheets and keep their `animationType="fade"` modals
 
 ## Active-calorie eat-back (`lib/activeCalories.ts` + `stores/activeCaloriesStore.ts`)
 `profile.activeCalorieSource` (`off | auto | watch | inapp`) decides what gets added back to the daily
-budget. `computeActiveCaloriesToday(source)` is **async** (watch reads): `inapp` = in-app workout
-calories; `watch` = the platform's whole-day active energy; `auto` = whole-day energy **plus** the MET
-estimate for any of today's workout windows the watch didn't cover (`health.getActiveEnergyBurned` per
-window), so watch-tracked workouts aren't double-counted. Because `resolveTargets` is a synchronous
-render function, the result is cached in `activeCaloriesStore` (`{day, kcal, refresh()}`); `refresh` is
-called on focus of Dashboard/FoodToday and after a workout finishes, and those screens subscribe to
-`kcal` so the budget re-renders when it lands. Migrated from the old `countActiveCalories` boolean.
+budget. **`computeActiveCaloriesForRange(source, startIso, endIso)`** is **async** (watch reads): `inapp` =
+in-app workout calories in the range (`WorkoutRepo.getCaloriesBurnedBetween`); `watch` = the platform's active
+energy over the range; `auto` = that **plus** the MET estimate for any workout window the watch didn't cover
+(`health.getActiveEnergyBurned` per window), so watch-tracked workouts aren't double-counted.
+`computeActiveCaloriesToday` is the today wrapper. **Burn is per-day**: `resolveTargets(profile)` (base +
+**today's** burn) is only for the today ring (DashboardOverview); the exported **`resolveBaseTargets`** (no
+burn) drives window/trend contexts (`FoodTrends`, `DashboardReports`), and `FoodToday` adds the **selected
+day's own** burn (today = live `activeCaloriesForDisplay`; a past day = `computeActiveCaloriesForRange` for
+that local day, computed async into state). Today's value is cached in `activeCaloriesStore` (`{day, kcal,
+refresh()}`); screens subscribe to `kcal` so the budget re-renders when it lands. Migrated from the old
+`countActiveCalories` boolean.
 
 **Guards against bad data** (a wrong eat-back silently inflates the whole day's budget, so these matter):
 the MET estimate caps workout duration at **6h** (a session left "running" across days can't blow up);
-`WorkoutRepo.getCaloriesBurnedToday` clamps **each session to ≤2500 kcal** in SQL; and
-`computeActiveCaloriesToday` clamps the daily total to **`MAX_DAILY_BURN` (4000)**. ⚠️ HealthKit gotcha:
+`WorkoutRepo.getCaloriesBurnedBetween` clamps **each session to ≤2500 kcal** in SQL; and
+`computeActiveCaloriesForRange` clamps the total to **`MAX_DAILY_BURN` (4000)**. ⚠️ HealthKit gotcha:
 `@kingstinct/react-native-healthkit`'s `queryQuantitySamples` filters by date via
 `filter: { date: { startDate, endDate } }` — passing `from`/`to` is silently ignored and returns *all*
 recent samples (summing many days). `getActiveEnergyBurned` uses the correct filter **and** re-bounds by
