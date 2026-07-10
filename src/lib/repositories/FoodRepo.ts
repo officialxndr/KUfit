@@ -264,6 +264,44 @@ export class FoodRepo {
     );
   }
 
+  // ── OFF serving-size repair (one-time, see lib/offRepair.ts) ──
+  /** OFF food items whose stored nutrition sits on a mismatched basis: a gram serving whose
+   *  implied energy density exceeds ~9 kcal/g (physically impossible → corrupt import). */
+  getBrokenOffFoodItems(): { localId: string; barcode: string; servingSize: number }[] {
+    return (db.getAllSync(
+      `SELECT localId, barcode, servingSize FROM food_items
+       WHERE source = 'OPEN_FOOD_FACTS' AND barcode IS NOT NULL AND deleted = 0
+         AND servingUnit = 'g' AND servingSize > 0 AND calories > servingSize * 9`
+    ) as any[]).map((r) => ({ localId: r.localId, barcode: r.barcode, servingSize: r.servingSize }));
+  }
+
+  /** Rewrite a food item's nutrition in place (repair path — preserves localId + references). */
+  updateFoodItemNutrition(localId: string, n: {
+    servingSize: number; servingUnit: string; calories: number; protein: number; carbs: number; fat: number;
+    fiber?: number | null; sugar?: number | null; sodium?: number | null; saturatedFat?: number | null;
+  }): void {
+    db.runSync(
+      `UPDATE food_items SET servingSize = ?, servingUnit = ?, calories = ?, protein = ?, carbs = ?, fat = ?,
+         fiber = ?, sugar = ?, sodium = ?, saturatedFat = ?, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
+      [n.servingSize, n.servingUnit, n.calories, n.protein, n.carbs, n.fat,
+       n.fiber ?? null, n.sugar ?? null, n.sodium ?? null, n.saturatedFat ?? null, new Date().toISOString(), localId]
+    );
+  }
+
+  /** Multiply the stored quantity of every reference to a food item — logs, recipe ingredients,
+   *  and saved-meal items — so the grams they represent stay constant when the item's serving size
+   *  is corrected by the repair. */
+  rescaleItemReferences(foodItemLocalId: string, factor: number): void {
+    const now = new Date().toISOString();
+    db.runSync(
+      `UPDATE food_logs SET servingQty = servingQty * ?, syncStatus = 'pending', updatedAt = ?
+       WHERE foodItemLocalId = ? AND deleted = 0`,
+      [factor, now, foodItemLocalId]
+    );
+    db.runSync(`UPDATE recipe_ingredients SET quantity = quantity * ? WHERE foodItemLocalId = ?`, [factor, foodItemLocalId]);
+    db.runSync(`UPDATE saved_meal_items SET servingQty = servingQty * ? WHERE foodItemLocalId = ?`, [factor, foodItemLocalId]);
+  }
+
   // ── Saved meals (A5) ──────────────────────────────────────────────────────────
   saveMeal(name: string, items: { foodItemLocalId?: string | null; recipeLocalId?: string | null; servingQty: number; custom?: CustomLog | null }[]): string {
     const id = Crypto.randomUUID();

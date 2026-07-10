@@ -58,26 +58,76 @@ function fromLocal(fi: FoodItem): FoodCandidate {
     saturatedFat: fi.saturatedFat ?? null, isFavorite: fi.isFavorite ?? false, details: fi.details ?? null };
 }
 
+/** The consistent nutrition subset a candidate carries (calories/macros keyed to servingSize). */
+type OffNutrition = Pick<FoodCandidate,
+  'servingSize' | 'servingUnit' | 'calories' | 'protein' | 'carbs' | 'fat' | 'fiber' | 'sugar' | 'sodium' | 'saturatedFat'>;
+
+const numOr = (v: any): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
+/**
+ * Normalize OFF nutriments onto ONE consistent basis, so `calories × grams / servingSize` is
+ * always right. OFF's `serving_size` is FREE TEXT ("1 serving", "1 bar", "30 g") — the old code
+ * `parseFloat`'d it (often getting a count like 1) while `calories` fell back to per-100g, which
+ * made "30 g" read as thousands of kcal. We instead:
+ *  - use per-100g (OFF's reliable base), scaling to the serving's real weight from the NUMERIC
+ *    `serving_quantity` field when present (else a 100 g serving);
+ *  - if a product has ONLY per-serving values, use them with `serving_quantity` grams (still a
+ *    gram basis), or — if the serving weight is unknown — expose it as a `serving`-only item so
+ *    grams can't be entered at all.
+ * Returns null when there's no calorie data.
+ */
+function offNutrition(p: any): OffNutrition | null {
+  const n = p?.nutriments ?? {};
+  const servingG = numOr(Number(p?.serving_quantity));
+  const hasServingG = servingG != null && servingG > 0;
+  // A serving measured in ml (a drink) keeps its volume unit; the sheet then offers ml/tsp/… for it.
+  const unit = hasServingG && (p?.serving_quantity_unit === 'ml' || p?.serving_quantity_unit === 'l') ? 'ml' : 'g';
+  // Treat an explicit 0 as "no data on this basis" — so a contradictory 0/valid pair can't mask the
+  // real value, and genuinely 0-kcal noise items are skipped (matching the prior behavior).
+  const cal100 = numOr(n['energy-kcal_100g']);
+  const calServ = numOr(n['energy-kcal_serving']);
+
+  if (cal100 != null && cal100 > 0) {
+    // Per-100(g/ml) basis; scale to the real serving weight when OFF gives one.
+    const f = hasServingG ? servingG! / 100 : 1;
+    const s = (key: string) => { const v = numOr(n[key]); return v != null ? v * f : null; };
+    const sod = numOr(n.sodium_100g);
+    return {
+      servingSize: hasServingG ? servingG! : 100, servingUnit: unit,
+      calories: cal100 * f,
+      protein: s('proteins_100g') ?? 0, carbs: s('carbohydrates_100g') ?? 0, fat: s('fat_100g') ?? 0,
+      fiber: s('fiber_100g'), sugar: s('sugars_100g'),
+      sodium: sod != null ? sod * f * 1000 : null,
+      saturatedFat: s('saturated-fat_100g'),
+    };
+  }
+  if (calServ != null && calServ > 0) {
+    // Only per-serving data. Use the serving weight if known (gram/ml basis), else a serving-only
+    // item (servingUnit 'serving' → the sheet offers no grams, so the bug can't happen).
+    const s = (key: string) => numOr(n[key]);
+    const sod = numOr(n.sodium_serving);
+    return {
+      servingSize: hasServingG ? servingG! : 1, servingUnit: hasServingG ? unit : 'serving',
+      calories: calServ,
+      protein: s('proteins_serving') ?? 0, carbs: s('carbohydrates_serving') ?? 0, fat: s('fat_serving') ?? 0,
+      fiber: s('fiber_serving'), sugar: s('sugars_serving'),
+      sodium: sod != null ? sod * 1000 : null,
+      saturatedFat: s('saturated-fat_serving'),
+    };
+  }
+  return null; // no calorie data
+}
+
 function offProductToCandidate(p: any): FoodCandidate | null {
   if (!p.product_name) return null;
   if (p.product_name.length > 120) return null; // skip ingredient-list dumps
-  const n = p.nutriments ?? {};
-  const calories = n['energy-kcal_serving'] ?? n['energy-kcal_100g'] ?? 0;
-  if (!calories) return null; // skip items with no calorie data
+  const nut = offNutrition(p);
+  if (!nut) return null; // skip items with no calorie data
   return {
     barcode: p.code || null,
     name: p.product_name,
     brand: p.brands || null,
-    servingSize: parseFloat(p.serving_size) || 100,
-    servingUnit: 'g',
-    calories,
-    protein: n.proteins_serving ?? n.proteins_100g ?? 0,
-    carbs: n.carbohydrates_serving ?? n.carbohydrates_100g ?? 0,
-    fat: n.fat_serving ?? n.fat_100g ?? 0,
-    fiber: n.fiber_serving ?? n.fiber_100g ?? null,
-    sugar: n.sugars_serving ?? n.sugars_100g ?? null,
-    sodium: n.sodium_serving != null ? n.sodium_serving * 1000 : null,
-    saturatedFat: n['saturated-fat_serving'] ?? n['saturated-fat_100g'] ?? null,
+    ...nut,
     source: 'OPEN_FOOD_FACTS',
     isCustom: false,
     details: extractDetails(p),
@@ -89,7 +139,8 @@ const SEARCH_PAGE_SIZE = 30;
 const SAL_FIELDS =
   'product_name,brands,code,nutriments,nutriscore_grade,nova_group,ecoscore_grade,nutrient_levels';
 const CGI_FIELDS =
-  'product_name,brands,nutriments,serving_size,code,nutriscore_grade,nova_group,ecoscore_grade,' +
+  'product_name,brands,nutriments,serving_size,serving_quantity,serving_quantity_unit,code,' +
+  'nutriscore_grade,nova_group,ecoscore_grade,' +
   'nutrient_levels,ingredients_text,allergens_tags,additives_tags,labels_tags,ingredients_analysis_tags';
 
 const salBrand = (b: unknown): string | null =>
@@ -99,24 +150,14 @@ const salBrand = (b: unknown): string | null =>
 function salHitToCandidate(h: any): FoodCandidate | null {
   const name = typeof h.product_name === 'string' ? h.product_name : null;
   if (!name || name.length > 120) return null; // missing / ingredient-dump names
-  const n = h.nutriments ?? {};
-  const calories = n['energy-kcal_serving'] ?? n['energy-kcal_100g'] ?? 0;
-  if (!calories) return null; // no calorie data → not loggable
-  const sodium = n.sodium_serving ?? n.sodium_100g;
+  // SAL doesn't index serving data → offNutrition uses the per-100g base (servingSize 100).
+  const nut = offNutrition(h);
+  if (!nut) return null; // no calorie data → not loggable
   return {
     barcode: h.code || null,
     name,
     brand: salBrand(h.brands),
-    servingSize: 100, // SAL doesn't index serving_size → per-100g base
-    servingUnit: 'g',
-    calories,
-    protein: n.proteins_serving ?? n.proteins_100g ?? 0,
-    carbs: n.carbohydrates_serving ?? n.carbohydrates_100g ?? 0,
-    fat: n.fat_serving ?? n.fat_100g ?? 0,
-    fiber: n.fiber_serving ?? n.fiber_100g ?? null,
-    sugar: n.sugars_serving ?? n.sugars_100g ?? null,
-    sodium: sodium != null ? sodium * 1000 : null,
-    saturatedFat: n['saturated-fat_serving'] ?? n['saturated-fat_100g'] ?? null,
+    ...nut,
     source: 'OPEN_FOOD_FACTS',
     isCustom: false,
     details: extractDetails(h),
@@ -225,39 +266,40 @@ export async function searchFood(query: string, page = 1): Promise<SearchPage> {
 }
 
 /** Barcode lookup: local cache → Open Food Facts (→ USDA if enabled). */
+/** Fetch a product straight from Open Food Facts by barcode — **no local cache** — or null when
+ *  OFF has no usable data. Throws on a network failure (so callers like the repair can tell
+ *  "offline" apart from "not found"). The cache-hitting entry point is `barcodeLookup`. */
+export async function fetchOffByBarcode(barcode: string): Promise<FoodCandidate | null> {
+  const { data } = await axios.get(`${OFF_BASE}/api/v0/product/${barcode}.json`, {
+    headers: { 'User-Agent': USER_AGENT },
+    timeout: 6000,
+  });
+  if (data.status === 1 && data.product) {
+    const p = data.product;
+    const nut = offNutrition(p);
+    if (!nut) return null; // no calorie data
+    return {
+      barcode,
+      name: p.product_name ?? p.product_name_en ?? 'Unknown product',
+      brand: p.brands || null,
+      ...nut,
+      source: 'OPEN_FOOD_FACTS',
+      isCustom: false,
+      details: extractDetails(p),
+    };
+  }
+  return null;
+}
+
 export async function barcodeLookup(barcode: string): Promise<FoodCandidate | null> {
   const cached = foodRepo.getFoodItemByBarcode(barcode);
   if (cached) return fromLocal(cached);
 
   try {
-    const { data } = await axios.get(`${OFF_BASE}/api/v0/product/${barcode}.json`, {
-      headers: { 'User-Agent': USER_AGENT },
-      timeout: 6000,
-    });
-    if (data.status === 1 && data.product) {
-      const p = data.product;
-      const n = p.nutriments ?? {};
-      return {
-        barcode,
-        name: p.product_name ?? p.product_name_en ?? 'Unknown product',
-        brand: p.brands || null,
-        servingSize: n.serving_size ? parseFloat(n.serving_size) || 100 : 100,
-        servingUnit: 'g',
-        calories: n['energy-kcal_serving'] ?? n['energy-kcal_100g'] ?? 0,
-        protein: n.proteins_serving ?? n.proteins_100g ?? 0,
-        carbs: n.carbohydrates_serving ?? n.carbohydrates_100g ?? 0,
-        fat: n.fat_serving ?? n.fat_100g ?? 0,
-        fiber: n.fiber_serving ?? n.fiber_100g ?? null,
-        sugar: n.sugars_serving ?? n.sugars_100g ?? null,
-        sodium: n.sodium_serving != null ? n.sodium_serving * 1000 : null,
-        saturatedFat: n['saturated-fat_serving'] ?? n['saturated-fat_100g'] ?? null,
-        source: 'OPEN_FOOD_FACTS',
-        isCustom: false,
-        details: extractDetails(p),
-      };
-    }
+    const off = await fetchOffByBarcode(barcode);
+    if (off) return off;
   } catch {
-    /* fall through */
+    /* fall through to USDA */
   }
 
   if (USDA_API_KEY) {
