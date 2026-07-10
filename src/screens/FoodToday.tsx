@@ -177,9 +177,13 @@ export function FoodToday() {
   }, [date, isToday, profile.activeCalorieSource]);
   const burned = isToday ? activeCaloriesForDisplay(profile) : pastBurn;
 
-  const targets = resolveBaseTargets(profile); // base target; the day's own burn is added below
-  const goal = (targets.calorieTarget ?? 0) + burned;
-  const remaining = goal - totals.calories;
+  const baseTargets = resolveBaseTargets(profile);
+  // Fold the day's own burn into the calorie target so the ring's TOTAL includes it (the card
+  // shows `burned` only as a flame line). A null target (no goal set) stays null.
+  const targets = {
+    ...baseTargets,
+    calorieTarget: baseTargets.calorieTarget != null ? baseTargets.calorieTarget + burned : null,
+  };
 
   // Custom nutrient goals override the soft REF defaults on the "Other nutrients" page.
   const nutrientGoals = profile.nutrientGoals ?? [];
