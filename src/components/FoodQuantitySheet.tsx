@@ -116,6 +116,8 @@ export function FoodQuantitySheet({
   const [unit, setUnit] = useState('serving');
   const [unitMenuOpen, setUnitMenuOpen] = useState(false);
   const [kbHeight, setKbHeight] = useState(0);
+  // Nutrition summary shows just this food (default) or the day's total with it added.
+  const [preview, setPreview] = useState<'food' | 'day'>('food');
 
   // Live weighing (Bluetooth scale): while on, the scale's grams drive the amount field,
   // so the macro + day-projection display below updates as you add/remove food. `sim`
@@ -290,6 +292,14 @@ export function FoodQuantitySheet({
               const remaining = goal - after;
               const calPct = goal > 0 ? Math.min(after / goal, 1) : 0;
               const over = goal > 0 && after > goal;
+              // Toggle between "just this food" and "the day's total with it added".
+              const showDay = preview === 'day';
+              const sumCal = showDay ? after : add.cal;
+              const sumP = showDay ? baseP + add.p : add.p;
+              const sumC = showDay ? baseC + add.c : add.c;
+              const sumF = showDay ? baseF + add.f : add.f;
+              const calFill = goal > 0 ? Math.min(sumCal / goal, 1) : 0;
+              const calOver = goal > 0 && sumCal > goal;
               return (
                 <>
                   {/* Drag strip — grab the bar and swipe down to dismiss. */}
@@ -392,20 +402,30 @@ export function FoodQuantitySheet({
                     </View>
                   ) : null}
 
-                  {/* Nutrition summary */}
+                  {/* Nutrition summary — toggle: just this food (default), or the day total with it */}
                   <View style={styles.summary}>
+                    <View style={styles.previewToggle}>
+                      {(['food', 'day'] as const).map((m) => (
+                        <Pressable key={m} onPress={() => setPreview(m)} style={[styles.previewSeg, preview === m && styles.previewSegOn]}>
+                          <FsText variant="caption" style={{ color: preview === m ? colors.white : colors.muted, fontWeight: '600' }}>
+                            {m === 'food' ? 'This food' : 'Day total'}
+                          </FsText>
+                        </Pressable>
+                      ))}
+                    </View>
+
                     <View style={styles.summaryTop}>
                       <View>
-                        <FsText variant="overline">This food adds</FsText>
+                        <FsText variant="overline">{showDay ? 'Day total' : 'This food adds'}</FsText>
                         <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-                          <FsText variant="stat">{Math.round(add.cal)}</FsText>
+                          <FsText variant="stat">{Math.round(sumCal)}</FsText>
                           <FsText variant="caption"> kcal</FsText>
                         </View>
                       </View>
                       <View style={styles.macroRow}>
-                        <Macro label="P" v={add.p} c={colors.macroProtein} />
-                        <Macro label="C" v={add.c} c={colors.macroCarbs} />
-                        <Macro label="F" v={add.f} c={colors.macroFat} />
+                        <Macro label="P" v={sumP} c={colors.macroProtein} />
+                        <Macro label="C" v={sumC} c={colors.macroCarbs} />
+                        <Macro label="F" v={sumF} c={colors.macroFat} />
                       </View>
                     </View>
 
@@ -414,21 +434,23 @@ export function FoodQuantitySheet({
                         <View style={styles.barHead}>
                           <FsText variant="caption">Calories</FsText>
                           <FsText variant="caption" style={{ fontVariant: ['tabular-nums'] }}>
-                            {Math.round(after)} / {goal} · {remaining < 0 ? `${Math.abs(Math.round(remaining))} over` : `${Math.round(remaining)} left`}
+                            {showDay
+                              ? `${Math.round(after)} / ${goal} · ${remaining < 0 ? `${Math.abs(Math.round(remaining))} over` : `${Math.round(remaining)} left`}`
+                              : `${Math.round(add.cal)} / ${goal} · ${Math.round((add.cal / goal) * 100)}% of day`}
                           </FsText>
                         </View>
                         <View style={styles.track}>
-                          <View style={{ width: `${calPct * 100}%`, height: '100%', borderRadius: radius.full, backgroundColor: over ? colors.danger : colors.success }} />
+                          <View style={{ width: `${calFill * 100}%`, height: '100%', borderRadius: radius.full, backgroundColor: calOver ? colors.danger : colors.success }} />
                         </View>
                       </View>
                     )}
 
                     <View style={{ marginTop: space[3] }}>
-                      <FsText variant="caption" style={{ marginBottom: space[2] }}>Macros</FsText>
+                      <FsText variant="caption" style={{ marginBottom: space[2] }}>{showDay ? 'Macros · day total' : 'Macros · this food'}</FsText>
                       <MacroBars
-                        protein={baseP + add.p}
-                        carbs={baseC + add.c}
-                        fat={baseF + add.f}
+                        protein={sumP}
+                        carbs={sumC}
+                        fat={sumF}
                         proteinTarget={targets.proteinTarget}
                         carbsTarget={targets.carbsTarget}
                         fatTarget={targets.fatTarget}
@@ -491,6 +513,9 @@ const styles = themedStyles(() => StyleSheet.create({
     backgroundColor: colors.surfaceHigh, borderRadius: radius.md, padding: space[3],
     marginBottom: space[3], gap: space[2],
   },
+  previewToggle: { flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: colors.surface, borderRadius: radius.md, padding: 2, gap: 2, marginBottom: space[3] },
+  previewSeg: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: radius.sm },
+  previewSegOn: { backgroundColor: colors.primary },
   summaryTop: { flexDirection: 'row', alignItems: 'baseline' },
   macroRow: { flexDirection: 'row', gap: space[3], marginLeft: 'auto', alignItems: 'center' },
   modalBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#000' },
