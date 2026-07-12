@@ -191,7 +191,7 @@ const styles = themedStyles(() => StyleSheet.create({
     backgroundColor: colors.surfaceHigh, borderRadius: radius.md, paddingHorizontal: 14,
   },
   input: { flex: 1, color: colors.text, paddingVertical: 14, fontSize: 18 },
-  thumb: { width: 108, height: 140, borderRadius: radius.md, backgroundColor: colors.surfaceHigh },
+  thumb: { width: 132, height: 176, borderRadius: radius.md, backgroundColor: colors.surfaceHigh },
   addPhoto: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space[2],
     backgroundColor: colors.surfaceHigh, borderRadius: radius.md, paddingVertical: 14,

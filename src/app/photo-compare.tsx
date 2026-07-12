@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { View, StyleSheet, Pressable, Modal, ScrollView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
+import { StatusBar } from 'expo-status-bar';
 import { X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -15,8 +16,9 @@ import { radius, space, themedStyles } from '@/theme/tokens';
 import type { WeightEntry, UnitSystem } from '@/types';
 
 /**
- * Full-screen progress-photo viewer. Opens on one weigh-in's photo; "Compare with…" picks another
- * weigh-in that has a photo and shows the two side by side with each date/weight + the change.
+ * Full-screen progress-photo viewer. The photo is edge-to-edge; the weight/date and controls are
+ * overlaid so the image gets the whole screen. "Compare with…" picks another weigh-in that has a
+ * photo and shows the two side by side (oldest → newest) with the weight change over the span.
  */
 export default function PhotoCompare() {
   const router = useRouter();
@@ -46,16 +48,17 @@ export default function PhotoCompare() {
 
   if (!primary) {
     return (
-      <View style={[styles.screen, { paddingTop: insets.top }]}>
-        <TopBar title="Photo" onClose={close} />
+      <View style={styles.screen}>
+        <StatusBar style="light" />
+        <CloseButton onClose={close} top={insets.top} />
         <View style={styles.center}><FsText variant="caption" style={styles.dim}>Photo unavailable.</FsText></View>
       </View>
     );
   }
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <TopBar title={second ? 'Compare' : 'Progress photo'} onClose={close} />
+    <View style={styles.screen}>
+      <StatusBar style="light" />
 
       {second && ordered ? (
         <>
@@ -63,30 +66,25 @@ export default function PhotoCompare() {
             <PhotoCol entry={ordered.older} unit={unit} />
             <PhotoCol entry={ordered.newer} unit={unit} />
           </View>
-          <CompareDelta older={ordered.older} newer={ordered.newer} unit={unit} />
-          <View style={[styles.actions, { paddingBottom: insets.bottom + space[3] }]}>
-            <Button title="Compare with another" variant="ghost" onPress={() => setPickerOpen(true)} />
+          <View style={[styles.bottomBar, { paddingBottom: insets.bottom + space[3] }]}>
+            <CompareDelta older={ordered.older} newer={ordered.newer} unit={unit} />
+            <Button title="Compare another" variant="ghost" onPress={() => setPickerOpen(true)} />
           </View>
         </>
       ) : (
         <>
-          <View style={{ flex: 1 }}>
-            <PhotoFill uri={resolveProgressPhotoUri(primary.photoUri)} />
-          </View>
-          <View style={styles.caption}>
-            <FsText variant="bodyMedium" style={styles.white}>{formatWeight(primary.weightKg, unit)}</FsText>
-            <FsText variant="caption" style={styles.dim}>{shortDate(primary.date)}</FsText>
-          </View>
-          <View style={[styles.actions, { paddingBottom: insets.bottom + space[3] }]}>
-            <Button title="Compare with…" onPress={() => setPickerOpen(true)} disabled={others.length === 0} />
-            {others.length === 0 && (
-              <FsText variant="caption" style={[styles.dim, { textAlign: 'center', marginTop: space[2] }]}>
-                Add a photo to another weigh-in to compare.
-              </FsText>
-            )}
+          <PhotoFill uri={resolveProgressPhotoUri(primary.photoUri)} />
+          <View style={[styles.bottomOverlay, { paddingBottom: insets.bottom + space[6] }]}>
+            <View style={{ flex: 1 }}>
+              <FsText variant="stat" style={styles.white}>{formatWeight(primary.weightKg, unit)}</FsText>
+              <FsText variant="caption" style={styles.dim}>{shortDate(primary.date)}</FsText>
+            </View>
+            {others.length > 0 && <Button title="Compare" onPress={() => setPickerOpen(true)} />}
           </View>
         </>
       )}
+
+      <CloseButton onClose={close} top={insets.top} />
 
       <Modal visible={pickerOpen} transparent animationType="fade" onRequestClose={() => setPickerOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setPickerOpen(false)}>
@@ -110,19 +108,17 @@ export default function PhotoCompare() {
   );
 }
 
-function TopBar({ title, onClose }: { title: string; onClose: () => void }) {
+function CloseButton({ onClose, top }: { onClose: () => void; top: number }) {
   return (
-    <View style={styles.topBar}>
-      <Pressable onPress={onClose} hitSlop={12}><X color="#fff" size={26} /></Pressable>
-      <FsText variant="bodyMedium" style={styles.white}>{title}</FsText>
-      <View style={{ width: 26 }} />
-    </View>
+    <Pressable onPress={onClose} hitSlop={12} style={[styles.closeBtn, { top: top + space[2] }]}>
+      <X color="#fff" size={22} />
+    </Pressable>
   );
 }
 
 function PhotoFill({ uri }: { uri: string | null }) {
-  if (!uri) return <View style={styles.center}><FsText variant="caption" style={styles.dim}>Photo unavailable</FsText></View>;
-  return <Image source={{ uri }} style={{ flex: 1, width: '100%' }} contentFit="contain" />;
+  if (!uri) return <View style={[StyleSheet.absoluteFill, styles.center]}><FsText variant="caption" style={styles.dim}>Photo unavailable</FsText></View>;
+  return <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="contain" />;
 }
 
 function PhotoCol({ entry, unit }: { entry: WeightEntry; unit: UnitSystem }) {
@@ -130,9 +126,9 @@ function PhotoCol({ entry, unit }: { entry: WeightEntry; unit: UnitSystem }) {
   return (
     <View style={styles.col}>
       {uri
-        ? <Image source={{ uri }} style={{ flex: 1, width: '100%' }} contentFit="contain" />
-        : <View style={styles.center}><FsText variant="caption" style={styles.dim}>—</FsText></View>}
-      <View style={styles.colCaption}>
+        ? <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="contain" />
+        : <View style={[StyleSheet.absoluteFill, styles.center]}><FsText variant="caption" style={styles.dim}>—</FsText></View>}
+      <View style={styles.colCaption} pointerEvents="none">
         <FsText variant="bodyMedium" style={styles.white}>{formatWeight(entry.weightKg, unit)}</FsText>
         <FsText variant="caption" style={styles.dim}>{shortDate(entry.date)}</FsText>
       </View>
@@ -144,27 +140,43 @@ function CompareDelta({ older, newer, unit }: { older: WeightEntry; newer: Weigh
   const delta = newer.weightKg - older.weightKg; // time-forward: newer minus older (+ = gained, − = lost)
   const days = Math.abs(Math.round((parseLocalDay(newer.date).getTime() - parseLocalDay(older.date).getTime()) / 86_400_000));
   return (
-    <View style={styles.delta}>
-      <FsText variant="caption" style={styles.white}>
-        {delta > 0 ? '+' : ''}{formatWeight(delta, unit)} over {days} day{days === 1 ? '' : 's'}
-      </FsText>
-    </View>
+    <FsText variant="bodyMedium" style={styles.white}>
+      {delta > 0 ? '+' : ''}{formatWeight(delta, unit)} over {days} day{days === 1 ? '' : 's'}
+    </FsText>
   );
 }
 
 const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#000' },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space[4], paddingVertical: space[3] },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   white: { color: '#fff' },
   dim: { color: 'rgba(255,255,255,0.65)' },
-  singleWrap: { flex: 1 },
-  caption: { alignItems: 'center', paddingVertical: space[3] },
+  closeBtn: {
+    position: 'absolute', left: space[4], zIndex: 20,
+    width: 38, height: 38, borderRadius: 19,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  // Single view — weight/date + Compare overlaid on the bottom of the full-bleed photo. A soft scrim
+  // keeps the white text legible over a bright photo (no gradient lib, so a low-opacity band).
+  bottomOverlay: {
+    position: 'absolute', left: 0, right: 0, bottom: 0,
+    flexDirection: 'row', alignItems: 'center', gap: space[3],
+    paddingHorizontal: space[4], paddingTop: space[8],
+    backgroundColor: 'rgba(0,0,0,0.32)',
+  },
+  // Compare view — two full-height photos side by side + a caption over each.
   twoUp: { flex: 1, flexDirection: 'row', gap: 2 },
   col: { flex: 1 },
-  colCaption: { alignItems: 'center', paddingVertical: space[2] },
-  delta: { alignItems: 'center', paddingVertical: space[2], borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.15)' },
-  actions: { paddingHorizontal: space[4], paddingTop: space[2] },
+  colCaption: {
+    position: 'absolute', bottom: 0, left: 0, right: 0, alignItems: 'center', gap: 2,
+    paddingTop: space[4], paddingBottom: space[2], backgroundColor: 'rgba(0,0,0,0.32)',
+  },
+  bottomBar: {
+    alignItems: 'center', gap: space[1],
+    paddingHorizontal: space[4], paddingTop: space[3],
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.12)',
+  },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: space[4] },
   pickCard: { backgroundColor: '#1c1c1e', borderRadius: radius.lg, padding: space[4] },
   pickRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[2] },
