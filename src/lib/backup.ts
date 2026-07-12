@@ -6,6 +6,7 @@ import { useRoutineStore } from '@/stores/routineStore';
 import { useRemindersStore, REMINDER_KEYS } from '@/stores/remindersStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { syncScheduledNotifications } from '@/lib/reminders';
+import { clearProgressPhotos } from '@/lib/progressPhoto';
 import { todayLocal } from '@/lib/date';
 
 /**
@@ -150,6 +151,8 @@ export function wipeAllData(): void {
     db.runSync(`DELETE FROM food_items WHERE barcode IS NULL OR barcode NOT LIKE 'base:%'`);
     db.runSync(`DELETE FROM exercises WHERE exerciseDbId IS NULL`);
   });
+
+  clearProgressPhotos(); // the weigh-in rows are gone — purge their photo files too (privacy + storage)
 
   useRoutineStore.setState({ routines: [], defaultRoutineId: null });
   for (const k of REMINDER_KEYS) useRemindersStore.getState().setReminder(k, { enabled: false, bannerDismissedFor: null });

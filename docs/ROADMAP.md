@@ -3,6 +3,18 @@
 Honest status of the rebuild. **Update this when features land or plans change.**
 
 ## Done
+- [x] **Progress photos on weigh-ins (attach + view + side-by-side compare)** — tap a logged weigh-in
+      (Health-imported or manual) → **Add progress photo** (Take photo / Choose from library) attaches an
+      image; the row then shows a small photo icon on Health → Weight. Tapping the thumbnail opens a
+      full-screen viewer (`app/photo-compare.tsx`, `fullScreenModal`) with **Compare with…** → a picker of
+      only the other weigh-ins that have photos → **side-by-side** panels ordered oldest→newest with the
+      weight change over the span. Storage mirrors the avatar (`lib/progressPhoto.ts`): a **filename** is
+      stored on `weight_entries.photoUri` (new idempotent column) and the file lives device-local under
+      `Documents/progress-photos/`, resolved to an absolute URI at display time (survives iOS container
+      changes). Files are cleaned up on remove / delete-weigh-in (both swipe + editor paths) and on the full
+      **wipe** (`clearProgressPhotos`); `deleteWeightEntry` nulls `photoUri` so re-logging a date can't revive
+      a dangling reference. Reuses existing camera/photo permissions — no new native config. **Not** synced or
+      in the JSON backup (only the filename rides along; a cross-device restore yields a resolvable-to-null name).
 - [x] **Home Assistant add-on (Hale Hub) + snapshot sync** — a sibling repo `hale-mcp-addon` (Node/TS,
       modeled on `orbit-hub`) packages a Home Assistant add-on that holds a copy of your Hale data on the
       HA box and exposes it over **MCP** for a local LLM ("daily briefing"). The phone pushes a full

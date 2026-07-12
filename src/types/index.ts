@@ -182,6 +182,8 @@ export interface WeightEntry {
   visceralFatKg?: number | null
   /** DEXA bone-density T-score (SDs vs a young-adult reference). Sparse. */
   boneTScore?: number | null
+  /** Progress-photo filename (under Documents/progress-photos). Resolve via `lib/progressPhoto`. */
+  photoUri?: string | null
   source: DataSource
   createdAt: string
 }

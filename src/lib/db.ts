@@ -296,6 +296,8 @@ function runMigrations() {
   ensureColumn('weight_entries', 'boneMassKg', 'REAL');
   ensureColumn('weight_entries', 'visceralFatKg', 'REAL');
   ensureColumn('weight_entries', 'boneTScore', 'REAL');
+  // Progress photo attached to a weigh-in — a filename under Documents/progress-photos (device-local).
+  ensureColumn('weight_entries', 'photoUri', 'TEXT');
   // Heart-rate summary + downsampled series (from Health) for the workout window.
   ensureColumn('workout_sessions', 'avgHeartRate', 'REAL');
   ensureColumn('workout_sessions', 'minHeartRate', 'REAL');

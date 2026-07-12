@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { View, StyleSheet, Pressable, PanResponder } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { TrendingDown, TrendingUp, Maximize2, Minimize2 } from 'lucide-react-native';
+import { TrendingDown, TrendingUp, Maximize2, Minimize2, ImageIcon } from 'lucide-react-native';
 import Svg, { Path, Line, Circle, Text as SvgText } from 'react-native-svg';
 
 import { Card, FsText, Button, SectionHeader, Badge } from '@/components/ui';
@@ -10,6 +10,7 @@ import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { ActivitySuggestions } from '@/components/ActivitySuggestions';
 import { GoalWarning } from '@/components/GoalWarning';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
+import { deleteProgressPhoto } from '@/lib/progressPhoto';
 import { goalSafetyWarning, describePace, goalDateStat } from '@/lib/targets';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { usePullRefresh } from '@/stores/refreshStore';
@@ -47,6 +48,7 @@ export function HealthWeight() {
   usePullRefresh(refresh);
 
   const remove = (e: WeightEntry) => {
+    deleteProgressPhoto(e.photoUri); // reclaim the attached photo file (swipe-delete path)
     healthRepo.deleteWeightEntry(e.id);
     refresh();
   };
@@ -156,7 +158,10 @@ export function HealthWeight() {
             <Pressable onPress={() => router.push({ pathname: '/log-weight', params: { date: e.date } })}>
               <Card style={{ marginBottom: space[2], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <FsText variant="bodyMedium">{formatWeight(e.weightKg, unit)}</FsText>
-                <FsText variant="caption">{e.date}{e.bodyFat ? ` · ${e.bodyFat}% BF` : ''}</FsText>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
+                  {e.photoUri ? <ImageIcon color={colors.muted} size={14} /> : null}
+                  <FsText variant="caption">{e.date}{e.bodyFat ? ` · ${e.bodyFat}% BF` : ''}</FsText>
+                </View>
               </Card>
             </Pressable>
           </SwipeToDelete>

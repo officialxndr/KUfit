@@ -315,6 +315,19 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
   `log-weight?date=` (edit mode) — `HealthRepo.updateWeightEntryValues` changes weight/body-fat **in place**,
   preserving `source` + DEXA columns (a blank body-fat field clears just that reading); the row still swipes to delete. The Goals editor shows the derived weight read-only; weight mode is
   unchanged. No downstream rewiring — by design only the *input method* differs.
+- **Progress photos** (`lib/progressPhoto.ts` + `weight_entries.photoUri` + `app/photo-compare.tsx`) — attach a
+  body photo to a weigh-in. Storage mirrors the **avatar** (`lib/avatar.ts`): store only a **filename** on the
+  row and re-derive the absolute URI at display (iOS container UUID changes on update), but in a dedicated
+  `Documents/progress-photos/` dir. `pickProgressPhoto('camera'|'library')` requests the matching permission
+  (Alert → Open Settings when permanently denied), `launchCamera/ImageLibraryAsync` then **`await File.copy`**
+  (copy is async in expo-file-system 56) into the dir; `resolveProgressPhotoUri` resolves by basename (null if
+  the file is gone); `deleteProgressPhoto` / `clearProgressPhotos` reclaim files. `HealthRepo`: `setWeightPhoto`,
+  `getWeighInsWithPhotos`, and `deleteWeightEntry` now also **nulls `photoUri`** so a re-logged date can't revive
+  a dangling ref. The edit screen (`log-weight.tsx`, edit mode only) adds/views/removes the photo; `HealthWeight`
+  rows show a photo icon; `photo-compare.tsx` (a `fullScreenModal`) is a full-screen viewer + **Compare with…**
+  picker (only weigh-ins that have photos) → **side-by-side** panels ordered oldest→newest with the weight change
+  over the span. Photos are **device-local**: not synced, not in the JSON backup (only the filename is, so a
+  cross-device restore resolves to null — the file is absent), and purged on the full data wipe (`backup.ts`).
 - `lib/load.ts` — **per-side load** for volume. `defaultPerSide(equipment)` (true for Dumbbell/Kettlebell),
   `isPerSide(ex)` (explicit `exercise.perSide` override else the equipment default), `loadFactor(ex)` (×2
   for per-side, else ×1; **forced to ×1 when `exercise.unilateral`** since both arms are logged as
