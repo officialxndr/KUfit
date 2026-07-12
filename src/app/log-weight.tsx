@@ -149,16 +149,14 @@ export default function LogWeight() {
           <View style={{ marginTop: space[6] }}>
             <FsText variant="caption" style={{ marginBottom: space[2] }}>Progress photo</FsText>
             {photoUri ? (
-              <View style={{ flexDirection: 'row', gap: space[3] }}>
+              <View style={{ gap: space[3] }}>
                 <Pressable onPress={openPhoto}>
-                  <Image source={{ uri: photoUri }} style={styles.thumb} contentFit="cover" />
+                  <Image source={{ uri: photoUri }} style={styles.photo} contentFit="cover" />
                 </Pressable>
-                <View style={{ flex: 1, justifyContent: 'center', gap: space[2] }}>
-                  <Button title="View & compare" variant="ghost" onPress={openPhoto} />
-                  <Pressable onPress={removePhoto} hitSlop={8} style={{ alignSelf: 'flex-start', padding: space[1] }}>
-                    <FsText variant="caption" style={{ color: colors.danger }}>Remove photo</FsText>
-                  </Pressable>
-                </View>
+                <Button title="View & compare" variant="ghost" onPress={openPhoto} />
+                <Pressable onPress={removePhoto} hitSlop={8} style={{ alignSelf: 'center', padding: space[1] }}>
+                  <FsText variant="bodyMedium" style={{ color: colors.danger }}>Remove photo</FsText>
+                </Pressable>
               </View>
             ) : (
               <Pressable onPress={addPhoto} style={styles.addPhoto}>
@@ -191,7 +189,7 @@ const styles = themedStyles(() => StyleSheet.create({
     backgroundColor: colors.surfaceHigh, borderRadius: radius.md, paddingHorizontal: 14,
   },
   input: { flex: 1, color: colors.text, paddingVertical: 14, fontSize: 18 },
-  thumb: { width: 132, height: 176, borderRadius: radius.md, backgroundColor: colors.surfaceHigh },
+  photo: { width: '100%', aspectRatio: 3 / 4, borderRadius: radius.md, backgroundColor: colors.surfaceHigh },
   addPhoto: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space[2],
     backgroundColor: colors.surfaceHigh, borderRadius: radius.md, paddingVertical: 14,

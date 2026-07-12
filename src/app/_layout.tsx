@@ -14,6 +14,7 @@ import { endLiveActivity } from '@/lib/liveActivity';
 import { initWatchBridge, syncWatch } from '@/lib/watch';
 import { syncHealthWeights, ensureHealthWeightObserver } from '@/lib/healthSync';
 import { repairOffFoodItems } from '@/lib/offRepair';
+import { lockPortrait } from '@/lib/orientation';
 import { syncNow } from '@/lib/sync';
 import { configureNotifications, syncScheduledNotifications } from '@/lib/reminders';
 import { useRemindersStore } from '@/stores/remindersStore';
@@ -40,6 +41,8 @@ export default function RootLayout() {
     } catch (e) {
       console.error('startup init failed', e);
     }
+    // Pin the app to portrait by default (the photo-compare screen unlocks landscape itself).
+    lockPortrait();
     // One-time background repair of OFF food items imported before the serving-size fix.
     repairOffFoodItems().catch(() => {});
     // Re-assert the local notification schedule from the persisted reminder settings.

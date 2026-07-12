@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, Pressable, Modal, ScrollView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FsText, Button } from '@/components/ui';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { resolveProgressPhotoUri } from '@/lib/progressPhoto';
+import { allowRotation, lockPortrait } from '@/lib/orientation';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { formatWeight } from '@/lib/units';
 import { shortDate, parseLocalDay } from '@/lib/date';
@@ -45,6 +46,11 @@ export default function PhotoCompare() {
     : null;
 
   const close = () => router.back();
+
+  // Allow landscape only while comparing two photos — side-by-side fills a wide screen far better.
+  // A single photo stays portrait (taller box = bigger image). Re-lock portrait when leaving.
+  useEffect(() => { if (second) allowRotation(); else lockPortrait(); }, [second]);
+  useEffect(() => () => { lockPortrait(); }, []);
 
   if (!primary) {
     return (
