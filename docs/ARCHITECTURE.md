@@ -325,8 +325,13 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
   `getWeighInsWithPhotos`, and `deleteWeightEntry` now also **nulls `photoUri`** so a re-logged date can't revive
   a dangling ref. The edit screen (`log-weight.tsx`, edit mode only) adds/views/removes the photo; `HealthWeight`
   rows show a photo icon; `photo-compare.tsx` (a `fullScreenModal`) is a full-screen, edge-to-edge viewer +
-  **Compare with…** picker (only weigh-ins that have photos) → **side-by-side** panels ordered oldest→newest with
-  the weight change over the span. Photos are **device-local**: not synced, not in the JSON backup (only the
+  **Compare with…** picker (only weigh-ins that have photos). Photos are **pinch-to-zoom / pan / double-tap**
+  (`components/ZoomableImage.tsx` — gesture-handler + reanimated, pan clamped to the image edges), and the two
+  compare either **side by side** (each zoomable) or as a draggable **before/after slider** (a mode toggle;
+  the divider is stored as a 0–1 fraction so rotation keeps its position), ordered oldest→newest with the
+  weight change over the span. **Gotcha:** a native-stack modal renders outside the app-root
+  `GestureHandlerRootView`, so this screen wraps its own — without it the gestures silently no-op (same fix as
+  `session.tsx`/`measurements.tsx`). Photos are **device-local**: not synced, not in the JSON backup (only the
   filename is, so a cross-device restore resolves to null — the file is absent), and purged on the full data wipe
   (`backup.ts`). **Rotation**: the app is portrait-locked at the root (`lib/orientation.ts` `lockPortrait`, called
   in `_layout.tsx`), but the compare view **unlocks landscape while two photos are shown** (`allowRotation` when a

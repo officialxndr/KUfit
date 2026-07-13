@@ -1,25 +1,32 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, StyleSheet, Pressable, Modal, ScrollView } from 'react-native';
+import { View, StyleSheet, Pressable, Modal, ScrollView, useWindowDimensions } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
-import { X } from 'lucide-react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedStyle } from 'react-native-reanimated';
+import { X, ChevronsLeftRight } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FsText, Button } from '@/components/ui';
+import { ZoomableImage } from '@/components/ZoomableImage';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { resolveProgressPhotoUri } from '@/lib/progressPhoto';
 import { allowRotation, lockPortrait } from '@/lib/orientation';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { formatWeight } from '@/lib/units';
 import { shortDate, parseLocalDay } from '@/lib/date';
-import { radius, space, themedStyles } from '@/theme/tokens';
+import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { WeightEntry, UnitSystem } from '@/types';
 
+type CompareMode = 'sideBySide' | 'slider';
+const HANDLE_W = 44;
+
 /**
- * Full-screen progress-photo viewer. The photo is edge-to-edge; the weight/date and controls are
- * overlaid so the image gets the whole screen. "Compare with…" picks another weigh-in that has a
- * photo and shows the two side by side (oldest → newest) with the weight change over the span.
+ * Full-screen progress-photo viewer. The photo is edge-to-edge and pinch-to-zoom / pan / double-tap
+ * (`ZoomableImage`). "Compare with…" picks another weigh-in that has a photo; the two show either
+ * side by side (each zoomable) or as a draggable before/after slider, oldest → newest, with the
+ * weight change over the span.
  */
 export default function PhotoCompare() {
   const router = useRouter();
@@ -32,6 +39,7 @@ export default function PhotoCompare() {
   const photos = useMemo(() => healthRepo.getWeighInsWithPhotos(), []);
   const [secondDate, setSecondDate] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [mode, setMode] = useState<CompareMode>('sideBySide');
 
   const second = secondDate ? photos.find((p) => p.date === secondDate) ?? null : null;
   // Candidates to compare against: every other photo weigh-in, minus the one already selected.
@@ -47,8 +55,8 @@ export default function PhotoCompare() {
 
   const close = () => router.back();
 
-  // Allow landscape only while comparing two photos — side-by-side fills a wide screen far better.
-  // A single photo stays portrait (taller box = bigger image). Re-lock portrait when leaving.
+  // Allow landscape only while comparing two photos — side-by-side / slider fill a wide screen far
+  // better. A single photo stays portrait (taller box = bigger image). Re-lock portrait on exit.
   useEffect(() => { if (second) allowRotation(); else lockPortrait(); }, [second]);
   useEffect(() => () => { lockPortrait(); }, []);
 
@@ -63,16 +71,23 @@ export default function PhotoCompare() {
   }
 
   return (
-    <View style={styles.screen}>
+    // A native-stack modal renders outside the app-root GestureHandlerRootView, so gestures inside it
+    // only fire when this subtree has its own — else pinch/pan/slider silently no-op (repo gotcha).
+    <GestureHandlerRootView style={styles.screen}>
       <StatusBar style="light" />
 
       {second && ordered ? (
         <>
-          <View style={styles.twoUp}>
-            <PhotoCol entry={ordered.older} unit={unit} />
-            <PhotoCol entry={ordered.newer} unit={unit} />
-          </View>
+          {mode === 'slider'
+            ? <SliderCompare older={ordered.older} newer={ordered.newer} unit={unit} />
+            : (
+              <View style={styles.twoUp}>
+                <PhotoCol key={ordered.older.date} entry={ordered.older} unit={unit} />
+                <PhotoCol key={ordered.newer.date} entry={ordered.newer} unit={unit} />
+              </View>
+            )}
           <View style={[styles.bottomBar, { paddingBottom: insets.bottom + space[3] }]}>
+            <ModeToggle mode={mode} onChange={setMode} />
             <CompareDelta older={ordered.older} newer={ordered.newer} unit={unit} />
             <Button title="Compare another" variant="ghost" onPress={() => setPickerOpen(true)} />
           </View>
@@ -80,8 +95,8 @@ export default function PhotoCompare() {
       ) : (
         <>
           <PhotoFill uri={resolveProgressPhotoUri(primary.photoUri)} />
-          <View style={[styles.bottomOverlay, { paddingBottom: insets.bottom + space[6] }]}>
-            <View style={{ flex: 1 }}>
+          <View style={[styles.bottomOverlay, { paddingBottom: insets.bottom + space[6] }]} pointerEvents="box-none">
+            <View style={{ flex: 1 }} pointerEvents="none">
               <FsText variant="stat" style={styles.white}>{formatWeight(primary.weightKg, unit)}</FsText>
               <FsText variant="caption" style={styles.dim}>{shortDate(primary.date)}</FsText>
             </View>
@@ -110,7 +125,7 @@ export default function PhotoCompare() {
           </Pressable>
         </Pressable>
       </Modal>
-    </View>
+    </GestureHandlerRootView>
   );
 }
 
@@ -122,9 +137,21 @@ function CloseButton({ onClose, top }: { onClose: () => void; top: number }) {
   );
 }
 
+function ModeToggle({ mode, onChange }: { mode: CompareMode; onChange: (m: CompareMode) => void }) {
+  return (
+    <View style={styles.seg}>
+      {([['sideBySide', 'Side by side'], ['slider', 'Slider']] as const).map(([m, label]) => (
+        <Pressable key={m} onPress={() => onChange(m)} style={[styles.segItem, mode === m && styles.segItemOn]}>
+          <FsText variant="caption" style={mode === m ? styles.white : styles.dim}>{label}</FsText>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
 function PhotoFill({ uri }: { uri: string | null }) {
   if (!uri) return <View style={[StyleSheet.absoluteFill, styles.center]}><FsText variant="caption" style={styles.dim}>Photo unavailable</FsText></View>;
-  return <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="contain" />;
+  return <ZoomableImage uri={uri} style={StyleSheet.absoluteFill} />;
 }
 
 function PhotoCol({ entry, unit }: { entry: WeightEntry; unit: UnitSystem }) {
@@ -132,11 +159,61 @@ function PhotoCol({ entry, unit }: { entry: WeightEntry; unit: UnitSystem }) {
   return (
     <View style={styles.col}>
       {uri
-        ? <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="contain" />
+        ? <ZoomableImage uri={uri} />
         : <View style={[StyleSheet.absoluteFill, styles.center]}><FsText variant="caption" style={styles.dim}>—</FsText></View>}
       <View style={styles.colCaption} pointerEvents="none">
         <FsText variant="bodyMedium" style={styles.white}>{formatWeight(entry.weightKg, unit)}</FsText>
         <FsText variant="caption" style={styles.dim}>{shortDate(entry.date)}</FsText>
+      </View>
+    </View>
+  );
+}
+
+/** Before/after wipe: the newer photo underneath, the older clipped from the left to a draggable divider. */
+function SliderCompare({ older, newer, unit }: { older: WeightEntry; newer: WeightEntry; unit: UnitSystem }) {
+  const { width } = useWindowDimensions();
+  // Store the divider as a 0..1 fraction (not pixels) so rotation preserves the user's position and
+  // the divider can never strand off-screen — width just scales it at render time.
+  const frac = useSharedValue(0.5);
+  const start = useSharedValue(0.5);
+
+  const pan = Gesture.Pan()
+    .onStart(() => { start.value = frac.value; })
+    .onUpdate((e) => { frac.value = Math.min(Math.max(start.value + e.translationX / width, 0), 1); });
+
+  const clipStyle = useAnimatedStyle(() => ({ width: frac.value * width }));
+  const handleStyle = useAnimatedStyle(() => ({ transform: [{ translateX: frac.value * width - HANDLE_W / 2 }] }));
+
+  const olderUri = resolveProgressPhotoUri(older.photoUri);
+  const newerUri = resolveProgressPhotoUri(newer.photoUri);
+
+  return (
+    <View style={styles.fill}>
+      {newerUri
+        ? <Image source={{ uri: newerUri }} style={StyleSheet.absoluteFill} contentFit="cover" />
+        : <View style={[StyleSheet.absoluteFill, styles.center]}><FsText variant="caption" style={styles.dim}>—</FsText></View>}
+
+      <Animated.View style={[styles.clip, clipStyle]}>
+        {olderUri
+          ? <Image source={{ uri: olderUri }} style={[styles.clipImg, { width }]} contentFit="cover" />
+          : <View style={[styles.clipImg, { width, backgroundColor: '#111' }, styles.center]}><FsText variant="caption" style={styles.dim}>—</FsText></View>}
+      </Animated.View>
+
+      <GestureDetector gesture={pan}>
+        <Animated.View style={[styles.handle, handleStyle]}>
+          <View style={styles.handleLine} />
+          <View style={styles.handleKnob}><ChevronsLeftRight color="#111" size={18} /></View>
+          <View style={styles.handleLine} />
+        </Animated.View>
+      </GestureDetector>
+
+      <View style={[styles.slLabel, { left: space[3] }]} pointerEvents="none">
+        <FsText variant="bodyMedium" style={styles.white}>{formatWeight(older.weightKg, unit)}</FsText>
+        <FsText variant="caption" style={styles.dim}>{shortDate(older.date)}</FsText>
+      </View>
+      <View style={[styles.slLabel, { right: space[3], alignItems: 'flex-end' }]} pointerEvents="none">
+        <FsText variant="bodyMedium" style={styles.white}>{formatWeight(newer.weightKg, unit)}</FsText>
+        <FsText variant="caption" style={styles.dim}>{shortDate(newer.date)}</FsText>
       </View>
     </View>
   );
@@ -154,6 +231,7 @@ function CompareDelta({ older, newer, unit }: { older: WeightEntry; newer: Weigh
 
 const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#000' },
+  fill: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   white: { color: '#fff' },
   dim: { color: 'rgba(255,255,255,0.65)' },
@@ -179,10 +257,22 @@ const styles = themedStyles(() => StyleSheet.create({
     paddingTop: space[4], paddingBottom: space[2], backgroundColor: 'rgba(0,0,0,0.32)',
   },
   bottomBar: {
-    alignItems: 'center', gap: space[1],
+    alignItems: 'center', gap: space[2],
     paddingHorizontal: space[4], paddingTop: space[3],
     borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.12)',
   },
+  // Slider (before/after wipe)
+  clip: { position: 'absolute', left: 0, top: 0, bottom: 0, overflow: 'hidden' },
+  clipImg: { position: 'absolute', left: 0, top: 0, bottom: 0 },
+  handle: { position: 'absolute', top: 0, bottom: 0, width: HANDLE_W, alignItems: 'center', justifyContent: 'center' },
+  handleLine: { width: 2, flex: 1, backgroundColor: 'rgba(255,255,255,0.9)' },
+  handleKnob: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', marginVertical: space[1] },
+  slLabel: { position: 'absolute', bottom: space[3], gap: 2 },
+  // Mode toggle (segmented)
+  seg: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: radius.md, padding: 2 },
+  segItem: { paddingHorizontal: space[4], paddingVertical: space[1], borderRadius: radius.sm },
+  segItemOn: { backgroundColor: colors.primary },
+  // Picker
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: space[4] },
   pickCard: { backgroundColor: '#1c1c1e', borderRadius: radius.lg, padding: space[4] },
   pickRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[2] },
