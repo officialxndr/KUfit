@@ -1,4 +1,4 @@
-import { View, StyleSheet, Pressable, ScrollView, Dimensions } from 'react-native';
+import { View, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { X } from 'lucide-react-native';
 
 import { FsText, Card, Badge } from '@/components/ui';
@@ -7,8 +7,6 @@ import { WorkoutSummaryBody } from '@/components/WorkoutSummaryBody';
 import { formatWeight } from '@/lib/units';
 import { colors, space, themedStyles } from '@/theme/tokens';
 import type { UnitSystem, WorkoutSession } from '@/types';
-
-const SCREEN_H = Dimensions.get('window').height;
 
 /**
  * Past-workout detail as a **bottom-sheet popup** (not the full-screen post-finish
@@ -35,10 +33,12 @@ export function WorkoutSummarySheet({ session, unit, onClose }: {
                 <Pressable onPress={onClose} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
               </View>
 
-              <WorkoutSummaryBody session={session} />
+              {/* One scroll region for the whole body: flexShrink lets it fill the sheet's capped
+                  height and scroll, so the summary + every exercise stay reachable (the head stays put). */}
+              <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: space[2] }}>
+                <WorkoutSummaryBody session={session} />
 
-              <FsText variant="overline" style={{ marginTop: space[4], marginBottom: space[2] }}>Exercises</FsText>
-              <ScrollView style={{ maxHeight: SCREEN_H * 0.4 }}>
+                <FsText variant="overline" style={{ marginTop: space[4], marginBottom: space[2] }}>Exercises</FsText>
                 {session.exercises.map((e) => (
                   <Card key={e.id} style={{ marginBottom: space[2] }}>
                     <FsText variant="bodyMedium" style={{ marginBottom: space[1] }}>{e.exercise.name}</FsText>

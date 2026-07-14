@@ -15,9 +15,11 @@ const SCREEN_H = Dimensions.get('window').height;
  * flipping `visible` — always animates out (the sheet stays mounted until the
  * slide-out finishes).
  *
- * Children supply their own content below the grab strip. For tall content,
- * wrap it in a `ScrollView` with a `maxHeight` so it scrolls independently of
- * the drag gesture.
+ * Children supply their own content below the grab strip. The sheet is capped
+ * at `maxHeight`, so for tall content wrap the scrollable part in a `ScrollView`
+ * with `flexShrink: 1` (keeping any fixed header as a sibling above it): it fills
+ * the remaining capped space and scrolls, independently of the drag gesture. (An
+ * explicit `maxHeight` on the inner ScrollView also works but over-constrains it.)
  */
 export function BottomSheet({
   visible,

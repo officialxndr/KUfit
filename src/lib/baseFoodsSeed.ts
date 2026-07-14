@@ -6,7 +6,7 @@ import type { FoodDetails, NutrimentEntry } from '@/types';
 
 // Bump whenever assets/foods/base-ingredients.json changes so existing installs
 // re-seed (update-in-place) instead of keeping stale rows.
-const BASE_FOODS_VERSION = '5';
+const BASE_FOODS_VERSION = '6';
 
 interface BaseFood {
   slug: string;
@@ -44,8 +44,8 @@ const ALLERGEN_GROUPS: Record<string, string[]> = {
   'en:soybeans': ['tofu', 'edamame', 'tempeh', 'soy-milk', 'soy-sauce'],
   'en:sesame-seeds': ['tahini'],
   'en:fish': ['salmon', 'cod', 'tuna-canned', 'tilapia', 'sardines', 'tuna-steak', 'halibut', 'mahi-mahi',
-    'trout', 'canned-salmon', 'smoked-salmon', 'anchovies'],
-  'en:crustaceans': ['shrimp', 'crab', 'lobster'],
+    'trout', 'canned-salmon', 'smoked-salmon', 'anchovies', 'salmon-raw'],
+  'en:crustaceans': ['shrimp', 'crab', 'lobster', 'shrimp-raw'],
   'en:molluscs': ['scallops', 'mussels', 'calamari'],
   'en:gluten': ['whole-wheat-bread', 'white-bread', 'flour-tortilla', 'couscous', 'bagel', 'pasta',
     'sourdough-bread', 'rye-bread', 'multigrain-bread', 'english-muffin', 'pita', 'naan', 'pancake', 'waffle',

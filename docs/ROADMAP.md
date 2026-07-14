@@ -3,6 +3,12 @@
 Honest status of the rebuild. **Update this when features land or plans change.**
 
 ## Done
+- [x] **Raw-meat base foods + workout-summary sheet scroll fix** — added 11 **raw** cuts to the bundled base
+      foods (`assets/foods/base-ingredients.json`, per-100 g USDA raw: chicken breast/thigh, ground chicken/
+      turkey, ground beef 80·90·93, pork chop/tenderloin, salmon, shrimp) so recipes weighed from raw log
+      accurately, searchable as "… (raw)" beside the cooked ones (`BASE_FOODS_VERSION`→6 re-seeds installs).
+      Fixed the past-workout summary **bottom sheet** not scrolling — the whole body (summary + every exercise)
+      now lives in one `flexShrink` `ScrollView` that fills the sheet instead of only the exercise list scrolling.
 - [x] **Progress photos on weigh-ins (attach + view + side-by-side compare)** — tap a logged weigh-in
       (Health-imported or manual) → **Add progress photo** (Take photo / Choose from library) attaches an
       image; the row then shows a small photo icon on Health → Weight. Tapping the thumbnail opens a
