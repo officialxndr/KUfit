@@ -503,7 +503,12 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
   **recipe editor** (`recipe/new` — adding/editing an ingredient opens the same sheet so amounts are
   grams/oz/servings/portions, not just whole servings; `onSubmit`'s servings multiplier is stored as the
   ingredient's `quantity`, a `REAL`). `hideDayContext` drops the day-total toggle + calorie-goal bar for
-  the recipe case (no "day"). Edit mode passes `baselineQty` to strip the existing entry from the projection. Implements
+  the recipe case (no "day"). The recipe editor adds ingredients via a **full-screen search overlay**
+  (a `+ Add ingredient` button → pinned input + scrolling `FlatList`, so the keyboard can't cover it —
+  fixing the old inline box) that runs the **same `searchFood` local + Open Food Facts search as
+  `add-food`** (debounced, stale-guarded); a picked OFF product is persisted via `ensureFoodItem` on
+  submit (its `localId` backfilled onto the candidate to dedupe re-taps), then referenced as the
+  ingredient. Android hardware-back closes the overlay (a `BackHandler`, since it's a plain `View` not a Modal). Edit mode passes `baselineQty` to strip the existing entry from the projection. Implements
   the **same draggable-sheet pattern as `BottomSheet`** directly (it predates the shared component and
   adds keyboard-avoidance + a derived scroll `maxHeight`); embeds `FoodDetails` for OFF rich data. For
   a recipe with a `servingWeightG`, the sheet offers a `g` unit so recipes log by weight.

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { View, TextInput, StyleSheet, Pressable, ScrollView, FlatList, Alert, Keyboard, BackHandler } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { View, TextInput, StyleSheet, Pressable, ScrollView, FlatList, ActivityIndicator, Alert, Keyboard, BackHandler } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { X, Search, Plus, Minus, Trash2 } from 'lucide-react-native';
@@ -7,6 +7,7 @@ import { X, Search, Plus, Minus, Trash2 } from 'lucide-react-native';
 import { FsText, Button, Card } from '@/components/ui';
 import { FoodQuantitySheet, type SheetFood } from '@/components/FoodQuantitySheet';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
+import { searchFood, ensureFoodItem, type FoodCandidate } from '@/lib/foodSearch';
 import { todayLocal } from '@/lib/date';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { FoodItem } from '@/types';
@@ -24,11 +25,19 @@ const fmtAmount = (i: Ingredient) => {
   return `${Number.isInteger(n) ? n : n.toFixed(1)} ${unit}${plural}`;
 };
 
-/** FoodItem → the sheet's minimal food shape; drop last-logged prefill so recipes open at the set qty. */
-const toSheetFood = (fi: FoodItem): SheetFood => ({
-  name: fi.name, brand: fi.brand, servingSize: fi.servingSize, servingUnit: fi.servingUnit,
-  servingText: fi.servingText, calories: fi.calories, protein: fi.protein, carbs: fi.carbs, fat: fi.fat,
-  fiber: fi.fiber, sugar: fi.sugar, sodium: fi.sodium, saturatedFat: fi.saturatedFat, details: fi.details,
+/** A saved FoodItem (an existing ingredient) → a search candidate, so the sheet takes one shape. */
+const toCandidate = (fi: FoodItem): FoodCandidate => ({
+  ...fi, localId: fi.id, barcode: fi.barcode ?? null, brand: fi.brand ?? null,
+  fiber: fi.fiber ?? null, sugar: fi.sugar ?? null, sodium: fi.sodium ?? null,
+  saturatedFat: fi.saturatedFat ?? null, isFavorite: fi.isFavorite ?? false, details: fi.details ?? null,
+});
+
+/** Candidate (local OR Open Food Facts) → the sheet's food shape; drop last-logged prefill so a
+ *  recipe ingredient opens at its set quantity, not the food's last-logged amount. */
+const toSheetFood = (c: FoodCandidate): SheetFood => ({
+  name: c.name, brand: c.brand, servingSize: c.servingSize, servingUnit: c.servingUnit,
+  servingText: c.servingText, calories: c.calories, protein: c.protein, carbs: c.carbs, fat: c.fat,
+  fiber: c.fiber, sugar: c.sugar, sodium: c.sodium, saturatedFat: c.saturatedFat, details: c.details,
   lastAmount: null, lastUnit: null,
 });
 
@@ -55,18 +64,45 @@ export default function NewRecipe() {
   }, [id]);
 
   const [searchOpen, setSearchOpen] = useState(false);
-  const results = useMemo(() => (query.trim() ? foodRepo.searchFoodItems(query.trim()).slice(0, 30) : []), [query]);
+
+  // Ingredient search = the same local + Open Food Facts search as normal food logging (so you can
+  // pull in e.g. "Great Value breadcrumbs"), debounced. <2 chars shows your recent foods.
+  const [results, setResults] = useState<FoodCandidate[]>([]);
+  const [loading, setLoading] = useState(false);
+  const reqId = useRef(0);
+  useEffect(() => {
+    if (!searchOpen) return;
+    const ql = query.trim();
+    if (ql.length < 2) {
+      setResults(foodRepo.getRecentFoodItems(10).map(toCandidate));
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const my = ++reqId.current;
+    const t = setTimeout(async () => {
+      try {
+        const page = await searchFood(query, 1);
+        if (my === reqId.current) setResults(page.items);
+      } catch { if (my === reqId.current) setResults([]); }
+      finally { if (my === reqId.current) setLoading(false); }
+    }, 350);
+    return () => clearTimeout(t);
+  }, [query, searchOpen]);
 
   // Adding/editing an ingredient opens the same quantity sheet as food logging, so the amount can be
   // grams / oz / servings / portions (or the Bluetooth scale) — not just whole servings. The sheet
   // returns a servings multiplier, stored as `quantity`; nutrition scales by it directly.
-  const [sheet, setSheet] = useState<FoodItem | null>(null);
-  const sheetExisting = sheet ? ingredients.some((i) => i.foodItem.id === sheet.id) : false;
-  const sheetQty = sheet ? ingredients.find((i) => i.foodItem.id === sheet.id)?.quantity : undefined;
+  const [sheet, setSheet] = useState<FoodCandidate | null>(null);
+  // Match a candidate to an already-added ingredient by local id or barcode (OFF picks share barcodes).
+  const matchIngredient = (c: FoodCandidate) =>
+    ingredients.find((i) => (!!c.localId && i.foodItem.id === c.localId) || (c.barcode != null && i.foodItem.barcode === c.barcode));
+  const sheetExisting = sheet ? !!matchIngredient(sheet) : false;
+  const sheetQty = sheet ? matchIngredient(sheet)?.quantity : undefined;
 
   // Open the quantity sheet over the search overlay; drop the keyboard so it doesn't fight the sheet.
   // The overlay stays up underneath, so after adding one you can keep searching for the next.
-  const openSheet = (fi: FoodItem) => { Keyboard.dismiss(); setSheet(fi); };
+  const openSheet = (c: FoodCandidate) => { Keyboard.dismiss(); setSheet(c); };
   const closeSearch = () => { setSearchOpen(false); setQuery(''); };
 
   // Android: while the search overlay is open, hardware Back should close it — not pop the whole
@@ -77,12 +113,20 @@ export default function NewRecipe() {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => { closeSearch(); return true; });
     return () => sub.remove();
   }, [searchOpen]);
+
   const applyQty = (qty: number) => {
     if (!sheet) return;
+    // Persist an OFF pick as a FoodItem now (idempotent for locals) so the ingredient has a real id.
+    const id = ensureFoodItem(sheet);
+    const fi = foodRepo.getFoodItemById(id);
+    if (!fi) return;
+    // Backfill the picked candidate's localId so re-tapping the same (barcode-less) result edits the
+    // ingredient in place rather than creating a duplicate food + row.
+    if (!sheet.localId) setResults((rs) => rs.map((r) => (r === sheet ? { ...r, localId: id } : r)));
     setIngredients((list) => (
-      list.some((i) => i.foodItem.id === sheet.id)
-        ? list.map((i) => (i.foodItem.id === sheet.id ? { ...i, quantity: qty } : i))
-        : [...list, { foodItem: sheet, quantity: qty }]
+      list.some((i) => i.foodItem.id === fi.id)
+        ? list.map((i) => (i.foodItem.id === fi.id ? { ...i, quantity: qty } : i))
+        : [...list, { foodItem: fi, quantity: qty }]
     ));
     setSheet(null);
   };
@@ -193,7 +237,7 @@ export default function NewRecipe() {
         ) : (
           ingredients.map((i) => (
             <Card key={i.foodItem.id} style={styles.ingRow}>
-              <Pressable style={{ flex: 1 }} onPress={() => setSheet(i.foodItem)}>
+              <Pressable style={{ flex: 1 }} onPress={() => setSheet(toCandidate(i.foodItem))}>
                 <FsText variant="bodyMedium" numberOfLines={1}>{i.foodItem.name}</FsText>
                 <FsText variant="caption">
                   {fmtAmount(i)} · {Math.round(i.foodItem.calories * i.quantity)} kcal · tap to edit
@@ -228,7 +272,7 @@ export default function NewRecipe() {
                 <TextInput
                   value={query}
                   onChangeText={setQuery}
-                  placeholder="Search your food items…"
+                  placeholder="Search foods (yours + Open Food Facts)…"
                   placeholderTextColor={colors.muted}
                   style={{ flex: 1, color: colors.text, paddingVertical: 10, fontSize: 15 }}
                   autoFocus
@@ -241,18 +285,18 @@ export default function NewRecipe() {
             </View>
             <FlatList
               data={results}
-              keyExtractor={(fi) => fi.id}
+              keyExtractor={(c, idx) => (c.localId ?? c.barcode ?? c.name) + idx}
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={{ padding: space[4], paddingBottom: 200 }}
-              renderItem={({ item: fi }) => {
-                const inRecipe = ingredients.some((i) => i.foodItem.id === fi.id);
+              renderItem={({ item: c }) => {
+                const inRecipe = !!matchIngredient(c);
                 return (
-                  <Pressable onPress={() => openSheet(fi)}>
+                  <Pressable onPress={() => openSheet(c)}>
                     <Card style={styles.resultRow}>
                       <View style={{ flex: 1 }}>
-                        <FsText variant="body" numberOfLines={1}>{fi.name}</FsText>
-                        <FsText variant="caption">
-                          {Math.round(fi.calories)} kcal · {fi.servingSize}{fi.servingUnit}{inRecipe ? ' · in recipe' : ''}
+                        <FsText variant="body" numberOfLines={1}>{c.name}</FsText>
+                        <FsText variant="caption" numberOfLines={1}>
+                          {c.brand ? `${c.brand} · ` : ''}{Math.round(c.calories)} kcal · {c.servingSize}{c.servingUnit}{inRecipe ? ' · in recipe' : ''}
                         </FsText>
                       </View>
                       <Plus color={inRecipe ? colors.muted : colors.primary} size={18} />
@@ -260,12 +304,24 @@ export default function NewRecipe() {
                   </Pressable>
                 );
               }}
+              ListHeaderComponent={
+                loading ? (
+                  <View style={{ paddingBottom: space[3], alignItems: 'center' }}><ActivityIndicator color={colors.primary} /></View>
+                ) : null
+              }
               ListEmptyComponent={
-                <FsText variant="caption">
-                  {query.trim()
-                    ? 'No matching food items. Log or create foods first (Food → +), then add them here.'
-                    : 'Search your food items to add them to the recipe.'}
-                </FsText>
+                loading ? null : (
+                  <FsText variant="caption">
+                    {query.trim().length >= 2 ? 'No matches. Try another search, or create a custom food from Food → +.' : 'Search your foods and Open Food Facts to add ingredients.'}
+                  </FsText>
+                )
+              }
+              ListFooterComponent={
+                results.length > 0 ? (
+                  <FsText variant="caption" style={{ textAlign: 'center', marginTop: space[3], color: colors.muted }}>
+                    Food data · Open Food Facts (ODbL)
+                  </FsText>
+                ) : null
               }
             />
           </SafeAreaView>
@@ -281,7 +337,7 @@ export default function NewRecipe() {
         submitLabel={sheetExisting ? 'Save' : 'Add to Recipe'}
         onSubmit={(servings) => applyQty(servings)}
         onClose={() => setSheet(null)}
-        onDelete={sheetExisting ? () => { remove(sheet!.id); setSheet(null); } : undefined}
+        onDelete={sheetExisting ? () => { const m = matchIngredient(sheet!); if (m) remove(m.foodItem.id); setSheet(null); } : undefined}
       />
     </SafeAreaView>
   );
