@@ -5,7 +5,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { X, Search, Plus, Minus, Trash2 } from 'lucide-react-native';
 
 import { FsText, Button, Card } from '@/components/ui';
+import { FoodQuantitySheet, type SheetFood } from '@/components/FoodQuantitySheet';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
+import { todayLocal } from '@/lib/date';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { FoodItem } from '@/types';
 
@@ -13,6 +15,22 @@ interface Ingredient {
   foodItem: FoodItem;
   quantity: number;
 }
+
+/** The stored `quantity` is a servings multiplier; show the resolved amount in the food's own unit. */
+const fmtAmount = (i: Ingredient) => {
+  const n = Math.round(i.quantity * i.foodItem.servingSize * 10) / 10;
+  const unit = i.foodItem.servingUnit;
+  const plural = unit === 'serving' && n !== 1 ? 's' : ''; // only 'serving' pluralizes cleanly
+  return `${Number.isInteger(n) ? n : n.toFixed(1)} ${unit}${plural}`;
+};
+
+/** FoodItem → the sheet's minimal food shape; drop last-logged prefill so recipes open at the set qty. */
+const toSheetFood = (fi: FoodItem): SheetFood => ({
+  name: fi.name, brand: fi.brand, servingSize: fi.servingSize, servingUnit: fi.servingUnit,
+  servingText: fi.servingText, calories: fi.calories, protein: fi.protein, carbs: fi.carbs, fat: fi.fat,
+  fiber: fi.fiber, sugar: fi.sugar, sodium: fi.sodium, saturatedFat: fi.saturatedFat, details: fi.details,
+  lastAmount: null, lastUnit: null,
+});
 
 export default function NewRecipe() {
   const router = useRouter();
@@ -38,12 +56,23 @@ export default function NewRecipe() {
 
   const results = useMemo(() => (query.trim() ? foodRepo.searchFoodItems(query.trim()).slice(0, 12) : []), [query]);
 
-  const add = (fi: FoodItem) => {
-    setIngredients((list) => (list.some((i) => i.foodItem.id === fi.id) ? list : [...list, { foodItem: fi, quantity: 1 }]));
-    setQuery('');
+  // Adding/editing an ingredient opens the same quantity sheet as food logging, so the amount can be
+  // grams / oz / servings / portions (or the Bluetooth scale) — not just whole servings. The sheet
+  // returns a servings multiplier, stored as `quantity`; nutrition scales by it directly.
+  const [sheet, setSheet] = useState<FoodItem | null>(null);
+  const sheetExisting = sheet ? ingredients.some((i) => i.foodItem.id === sheet.id) : false;
+  const sheetQty = sheet ? ingredients.find((i) => i.foodItem.id === sheet.id)?.quantity : undefined;
+
+  const openSheet = (fi: FoodItem) => { setSheet(fi); setQuery(''); };
+  const applyQty = (qty: number) => {
+    if (!sheet) return;
+    setIngredients((list) => (
+      list.some((i) => i.foodItem.id === sheet.id)
+        ? list.map((i) => (i.foodItem.id === sheet.id ? { ...i, quantity: qty } : i))
+        : [...list, { foodItem: sheet, quantity: qty }]
+    ));
+    setSheet(null);
   };
-  const setQty = (id: string, delta: number) =>
-    setIngredients((list) => list.map((i) => (i.foodItem.id === id ? { ...i, quantity: Math.max(1, i.quantity + delta) } : i)));
   const remove = (id: string) => setIngredients((list) => list.filter((i) => i.foodItem.id !== id));
 
   const total = ingredients.reduce(
@@ -151,24 +180,15 @@ export default function NewRecipe() {
         ) : (
           ingredients.map((i) => (
             <Card key={i.foodItem.id} style={styles.ingRow}>
-              <View style={{ flex: 1 }}>
+              <Pressable style={{ flex: 1 }} onPress={() => setSheet(i.foodItem)}>
                 <FsText variant="bodyMedium" numberOfLines={1}>{i.foodItem.name}</FsText>
                 <FsText variant="caption">
-                  {i.quantity} × {i.foodItem.servingSize}{i.foodItem.servingUnit} · {Math.round(i.foodItem.calories * i.quantity)} kcal
+                  {fmtAmount(i)} · {Math.round(i.foodItem.calories * i.quantity)} kcal · tap to edit
                 </FsText>
-              </View>
-              <View style={styles.stepper}>
-                <Pressable style={styles.stepBtnSm} onPress={() => setQty(i.foodItem.id, -1)} hitSlop={4}>
-                  <Minus color={colors.text} size={14} />
-                </Pressable>
-                <FsText variant="bodyMedium" style={{ minWidth: 20, textAlign: 'center' }}>{i.quantity}</FsText>
-                <Pressable style={styles.stepBtnSm} onPress={() => setQty(i.foodItem.id, 1)} hitSlop={4}>
-                  <Plus color={colors.text} size={14} />
-                </Pressable>
-                <Pressable onPress={() => remove(i.foodItem.id)} hitSlop={6} style={{ marginLeft: space[2] }}>
-                  <Trash2 color={colors.muted} size={16} />
-                </Pressable>
-              </View>
+              </Pressable>
+              <Pressable onPress={() => remove(i.foodItem.id)} hitSlop={6} style={{ marginLeft: space[2] }}>
+                <Trash2 color={colors.muted} size={18} />
+              </Pressable>
             </Card>
           ))
         )}
@@ -185,7 +205,7 @@ export default function NewRecipe() {
           />
         </View>
         {results.map((fi) => (
-          <Pressable key={fi.id} onPress={() => add(fi)}>
+          <Pressable key={fi.id} onPress={() => openSheet(fi)}>
             <Card style={styles.resultRow}>
               <View style={{ flex: 1 }}>
                 <FsText variant="body" numberOfLines={1}>{fi.name}</FsText>
@@ -203,6 +223,18 @@ export default function NewRecipe() {
 
         <Button title={editing ? 'Save Changes' : 'Save Recipe'} onPress={save} style={{ marginTop: space[6] }} />
       </ScrollView>
+
+      {/* Same quantity sheet as food logging (grams / oz / servings / portions / scale), for recipes. */}
+      <FoodQuantitySheet
+        food={sheet ? toSheetFood(sheet) : null}
+        date={todayLocal()}
+        hideDayContext
+        initialServings={sheetQty != null ? Math.round(sheetQty * 100) / 100 : 1}
+        submitLabel={sheetExisting ? 'Save' : 'Add to Recipe'}
+        onSubmit={(servings) => applyQty(servings)}
+        onClose={() => setSheet(null)}
+        onDelete={sheetExisting ? () => { remove(sheet!.id); setSheet(null); } : undefined}
+      />
     </SafeAreaView>
   );
 }
@@ -238,7 +270,6 @@ const styles = themedStyles(() => StyleSheet.create({
   },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
   stepBtn: { width: 36, height: 36, borderRadius: radius.sm, backgroundColor: colors.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
-  stepBtnSm: { width: 28, height: 28, borderRadius: radius.sm, backgroundColor: colors.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
   ingRow: { flexDirection: 'row', alignItems: 'center', gap: space[2], marginBottom: space[2] },
   searchRow: {
     flexDirection: 'row',

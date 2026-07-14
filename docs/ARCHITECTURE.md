@@ -499,8 +499,11 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
   `exercise-progress` "Compare" picker. Content scrolls via a child `ScrollView` with its own
   `maxHeight`, independent of the drag gesture.
 - `components/FoodQuantitySheet.tsx` — shared quantity editor (unit conversion + live nutrition +
-  day-progress projection), used by both `add-food` (logging) and `FoodToday` (editing a logged
-  item). Edit mode passes `baselineQty` to strip the existing entry from the projection. Implements
+  day-progress projection), used by `add-food` (logging), `FoodToday` (editing a logged item), and the
+  **recipe editor** (`recipe/new` — adding/editing an ingredient opens the same sheet so amounts are
+  grams/oz/servings/portions, not just whole servings; `onSubmit`'s servings multiplier is stored as the
+  ingredient's `quantity`, a `REAL`). `hideDayContext` drops the day-total toggle + calorie-goal bar for
+  the recipe case (no "day"). Edit mode passes `baselineQty` to strip the existing entry from the projection. Implements
   the **same draggable-sheet pattern as `BottomSheet`** directly (it predates the shared component and
   adds keyboard-avoidance + a derived scroll `maxHeight`); embeds `FoodDetails` for OFF rich data. For
   a recipe with a `servingWeightG`, the sheet offers a `g` unit so recipes log by weight.

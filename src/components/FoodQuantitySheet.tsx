@@ -100,6 +100,8 @@ interface Props {
   onDelete?: () => void;
   /** When provided, a favorite star toggle appears next to the name. */
   favorite?: { active: boolean; onToggle: () => void };
+  /** Recipe context: hide the day-total toggle + calorie-goal bar (an ingredient has no "day"). */
+  hideDayContext?: boolean;
 }
 
 /**
@@ -109,6 +111,7 @@ interface Props {
  */
 export function FoodQuantitySheet({
   food, date, initialServings = 1, baselineQty = 0, submitLabel = 'Add to Log', onSubmit, onClose, onDelete, favorite,
+  hideDayContext = false,
 }: Props) {
   const profile = useSettingsStore((s) => s.profile);
   const insets = useSafeAreaInsets();
@@ -293,7 +296,7 @@ export function FoodQuantitySheet({
               const calPct = goal > 0 ? Math.min(after / goal, 1) : 0;
               const over = goal > 0 && after > goal;
               // Toggle between "just this food" and "the day's total with it added".
-              const showDay = preview === 'day';
+              const showDay = !hideDayContext && preview === 'day';
               const sumCal = showDay ? after : add.cal;
               const sumP = showDay ? baseP + add.p : add.p;
               const sumC = showDay ? baseC + add.c : add.c;
@@ -404,15 +407,17 @@ export function FoodQuantitySheet({
 
                   {/* Nutrition summary — toggle: just this food (default), or the day total with it */}
                   <View style={styles.summary}>
-                    <View style={styles.previewToggle}>
-                      {(['food', 'day'] as const).map((m) => (
-                        <Pressable key={m} onPress={() => setPreview(m)} style={[styles.previewSeg, preview === m && styles.previewSegOn]}>
-                          <FsText variant="caption" style={{ color: preview === m ? colors.white : colors.muted, fontWeight: '600' }}>
-                            {m === 'food' ? 'This food' : 'Day total'}
-                          </FsText>
-                        </Pressable>
-                      ))}
-                    </View>
+                    {!hideDayContext && (
+                      <View style={styles.previewToggle}>
+                        {(['food', 'day'] as const).map((m) => (
+                          <Pressable key={m} onPress={() => setPreview(m)} style={[styles.previewSeg, preview === m && styles.previewSegOn]}>
+                            <FsText variant="caption" style={{ color: preview === m ? colors.white : colors.muted, fontWeight: '600' }}>
+                              {m === 'food' ? 'This food' : 'Day total'}
+                            </FsText>
+                          </Pressable>
+                        ))}
+                      </View>
+                    )}
 
                     <View style={styles.summaryTop}>
                       <View>
@@ -429,7 +434,7 @@ export function FoodQuantitySheet({
                       </View>
                     </View>
 
-                    {goal > 0 && (
+                    {!hideDayContext && goal > 0 && (
                       <View style={{ marginTop: space[3] }}>
                         <View style={styles.barHead}>
                           <FsText variant="caption">Calories</FsText>
