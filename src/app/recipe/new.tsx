@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, TextInput, StyleSheet, Pressable, ScrollView, Alert } from 'react-native';
+import { View, TextInput, StyleSheet, Pressable, ScrollView, FlatList, Alert, Keyboard, BackHandler } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { X, Search, Plus, Minus, Trash2 } from 'lucide-react-native';
@@ -54,7 +54,8 @@ export default function NewRecipe() {
     }
   }, [id]);
 
-  const results = useMemo(() => (query.trim() ? foodRepo.searchFoodItems(query.trim()).slice(0, 12) : []), [query]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const results = useMemo(() => (query.trim() ? foodRepo.searchFoodItems(query.trim()).slice(0, 30) : []), [query]);
 
   // Adding/editing an ingredient opens the same quantity sheet as food logging, so the amount can be
   // grams / oz / servings / portions (or the Bluetooth scale) — not just whole servings. The sheet
@@ -63,7 +64,19 @@ export default function NewRecipe() {
   const sheetExisting = sheet ? ingredients.some((i) => i.foodItem.id === sheet.id) : false;
   const sheetQty = sheet ? ingredients.find((i) => i.foodItem.id === sheet.id)?.quantity : undefined;
 
-  const openSheet = (fi: FoodItem) => { setSheet(fi); setQuery(''); };
+  // Open the quantity sheet over the search overlay; drop the keyboard so it doesn't fight the sheet.
+  // The overlay stays up underneath, so after adding one you can keep searching for the next.
+  const openSheet = (fi: FoodItem) => { Keyboard.dismiss(); setSheet(fi); };
+  const closeSearch = () => { setSearchOpen(false); setQuery(''); };
+
+  // Android: while the search overlay is open, hardware Back should close it — not pop the whole
+  // editor and discard the draft (the overlay is a plain View, so unlike a Modal it doesn't intercept
+  // back on its own). No-op on iOS (no hardware back button).
+  useEffect(() => {
+    if (!searchOpen) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => { closeSearch(); return true; });
+    return () => sub.remove();
+  }, [searchOpen]);
   const applyQty = (qty: number) => {
     if (!sheet) return;
     setIngredients((list) => (
@@ -176,7 +189,7 @@ export default function NewRecipe() {
         {/* Ingredients */}
         <FsText variant="overline" style={{ marginTop: space[4], marginBottom: space[2] }}>Ingredients</FsText>
         {ingredients.length === 0 ? (
-          <FsText variant="caption">Search below to add ingredients from your food items.</FsText>
+          <FsText variant="caption">Tap “Add ingredient” to build your recipe from your food items.</FsText>
         ) : (
           ingredients.map((i) => (
             <Card key={i.foodItem.id} style={styles.ingRow}>
@@ -193,36 +206,71 @@ export default function NewRecipe() {
           ))
         )}
 
-        {/* Ingredient search */}
-        <View style={styles.searchRow}>
-          <Search color={colors.muted} size={16} />
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search your food items…"
-            placeholderTextColor={colors.muted}
-            style={{ flex: 1, color: colors.text, paddingVertical: 10, fontSize: 14 }}
-          />
-        </View>
-        {results.map((fi) => (
-          <Pressable key={fi.id} onPress={() => openSheet(fi)}>
-            <Card style={styles.resultRow}>
-              <View style={{ flex: 1 }}>
-                <FsText variant="body" numberOfLines={1}>{fi.name}</FsText>
-                <FsText variant="caption">{Math.round(fi.calories)} kcal · {fi.servingSize}{fi.servingUnit}</FsText>
-              </View>
-              <Plus color={colors.primary} size={18} />
-            </Card>
-          </Pressable>
-        ))}
-        {query.trim() !== '' && results.length === 0 && (
-          <FsText variant="caption" style={{ marginTop: space[2] }}>
-            No matching food items. Log or create foods first (Food → +), then add them here.
-          </FsText>
-        )}
+        {/* Add via the full food-search overlay (pinned input + scrolling results), so the keyboard
+            never covers the search box — the same flow as logging a food. */}
+        <Pressable style={styles.addRow} onPress={() => setSearchOpen(true)}>
+          <Plus color={colors.primary} size={18} />
+          <FsText variant="bodyMedium" style={{ color: colors.primary }}>Add ingredient</FsText>
+        </Pressable>
 
         <Button title={editing ? 'Save Changes' : 'Save Recipe'} onPress={save} style={{ marginTop: space[6] }} />
       </ScrollView>
+
+      {/* Full-screen ingredient search: the input is PINNED at the top with a scrolling list below, so
+          the keyboard can never cover it (a plain View overlay, not a Modal, so the quantity sheet's
+          Modal still layers on top). Stays open while you add several, then Done returns to the recipe. */}
+      {searchOpen && (
+        <View style={styles.searchOverlay}>
+          <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+            <View style={styles.overlayHeader}>
+              <View style={styles.searchField}>
+                <Search color={colors.muted} size={18} />
+                <TextInput
+                  value={query}
+                  onChangeText={setQuery}
+                  placeholder="Search your food items…"
+                  placeholderTextColor={colors.muted}
+                  style={{ flex: 1, color: colors.text, paddingVertical: 10, fontSize: 15 }}
+                  autoFocus
+                  autoCorrect={false}
+                />
+              </View>
+              <Pressable onPress={closeSearch} hitSlop={10}>
+                <FsText variant="bodyMedium" style={{ color: colors.primary }}>Done</FsText>
+              </Pressable>
+            </View>
+            <FlatList
+              data={results}
+              keyExtractor={(fi) => fi.id}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ padding: space[4], paddingBottom: 200 }}
+              renderItem={({ item: fi }) => {
+                const inRecipe = ingredients.some((i) => i.foodItem.id === fi.id);
+                return (
+                  <Pressable onPress={() => openSheet(fi)}>
+                    <Card style={styles.resultRow}>
+                      <View style={{ flex: 1 }}>
+                        <FsText variant="body" numberOfLines={1}>{fi.name}</FsText>
+                        <FsText variant="caption">
+                          {Math.round(fi.calories)} kcal · {fi.servingSize}{fi.servingUnit}{inRecipe ? ' · in recipe' : ''}
+                        </FsText>
+                      </View>
+                      <Plus color={inRecipe ? colors.muted : colors.primary} size={18} />
+                    </Card>
+                  </Pressable>
+                );
+              }}
+              ListEmptyComponent={
+                <FsText variant="caption">
+                  {query.trim()
+                    ? 'No matching food items. Log or create foods first (Food → +), then add them here.'
+                    : 'Search your food items to add them to the recipe.'}
+                </FsText>
+              }
+            />
+          </SafeAreaView>
+        </View>
+      )}
 
       {/* Same quantity sheet as food logging (grams / oz / servings / portions / scale), for recipes. */}
       <FoodQuantitySheet
@@ -271,17 +319,20 @@ const styles = themedStyles(() => StyleSheet.create({
   stepper: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
   stepBtn: { width: 36, height: 36, borderRadius: radius.sm, backgroundColor: colors.surfaceHigh, alignItems: 'center', justifyContent: 'center' },
   ingRow: { flexDirection: 'row', alignItems: 'center', gap: space[2], marginBottom: space[2] },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[2],
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 14,
-    marginTop: space[4],
-    marginBottom: space[2],
+  addRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space[2],
+    backgroundColor: colors.surfaceHigh, borderRadius: radius.md, paddingVertical: 14, marginTop: space[3],
   },
   resultRow: { flexDirection: 'row', alignItems: 'center', gap: space[2], marginBottom: space[2] },
+  // Full-screen ingredient-search overlay (pinned input + scrolling list).
+  searchOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.bg, zIndex: 10 },
+  overlayHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: space[3],
+    paddingHorizontal: space[4], paddingTop: space[2], paddingBottom: space[3],
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+  },
+  searchField: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: space[2],
+    backgroundColor: colors.surfaceHigh, borderRadius: radius.md, paddingHorizontal: 14,
+  },
 }));
