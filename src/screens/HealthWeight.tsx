@@ -23,6 +23,7 @@ import type { HealthStats, WeightEntry } from '@/types';
 const DAY_MS = 86_400_000;
 const PERIODS: { key: string; label: string; days: number }[] = [
   { key: '7', label: '1W', days: 7 },
+  { key: '14', label: '2W', days: 14 },
   { key: '30', label: '1M', days: 30 },
   { key: '90', label: '3M', days: 90 },
   { key: '180', label: '6M', days: 180 },
@@ -62,11 +63,16 @@ export function HealthWeight() {
 
   const entries = stats?.entries ?? [];
   const recent = [...entries].reverse().slice(0, 14);
-  const days = PERIODS.find((p) => p.key === period)!.days;
-  const cutoff = Date.now() - days * DAY_MS;
+  const periodMeta = PERIODS.find((p) => p.key === period)!;
+  const cutoff = Date.now() - periodMeta.days * DAY_MS;
   // Trend line (EWMA) over the full history, then sliced to the visible window so the trend keeps its
   // momentum at the window's left edge.
-  const windowed = computeWeightTrend(allEntries).filter((p) => parseLocalDay(p.date).getTime() >= cutoff);
+  const trendAll = computeWeightTrend(allEntries);
+  const windowed = trendAll.filter((p) => parseLocalDay(p.date).getTime() >= cutoff);
+  // Current (latest) smoothed trend weight + how much the trend moved across the visible window.
+  const currentTrend = trendAll.length ? trendAll[trendAll.length - 1].trendKg : null;
+  const windowTrendChange = windowed.length >= 2 ? windowed[windowed.length - 1].trendKg - windowed[0].trendKg : null;
+  const trendChangeColor = windowTrendChange == null ? colors.muted : windowTrendChange < 0 ? colors.success : windowTrendChange > 0 ? colors.danger : colors.muted;
 
   const weeklyChange = stats?.weeklyChange ?? null;
   const ChangeIcon = (weeklyChange ?? 0) < 0 ? TrendingDown : TrendingUp;
@@ -103,6 +109,22 @@ export function HealthWeight() {
           <FsText variant="cardTitle">Weight Trend</FsText>
           <ChangeIcon color={changeColor} size={16} />
         </View>
+        {currentTrend != null && (
+          <View style={styles.trendStats}>
+            <View>
+              <FsText variant="caption">Trend weight</FsText>
+              <FsText variant="stat" style={{ marginTop: 2 }}>{formatWeight(currentTrend, unit)}</FsText>
+            </View>
+            {windowTrendChange != null && (
+              <View style={{ alignItems: 'flex-end' }}>
+                <FsText variant="caption">Change · {periodMeta.label}</FsText>
+                <FsText variant="cardTitle" style={{ marginTop: 2, color: trendChangeColor }}>
+                  {windowTrendChange < 0 ? '−' : windowTrendChange > 0 ? '+' : ''}{formatWeight(Math.abs(windowTrendChange), unit)}
+                </FsText>
+              </View>
+            )}
+          </View>
+        )}
         <WeightChart points={windowed} goalKg={profile.goalWeightKg} unit={unit} />
         <View style={styles.toggle}>
           {PERIODS.map((p) => {
@@ -356,6 +378,7 @@ const styles = themedStyles(() => StyleSheet.create({
   },
   input: { flex: 1, color: colors.text, paddingVertical: 12, fontSize: 14 },
   zoomBtn: { position: 'absolute', right: 0, top: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  trendStats: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: space[2] },
   legend: { flexDirection: 'row', justifyContent: 'center', gap: space[4], marginTop: space[3] },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendLine: { width: 16, height: 3, borderRadius: 2 },

@@ -9,7 +9,8 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       lines are smoothed curves (Catmull-Rom), the trend is the hero with hollow markers on short ranges + a
       legend; drag-to-inspect shows scale + trend. Trend is computed over **full weigh-in history**
       (`getWeightEntries` all-time, not the 90-day `computeStats` slice) so it keeps momentum at a window's
-      left edge. Range toggle extended to **1W / 1M / 3M / 6M / 1Y**.
+      left edge. The card also shows the **current trend weight** as a headline number + its change across the
+      window. Range toggle: **1W / 2W / 1M / 3M / 6M / 1Y**.
 - [x] **Routine builder prefills last-lifted weight** — adding an exercise to a template/routine now
       defaults its weight + reps to the heaviest set from that exercise's most recent finished workout
       (`templateDraftStore.addExercise` → `WorkoutRepo.getLastSetsForExercise`), so you don't have to look
