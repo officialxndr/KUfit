@@ -15,15 +15,18 @@ import { goalSafetyWarning, describePace, goalDateStat } from '@/lib/targets';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { usePullRefresh } from '@/stores/refreshStore';
 import { toDisplay, formatWeight, UNIT_LABELS } from '@/lib/units';
-import { shortDate, parseLocalDay } from '@/lib/date';
+import { computeWeightTrend, type TrendPoint } from '@/lib/weightTrend';
+import { shortDate, parseLocalDay, todayLocal } from '@/lib/date';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { HealthStats, WeightEntry } from '@/types';
 
 const DAY_MS = 86_400_000;
 const PERIODS: { key: string; label: string; days: number }[] = [
-  { key: '7', label: '7 Day', days: 7 },
-  { key: '30', label: '30 Day', days: 30 },
-  { key: '90', label: '90 Day', days: 90 },
+  { key: '7', label: '1W', days: 7 },
+  { key: '30', label: '1M', days: 30 },
+  { key: '90', label: '3M', days: 90 },
+  { key: '180', label: '6M', days: 180 },
+  { key: '365', label: '1Y', days: 365 },
 ];
 
 export function HealthWeight() {
@@ -33,12 +36,16 @@ export function HealthWeight() {
   const unit = profile.unitSystem;
 
   const [stats, setStats] = useState<HealthStats | null>(null);
+  // Full weigh-in history for the chart — `stats.entries` is capped at 90 days, which isn't enough for
+  // the 6M/1Y ranges or to seed the trend's momentum at a window's left edge.
+  const [allEntries, setAllEntries] = useState<WeightEntry[]>([]);
   const [period, setPeriod] = useState('30');
 
   const refresh = useCallback(() => {
     // Phase endDate overrides the profile goal date when a goal phase is active.
     const effectiveGoalDate = healthRepo.getActiveGoalPhase()?.endDate ?? profile.goalDate;
     setStats(healthRepo.computeStats(profile.goalWeightKg, effectiveGoalDate));
+    setAllEntries(healthRepo.getWeightEntries('2000-01-01', todayLocal()));
   }, [profile.goalWeightKg, profile.goalDate]);
 
   const toggleGoalDateMode = () =>
@@ -57,7 +64,9 @@ export function HealthWeight() {
   const recent = [...entries].reverse().slice(0, 14);
   const days = PERIODS.find((p) => p.key === period)!.days;
   const cutoff = Date.now() - days * DAY_MS;
-  const windowed = entries.filter((e) => parseLocalDay(e.date).getTime() >= cutoff);
+  // Trend line (EWMA) over the full history, then sliced to the visible window so the trend keeps its
+  // momentum at the window's left edge.
+  const windowed = computeWeightTrend(allEntries).filter((p) => parseLocalDay(p.date).getTime() >= cutoff);
 
   const weeklyChange = stats?.weeklyChange ?? null;
   const ChangeIcon = (weeklyChange ?? 0) < 0 ? TrendingDown : TrendingUp;
@@ -94,7 +103,7 @@ export function HealthWeight() {
           <FsText variant="cardTitle">Weight Trend</FsText>
           <ChangeIcon color={changeColor} size={16} />
         </View>
-        <WeightChart entries={windowed} goalKg={profile.goalWeightKg} unit={unit} />
+        <WeightChart points={windowed} goalKg={profile.goalWeightKg} unit={unit} />
         <View style={styles.toggle}>
           {PERIODS.map((p) => {
             const active = p.key === period;
@@ -172,14 +181,31 @@ export function HealthWeight() {
 }
 
 
-function WeightChart({ entries, goalKg, unit }: { entries: WeightEntry[]; goalKg: number | null; unit: import('@/types').UnitSystem }) {
+/** Catmull-Rom → cubic-bézier smoothing so the weight lines read as smooth curves (like the reference). */
+function smoothPath(pts: { x: number; y: number }[]): string {
+  if (pts.length === 0) return '';
+  if (pts.length < 3) return pts.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+  let d = `M${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] ?? pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] ?? p2;
+    const c1x = p1.x + (p2.x - p0.x) / 6, c1y = p1.y + (p2.y - p0.y) / 6;
+    const c2x = p2.x - (p3.x - p1.x) / 6, c2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C${c1x.toFixed(1)} ${c1y.toFixed(1)} ${c2x.toFixed(1)} ${c2y.toFixed(1)} ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+  }
+  return d;
+}
+
+function WeightChart({ points, goalKg, unit }: { points: TrendPoint[]; goalKg: number | null; unit: import('@/types').UnitSystem }) {
   const W = 320, H = 140;
   const [sel, setSel] = useState<number | null>(null);
   // false = fit the y-range to the data (zoomed-in trend); true = expand to include the goal line.
   const [showGoal, setShowGoal] = useState(false);
   const widthRef = useRef(0);
-  const nRef = useRef(entries.length);
-  nRef.current = entries.length;
+  const nRef = useRef(points.length);
+  nRef.current = points.length;
 
   // Drag across the chart to inspect the nearest weigh-in. The *capture* handlers
   // claim the touch before the parent ScrollView so scrubbing never scrolls the page.
@@ -199,16 +225,17 @@ function WeightChart({ entries, goalKg, unit }: { entries: WeightEntry[]; goalKg
     setSel(Math.max(0, Math.min(n - 1, Math.round((px / w) * (n - 1)))));
   };
 
-  if (entries.length < 2) {
+  if (points.length < 2) {
     return (
       <View style={{ height: H, alignItems: 'center', justifyContent: 'center' }}>
         <FsText variant="caption">Log at least two weigh-ins to see a trend.</FsText>
       </View>
     );
   }
-  const vals = entries.map((e) => toDisplay(e.weightKg, unit));
+  const vals = points.map((p) => toDisplay(p.weightKg, unit));       // raw scale weight
+  const trendVals = points.map((p) => toDisplay(p.trendKg, unit));   // EWMA trend
   const goal = goalKg != null ? toDisplay(goalKg, unit) : null;
-  const dataLo = Math.min(...vals), dataHi = Math.max(...vals);
+  const dataLo = Math.min(...vals, ...trendVals), dataHi = Math.max(...vals, ...trendVals);
   // The goal only affects the range when the user has asked to keep it in view.
   const includeGoal = showGoal && goal != null;
   const lo = Math.min(dataLo, includeGoal ? goal! : Infinity);
@@ -217,9 +244,11 @@ function WeightChart({ entries, goalKg, unit }: { entries: WeightEntry[]; goalKg
   const goalOutside = goal != null && (goal < dataLo || goal > dataHi);
   const pad = (hi - lo) * 0.12 || 2;
   const min = lo - pad, max = hi + pad;
-  const x = (i: number) => (i / (entries.length - 1)) * W;
+  const x = (i: number) => (i / (points.length - 1)) * W;
   const y = (v: number) => H - ((v - min) / (max - min)) * H;
-  const path = vals.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+  const scalePath = smoothPath(vals.map((v, i) => ({ x: x(i), y: y(v) })));
+  const trendPath = smoothPath(trendVals.map((v, i) => ({ x: x(i), y: y(v) })));
+  const showMarkers = points.length <= 16; // hollow dots on short ranges (like the reference); clean line on long ones
   const mid = (lo + hi) / 2;
   const yTicks = [hi, mid, lo];
   const fmtTick = (v: number) => (Math.abs(v - Math.round(v)) < 0.05 ? String(Math.round(v)) : v.toFixed(1));
@@ -230,7 +259,7 @@ function WeightChart({ entries, goalKg, unit }: { entries: WeightEntry[]; goalKg
       <View style={{ height: 22, justifyContent: 'center' }}>
         {sel != null && (
           <FsText variant="caption" style={{ color: colors.text, fontWeight: '600', textAlign: 'center' }}>
-            {formatWeight(entries[sel].weightKg, unit)} · {shortDate(entries[sel].date)}
+            {formatWeight(points[sel].weightKg, unit)} · trend {formatWeight(points[sel].trendKg, unit)} · {shortDate(points[sel].date)}
           </FsText>
         )}
         {goalOutside && (
@@ -262,12 +291,19 @@ function WeightChart({ entries, goalKg, unit }: { entries: WeightEntry[]; goalKg
             {goal != null && goal >= min && goal <= max && (
               <Line x1={0} y1={y(goal)} x2={W} y2={y(goal)} stroke={colors.primary} strokeWidth={1.5} strokeDasharray="4 4" opacity={0.6} />
             )}
-            <Path d={path} fill="none" stroke={colors.primary} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-            {vals.map((v, i) => (
-              <Circle key={i} cx={x(i)} cy={y(v)} r={sel === i ? 4.5 : 2.5} fill={colors.primary} />
+            {/* Raw scale weight — secondary (lighter + thinner), the noisy day-to-day line. */}
+            <Path d={scalePath} fill="none" stroke={colors.primary} strokeOpacity={0.4} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" />
+            {/* Trend (EWMA) — the hero line; hollow markers on short ranges. */}
+            <Path d={trendPath} fill="none" stroke={colors.primary} strokeWidth={2.75} strokeLinecap="round" strokeLinejoin="round" />
+            {showMarkers && trendVals.map((v, i) => (
+              <Circle key={i} cx={x(i)} cy={y(v)} r={2.8} fill={colors.surface} stroke={colors.primary} strokeWidth={1.6} />
             ))}
             {sel != null && (
-              <Line x1={x(sel)} y1={0} x2={x(sel)} y2={H} stroke={colors.muted} strokeWidth={1} strokeDasharray="3 3" />
+              <>
+                <Line x1={x(sel)} y1={0} x2={x(sel)} y2={H} stroke={colors.muted} strokeWidth={1} strokeDasharray="3 3" />
+                <Circle cx={x(sel)} cy={y(vals[sel])} r={3} fill={colors.primary} opacity={0.5} />
+                <Circle cx={x(sel)} cy={y(trendVals[sel])} r={4.5} fill={colors.primary} />
+              </>
             )}
             {goal != null && (
               <SvgText x={4} y={y(goal) - 4} fill={colors.muted} fontSize={9}>goal {fmtTick(goal)}</SvgText>
@@ -276,9 +312,24 @@ function WeightChart({ entries, goalKg, unit }: { entries: WeightEntry[]; goalKg
         </View>
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4, paddingLeft: Y_AXIS_W }}>
-        <FsText variant="caption">{shortDate(entries[0].date)}</FsText>
-        <FsText variant="caption">{shortDate(entries[entries.length - 1].date)}</FsText>
+        <FsText variant="caption">{shortDate(points[0].date)}</FsText>
+        <FsText variant="caption">{shortDate(points[points.length - 1].date)}</FsText>
       </View>
+      {/* Legend + why the trend matters (eases the frustration of daily bounce). */}
+      <View style={styles.legend}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendLine, { backgroundColor: colors.primary, opacity: 0.4 }]} />
+          <FsText variant="caption">Scale weight</FsText>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendLine, { backgroundColor: colors.primary }]} />
+          <View style={styles.legendDot} />
+          <FsText variant="caption">Trend weight</FsText>
+        </View>
+      </View>
+      <FsText variant="caption" style={{ color: colors.muted, textAlign: 'center', marginTop: 2 }}>
+        The trend smooths out daily water-weight swings.
+      </FsText>
     </View>
   );
 }
@@ -305,6 +356,10 @@ const styles = themedStyles(() => StyleSheet.create({
   },
   input: { flex: 1, color: colors.text, paddingVertical: 12, fontSize: 14 },
   zoomBtn: { position: 'absolute', right: 0, top: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  legend: { flexDirection: 'row', justifyContent: 'center', gap: space[4], marginTop: space[3] },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  legendLine: { width: 16, height: 3, borderRadius: 2 },
+  legendDot: { width: 8, height: 8, borderRadius: 4, borderWidth: 1.6, borderColor: colors.primary, backgroundColor: colors.surface, marginLeft: -4 },
   toggle: { flexDirection: 'row', gap: space[1], marginTop: space[2] },
   toggleBtn: { flex: 1, paddingVertical: 6, borderRadius: radius.sm, alignItems: 'center', backgroundColor: colors.surfaceHigh },
   toggleActive: { backgroundColor: colors.primary },

@@ -3,6 +3,13 @@
 Honest status of the rebuild. **Update this when features land or plans change.**
 
 ## Done
+- [x] **Weight-trend line (scale vs. trend) + more ranges** — the Health → Weight chart now draws a smoothed
+      **trend line** (EWMA, `lib/weightTrend.ts` — the Hacker's Diet / Happy Scale method) over the raw scale
+      weight, so day-to-day water bounce doesn't obscure the real direction (eases weight frustration). Both
+      lines are smoothed curves (Catmull-Rom), the trend is the hero with hollow markers on short ranges + a
+      legend; drag-to-inspect shows scale + trend. Trend is computed over **full weigh-in history**
+      (`getWeightEntries` all-time, not the 90-day `computeStats` slice) so it keeps momentum at a window's
+      left edge. Range toggle extended to **1W / 1M / 3M / 6M / 1Y**.
 - [x] **Routine builder prefills last-lifted weight** — adding an exercise to a template/routine now
       defaults its weight + reps to the heaviest set from that exercise's most recent finished workout
       (`templateDraftStore.addExercise` → `WorkoutRepo.getLastSetsForExercise`), so you don't have to look
