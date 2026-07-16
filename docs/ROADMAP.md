@@ -3,6 +3,11 @@
 Honest status of the rebuild. **Update this when features land or plans change.**
 
 ## Done
+- [x] **Routine builder prefills last-lifted weight** — adding an exercise to a template/routine now
+      defaults its weight + reps to the heaviest set from that exercise's most recent finished workout
+      (`templateDraftStore.addExercise` → `WorkoutRepo.getLastSetsForExercise`), so you don't have to look
+      up and re-type what you last lifted. Weight+reps come from the same set (stay coherent); no history →
+      blank + the 8-rep default; editing an existing template keeps its saved values.
 - [x] **Raw-meat base foods + workout-summary sheet scroll fix** — added 11 **raw** cuts to the bundled base
       foods (`assets/foods/base-ingredients.json`, per-100 g USDA raw: chicken breast/thigh, ground chicken/
       turkey, ground beef 80·90·93, pork chop/tenderloin, salmon, shrimp) so recipes weighed from raw log

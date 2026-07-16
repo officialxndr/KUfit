@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { normalizeSupersets } from '@/lib/supersets';
-import type { Exercise, WorkoutTemplate } from '@/types';
+import type { Exercise, ExerciseSet, WorkoutTemplate } from '@/types';
 
 export interface DraftExercise {
   exercise: Exercise;
@@ -71,12 +71,21 @@ export const useTemplateDraftStore = create<TemplateDraftState>((set, get) => ({
   }),
   setName: (name) => set({ name }),
   setLabel: (label) => set({ label }),
-  addExercise: (exercise) =>
+  addExercise: (exercise) => {
+    // Prefill the default weight + reps with what you last lifted, so building a routine doesn't mean
+    // looking up the other workout. Uses the heaviest set from this exercise's most recent finished
+    // workout — weight and reps come from the SAME set so they stay a coherent pair (a heavy 100×1
+    // day prefills 100×1, not 100×8). No history → blank weight + the 8-rep planning default.
+    const lastSets = workoutRepo.getLastSetsForExercise(exercise.id);
+    const top = lastSets.reduce<ExerciseSet | null>((best, s) => (best && best.weightKg >= s.weightKg ? best : s), null);
     set((s) => {
       if (s.exercises.some((e) => e.exercise.id === exercise.id)) return s;
       const pending = s.pendingSuperset;
       const draft: DraftExercise = {
-        exercise, defaultSets: 3, defaultReps: 8, defaultWeightKg: null, restSeconds: 120,
+        exercise, defaultSets: 3,
+        defaultReps: top?.reps ?? 8,
+        defaultWeightKg: top && top.weightKg > 0 ? top.weightKg : null,
+        restSeconds: 120,
         supersetGroup: pending?.group ?? null, attachment: null,
       };
       if (!pending) return { exercises: [...s.exercises, draft] };
@@ -87,7 +96,8 @@ export const useTemplateDraftStore = create<TemplateDraftState>((set, get) => ({
       const at = base.findIndex((e) => e.exercise.id === pending.afterId);
       const next = at < 0 ? [...base, draft] : [...base.slice(0, at + 1), draft, ...base.slice(at + 1)];
       return { exercises: next, pendingSuperset: null };
-    }),
+    });
+  },
   removeExercise: (exerciseId) =>
     set((s) => ({ exercises: normalizeSupersets(s.exercises.filter((e) => e.exercise.id !== exerciseId)) })),
   moveExercise: (exerciseId, dir) =>
