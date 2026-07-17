@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { View, TextInput, StyleSheet, Pressable, Alert, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import { X, Camera } from 'lucide-react-native';
@@ -21,6 +22,7 @@ const round1 = (n: number) => String(Math.round(n * 10) / 10);
 
 export default function LogWeight() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const unit = useSettingsStore((s) => s.profile.unitSystem);
 
   // `?date=YYYY-MM-DD` opens an existing weigh-in for editing; no param = log today.
@@ -104,7 +106,7 @@ export default function LogWeight() {
 
   return (
     <View style={styles.screen}>
-      <View style={[styles.header, { paddingTop: space[3] }]}>
+      <View style={[styles.header, { paddingTop: insets.top + space[3] }]}>
         <Pressable onPress={() => router.back()} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
         <FsText variant="cardTitle">{editing ? 'Edit weigh-in' : 'Log weight'}</FsText>
         <Pressable onPress={save} hitSlop={10}><FsText variant="bodyMedium" style={{ color: colors.success }}>Save</FsText></Pressable>

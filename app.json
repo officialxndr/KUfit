@@ -27,7 +27,8 @@
       }
     },
     "android": {
-      "package": "com.zanderhalverson.hale",
+      "package": "com.hale.health",
+      "versionCode": 2,
       "adaptiveIcon": {
         "backgroundColor": "#0a0a0a",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -92,6 +93,7 @@
         }
       ],
       "react-native-health-connect",
+      "./plugins/withHealthConnect",
       "expo-build-properties",
       [
         "react-native-ble-plx",
