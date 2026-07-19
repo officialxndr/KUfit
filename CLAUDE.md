@@ -35,7 +35,9 @@ for backup + Home Assistant / **MCP** access (`serverStore` is null by default).
   Repos are the only thing that touches the DB. Mutations mark rows `syncStatus='pending'`.
 - **Calc libs** (pure TS): `tdee.ts`, `epley.ts`, `activities.ts`, `units.ts`, `targets.ts`,
   `supersets.ts` (superset ordering + `normalizeSupersets`; `restAfterSet` also defers rest between a
-  unilateral round's two arms), `bodyComposition.ts` (body-fat estimate + U.S. Navy method), `load.ts`
+  unilateral round's two arms), `bodyComposition.ts` (body-fat estimate + U.S. Navy method),
+  `skinfold.ts` (Jackson–Pollock 3/7-site caliper body fat → Siri),
+  `proportions.ts` (wrist-anchored ideal body-part targets — McCallum/golden-ratio/Reeves), `load.ts`
   (per-side dumbbell volume factor; `loadFactor`→1 when `exercise.unilateral`), `attachments.ts` (cable
   attachment list, cable-only `supportsAttachment`), `unilateral.ts` (pure L/R set-list transforms).
 - **Exercise catalog**: bundled `assets/exercises/catalog.json` (~1270 + GIFs, curated from ExerciseDB's raw

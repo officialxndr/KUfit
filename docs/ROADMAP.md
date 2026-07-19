@@ -459,6 +459,19 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       carrying ~constant bone mass / T-score forward (`getLatestDexa`) so you scan less often. Visceral fat shows
       the scan value with a **direction-only** waist-trend cue (magnitude isn't reliable from waist). Gated — nothing
       shows until a scan is logged; example scans are seeded into the demo/tour data.
+- [x] **Skinfold-caliper body fat** — a dedicated **Log skinfold** flow (`app/log-skinfold.tsx` → `lib/skinfold.ts`
+      Jackson–Pollock **3-site & 7-site** density → Siri → `HealthRepo.logSkinfold`) turns caliper pinch
+      measurements (mm) into a body-fat %. Saved as a weigh-in `source='CALIPER'` with the raw folds in
+      `skinfoldJson` (reopen/edit from Health → Weight), so it flows through the shared resolver as a measured
+      reading — the Body card badges it **"CALIPERS"** and the derived goal weight updates. Entry points: a
+      **Body** sub-tab button and the Health **FAB → "Log calipers"**.
+- [x] **Wrist-anchored ideal proportions** — replaced the pick-an-anchor `IDEAL` ratio table with a wrist-based
+      system (`lib/proportions.ts`: McCallum `chest = wrist×6.5` → chest-% ratios, golden-ratio shoulders,
+      optional Steve Reeves ankle anchor for legs). A dedicated **Ideal proportions** flow (`app/proportions.tsx`,
+      opened from Health → Measure or the FAB) takes a wrist (+ optional ankle) — stored as `profile.wristCm`/
+      `ankleCm` config, not tracked sites — shows every part's target vs current + a Small/Medium/Large frame,
+      and **"Set all as goals"** writes them into `measurementGoals`. Per-site sheets show the wrist-derived
+      target too. Framed honestly as aesthetic tradition (waist = keep-at-or-below; symmetry triad note).
 - [x] **Per-side (dumbbell) volume fix** — two-arm dumbbell/kettlebell work counts **×2** (weight is
       per-hand). `lib/load.ts` + `exercises.perSide` override (toggle on the exercise detail page);
       volume recomputed from sets × factor everywhere, so **past sessions correct themselves**. 1RM/top

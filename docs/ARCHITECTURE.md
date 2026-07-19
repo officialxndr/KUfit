@@ -284,6 +284,21 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
   baselineBf, currentWeight)`** holds the measured baseline's lean mass constant to estimate current
   BF% as weight changes (accurate on a cut; re-baseline after muscle gain); **`navyBodyFat({sex, heightCm,
   neckCm, waistCm, hipCm})`** is the U.S. Navy (Hodgdon–Beckett) tape estimate, metric form.
+- `lib/skinfold.ts` — **Jackson–Pollock caliper body fat.** `skinfoldBodyFat(method, sex, folds, ageYears)`
+  sums the required folds (mm) → body density (JP3 or JP7 quadratic regression) → Siri, clamped `[3,70]` like
+  `navyBodyFat`. `SKINFOLD_SITES` gives the sites per method+sex (JP3 differs by sex; JP7 shares 7 sites).
+  Entered via `app/log-skinfold.tsx` (method + sex + per-site mm, with a live BF% preview) and saved as a
+  weigh-in `source='CALIPER'` with the raw folds in `weight_entries.skinfoldJson` (`HealthRepo.logSkinfold`) —
+  so it flows through the resolver below as an ordinary **measured** reading (no `computeBodyFatView` change) and
+  can be reopened/edited (Health → Weight rows route `CALIPER` entries to `log-skinfold?date=`).
+- `lib/proportions.ts` — **wrist-anchored ideal proportions.** `idealProportions(wristCm, ankleCm?)` returns a
+  target circumference per measurement site from the wrist (McCallum `chest = wrist×6.5` → chest-percentage
+  ratios; golden-ratio `shoulders = waist×1.618`; an optional ankle switches calves/thighs to Steve Reeves'
+  anchor). Wrist/ankle are **profile config** (`profile.wristCm`/`ankleCm`, like `heightCm` — not tracked
+  sites), entered in the **Ideal proportions** flow (`app/proportions.tsx`, opened from Health → Measure or the
+  FAB). "Set all as goals" writes the targets into `profile.measurementGoals` (cm); `proportionProgress()` +
+  `frameFromWrist()` drive the current-vs-target table and Small/Medium/Large frame. This replaced the old
+  pick-an-anchor `IDEAL` ratio table that lived inline in `HealthMeasure`.
 - `lib/bodyFatResolve.ts` — **single body-fat resolver** (`computeBodyFatView(profile)`) shared by
   `screens/HealthBody.tsx`, `goalWeight.currentLeanMassKg`, `GoalsEditor` and (for its trend) `HealthTrends`,
   so the % on screen and the % that drives the derived goal weight can never disagree. It honors two knobs:

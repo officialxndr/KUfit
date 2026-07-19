@@ -141,6 +141,12 @@ export function AppShell() {
       case 'log-measurement':
         router.push('/measurements');
         break;
+      case 'log-skinfold':
+        router.push('/log-skinfold');
+        break;
+      case 'proportions':
+        router.push('/proportions');
+        break;
       case 'start-workout':
       case 'start-empty':
         session.startEmpty();

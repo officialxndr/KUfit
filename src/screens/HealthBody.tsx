@@ -66,6 +66,7 @@ export function HealthBody() {
   const { latest, measurement, dexa, baseline, navyBf } = view;
 
   const openDexa = () => router.push('/log-dexa');
+  const openSkinfold = () => router.push('/log-skinfold');
 
   // Save a value as today's measured reading (becomes the baseline). Carries the latest
   // weight forward if there's no weigh-in today yet.
@@ -153,7 +154,9 @@ export function HealthBody() {
               <FsText variant="caption">Body Fat</FsText>
               <View style={[styles.srcPill, estimated && { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.border }]}>
                 <FsText variant="caption" style={{ fontSize: 10, color: estimated ? colors.muted : colors.primary, fontWeight: '700' }}>
-                  {source === 'measured' ? 'MEASURED' : source === 'navy' ? 'U.S. NAVY' : 'ESTIMATED'}
+                  {source === 'measured'
+                    ? (latest.source === 'CALIPER' ? 'CALIPERS' : 'MEASURED')
+                    : source === 'navy' ? 'U.S. NAVY' : 'ESTIMATED'}
                 </FsText>
               </View>
             </View>
@@ -278,6 +281,8 @@ export function HealthBody() {
       ) : (
         <Button title="Log DEXA scan" variant="ghost" onPress={openDexa} style={{ marginTop: space[3] }} />
       )}
+
+      <Button title="Log skinfold (calipers)" variant="ghost" onPress={openSkinfold} style={{ marginTop: space[3] }} />
     </>
   );
 }

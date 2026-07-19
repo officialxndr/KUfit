@@ -10,7 +10,8 @@ export type MacroTargetMode = 'GRAMS' | 'PERCENT'
 export type ActiveCalorieSource = 'off' | 'auto' | 'watch' | 'inapp'
 export type FoodSource = 'MANUAL' | 'OPEN_FOOD_FACTS' | 'USDA' | 'BASE'
 // 'HEALTH' = cross-platform import (Apple Health / Android Health Connect) via lib/healthSync.
-export type DataSource = 'MANUAL' | 'APPLE_HEALTH' | 'HEALTH' | 'SHORTCUT' | 'DEXA'
+// 'CALIPER' = body-fat % computed from skinfold-caliper folds (lib/skinfold).
+export type DataSource = 'MANUAL' | 'APPLE_HEALTH' | 'HEALTH' | 'SHORTCUT' | 'DEXA' | 'CALIPER'
 
 export interface UserProfile {
   id: string
@@ -184,6 +185,8 @@ export interface WeightEntry {
   boneTScore?: number | null
   /** Progress-photo filename (under Documents/progress-photos). Resolve via `lib/progressPhoto`. */
   photoUri?: string | null
+  /** Raw skinfold-caliper session behind a CALIPER reading: JSON of `{ method, sex, folds }` (mm). */
+  skinfoldJson?: string | null
   source: DataSource
   createdAt: string
 }

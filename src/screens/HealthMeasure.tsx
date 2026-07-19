@@ -10,6 +10,7 @@ import { BottomSheet } from '@/components/BottomSheet';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { UNIT_LABELS, inchesToCm } from '@/lib/units';
+import { idealProportions } from '@/lib/proportions';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { BodyMeasurement } from '@/types';
 
@@ -22,22 +23,15 @@ const SITES: { key: SiteKey; label: string }[] = [
 ];
 const SITE_LABEL = (k: SiteKey) => SITES.find((s) => s.key === k)?.label ?? String(k);
 
-// Approximate "ideal" aesthetic proportions (Grecian / classic-physique, golden-ratio
-// inspired). Encoded as the reference body's tape measurements in **inches** for a
-// ~5'9", 185–195 lb frame — only the *ratios* between sites are used:
-//   ratio(anchor→site) = IDEAL[site] / IDEAL[anchor]
-// so the absolute units don't matter; pick any anchor you're happy with. Neck = arms =
-// calves (classic symmetry); shoulders use the golden ratio (≈1.618 × waist). Rough
-// aesthetic guidelines, not medical/objective targets.
-const IDEAL: Record<string, number> = {
-  neck: 18, shoulders: 48.5, chest: 48, leftArm: 18, rightArm: 18,
-  waist: 30, hips: 42, leftThigh: 27, rightThigh: 27, leftCalf: 18, rightCalf: 18,
-};
+// Ideal-proportion targets now derive from the wrist anchor — see `lib/proportions.ts`
+// (`idealProportions`) and the "Ideal proportions" configure flow (`app/proportions.tsx`).
 
 export function HealthMeasure() {
   const router = useRouter();
   const unit = useSettingsStore((s) => s.profile.unitSystem);
   const measurementGoals = useSettingsStore((s) => s.profile.measurementGoals) ?? {};
+  const wristCm = useSettingsStore((s) => s.profile.wristCm);
+  const ankleCm = useSettingsStore((s) => s.profile.ankleCm);
   const setProfile = useSettingsStore((s) => s.setProfile);
   const [entries, setEntries] = useState<BodyMeasurement[]>([]);
   const [detail, setDetail] = useState<BodyMeasurement | null>(null);
@@ -75,6 +69,7 @@ export function HealthMeasure() {
   const lastSite = useRef<SiteKey | null>(null);
   if (siteKey) lastSite.current = siteKey;
   const activeSite = (siteKey ?? lastSite.current) as SiteKey | null;
+  const idealTargets = idealProportions(wristCm, ankleCm);
 
   return (
     <>
@@ -85,6 +80,8 @@ export function HealthMeasure() {
         </View>
         <Button title="+ Log" onPress={() => router.push('/measurements')} style={{ paddingVertical: 8, paddingHorizontal: 14 }} />
       </View>
+
+      <Button title="Ideal proportions" variant="ghost" onPress={() => router.push('/proportions')} style={{ marginBottom: space[3] }} />
 
       {rows.length === 0 ? (
         <View style={styles.empty}>
@@ -160,8 +157,11 @@ export function HealthMeasure() {
           fromLen={fromLen}
           lengthLabel={lengthLabel}
           goalCm={measurementGoals[activeSite] ?? null}
+          idealCm={(idealTargets as Record<string, number> | null)?.[activeSite] ?? null}
+          inverse={activeSite === 'waist'}
           onSetGoal={(cm) => setProfile({ measurementGoals: { ...measurementGoals, [activeSite]: cm } })}
           onClearGoal={() => { const { [activeSite]: _, ...rest } = measurementGoals; setProfile({ measurementGoals: rest }); }}
+          onConfigure={() => { setSiteKey(null); router.push('/proportions'); }}
           onClose={() => setSiteKey(null)}
         />
       )}
@@ -170,7 +170,7 @@ export function HealthMeasure() {
 }
 
 /** Per-site insight popup: trends over time, next landmark, a goal, and ideal-ratio suggestions. */
-function SiteDetail({ visible, siteKey, entries, unit, toLen, fromLen, lengthLabel, goalCm, onSetGoal, onClearGoal, onClose }: {
+function SiteDetail({ visible, siteKey, entries, unit, toLen, fromLen, lengthLabel, goalCm, idealCm, inverse, onSetGoal, onClearGoal, onConfigure, onClose }: {
   visible: boolean;
   siteKey: SiteKey;
   entries: BodyMeasurement[];
@@ -179,11 +179,13 @@ function SiteDetail({ visible, siteKey, entries, unit, toLen, fromLen, lengthLab
   fromLen: (v: number) => number;
   lengthLabel: string;
   goalCm: number | null;
+  idealCm: number | null;
+  inverse: boolean;
   onSetGoal: (cm: number) => void;
   onClearGoal: () => void;
+  onConfigure: () => void;
   onClose: () => void;
 }) {
-  const [anchor, setAnchor] = useState<SiteKey | null>(null);
   const latest = entries[0];
   const curCm = (latest?.[siteKey] as number | null) ?? null;
   const curDisp = curCm != null ? toLen(curCm) : null;
@@ -204,12 +206,6 @@ function SiteDetail({ visible, siteKey, entries, unit, toLen, fromLen, lengthLab
   // Next round-number landmark above the current value (0.5 in / 1 cm steps).
   const step = unit === 'IMPERIAL' ? 0.5 : 1;
   const nextLandmark = curDisp != null ? (Math.floor(curDisp / step) + 1) * step : null;
-
-  // Ideal proportion vs a chosen anchor site.
-  const anchorCm = anchor && latest ? (latest[anchor] as number | null) : null;
-  const suggestedCm = anchor && anchorCm != null && IDEAL[siteKey] && IDEAL[anchor]
-    ? anchorCm * (IDEAL[siteKey] / IDEAL[anchor]) : null;
-  const anchorOptions = SITES.filter((s) => s.key !== siteKey && latest?.[s.key] != null && IDEAL[s.key]);
 
   const goalDisp = goalCm != null ? Math.round(toLen(goalCm) * 10) / 10 : 0;
 
@@ -256,30 +252,32 @@ function SiteDetail({ visible, siteKey, entries, unit, toLen, fromLen, lengthLab
               <StepperField value={goalDisp} onCommit={(n) => (n > 0 ? onSetGoal(fromLen(n)) : onClearGoal())} step={step} min={0} max={120} unit={lengthLabel} />
             </View>
 
-            {/* Golden ratio */}
+            {/* Ideal proportion — anchored to the wrist (see lib/proportions.ts). */}
             <View style={styles.ratioBox}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: space[2] }}>
                 <Sparkles color={colors.primary} size={16} />
                 <FsText variant="bodyMedium">Ideal proportion</FsText>
               </View>
-              <FsText variant="caption" style={{ marginBottom: space[2] }}>
-                Pick a site you're happy with; see this site's classically-proportioned target (approximate aesthetic ideal).
-              </FsText>
-              <View style={styles.chips}>
-                {anchorOptions.map((s) => (
-                  <Pressable key={s.key} onPress={() => setAnchor(s.key)} style={[styles.chip, anchor === s.key && styles.chipOn]}>
-                    <FsText variant="caption" style={{ color: anchor === s.key ? colors.white : colors.muted, fontWeight: '600' }}>{s.label}</FsText>
-                  </Pressable>
-                ))}
-              </View>
-              {suggestedCm != null && (
-                <View style={{ marginTop: space[3], flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
-                  <View style={{ flex: 1 }}>
-                    <FsText variant="caption">Suggested {SITE_LABEL(siteKey)}</FsText>
-                    <FsText variant="cardTitle">{toLen(suggestedCm).toFixed(1)} {lengthLabel}</FsText>
+              {idealCm != null ? (
+                <>
+                  <FsText variant="caption" style={{ marginBottom: space[2] }}>
+                    From your wrist{inverse ? ' — the one measurement to keep at or below' : ''} (aesthetic guideline, not a rule).
+                  </FsText>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
+                    <View style={{ flex: 1 }}>
+                      <FsText variant="caption">Ideal {SITE_LABEL(siteKey)}</FsText>
+                      <FsText variant="cardTitle">{toLen(idealCm).toFixed(1)} {lengthLabel}</FsText>
+                    </View>
+                    <Button title="Set as goal" onPress={() => onSetGoal(idealCm)} style={{ paddingVertical: 8, paddingHorizontal: 14 }} />
                   </View>
-                  <Button title="Set as goal" onPress={() => onSetGoal(suggestedCm)} style={{ paddingVertical: 8, paddingHorizontal: 14 }} />
-                </View>
+                </>
+              ) : (
+                <>
+                  <FsText variant="caption" style={{ marginBottom: space[2] }}>
+                    Set your wrist measurement to see this part's ideal target and apply it as a goal.
+                  </FsText>
+                  <Button title="Configure proportions" variant="ghost" onPress={onConfigure} style={{ paddingVertical: 8, paddingHorizontal: 14 }} />
+                </>
               )}
             </View>
           </ScrollView>

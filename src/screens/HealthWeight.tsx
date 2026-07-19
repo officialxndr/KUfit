@@ -186,12 +186,12 @@ export function HealthWeight() {
       ) : (
         recent.map((e) => (
           <SwipeToDelete key={e.id} onDelete={() => remove(e)} confirmTitle="Delete entry?" confirmMessage={`Remove the ${e.date} weigh-in?`}>
-            <Pressable onPress={() => router.push({ pathname: '/log-weight', params: { date: e.date } })}>
+            <Pressable onPress={() => router.push({ pathname: e.source === 'CALIPER' ? '/log-skinfold' : '/log-weight', params: { date: e.date } })}>
               <Card style={{ marginBottom: space[2], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <FsText variant="bodyMedium">{formatWeight(e.weightKg, unit)}</FsText>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
                   {e.photoUri ? <ImageIcon color={colors.muted} size={14} /> : null}
-                  <FsText variant="caption">{e.date}{e.bodyFat ? ` · ${e.bodyFat}% BF` : ''}</FsText>
+                  <FsText variant="caption">{e.date}{e.bodyFat ? ` · ${e.bodyFat}% BF${e.source === 'CALIPER' ? ' · calipers' : ''}` : ''}</FsText>
                 </View>
               </Card>
             </Pressable>

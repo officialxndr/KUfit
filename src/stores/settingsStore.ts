@@ -117,6 +117,10 @@ export interface Profile {
   nutrientGoals: NutrientGoal[];
   /** Per-site body-measurement goals, keyed by site, value in cm. */
   measurementGoals: Record<string, number>;
+  /** Wrist circumference (cm) — the frame anchor for ideal-proportion targets (config, not a tracked site). */
+  wristCm: number | null;
+  /** Optional ankle circumference (cm) — refines calf/thigh proportion targets (Reeves anchor). */
+  ankleCm: number | null;
   // ── Milestone progress card (Dashboard + Health → Weight) ──
   /** Milestone spacing: 'small' = 5 lb / 2.5 kg, 'large' = 10 lb / 5 kg. */
   milestoneInterval: 'small' | 'large';
@@ -167,6 +171,8 @@ const DEFAULT_PROFILE: Profile = {
   weeklySessionTarget: null,
   nutrientGoals: [],
   measurementGoals: {},
+  wristCm: null,
+  ankleCm: null,
   milestoneInterval: 'large',
   milestoneStartBasis: 'phase',
   milestoneStartKg: null,

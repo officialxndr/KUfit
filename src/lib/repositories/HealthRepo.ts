@@ -15,6 +15,7 @@ function mapWeightEntry(row: any): WeightEntry {
     visceralFatKg: row.visceralFatKg ?? null,
     boneTScore: row.boneTScore ?? null,
     photoUri: row.photoUri ?? null,
+    skinfoldJson: row.skinfoldJson ?? null,
     source: row.source ?? 'MANUAL',
     createdAt: row.updatedAt ?? new Date().toISOString(),
   };
@@ -238,6 +239,30 @@ export class HealthRepo {
         `INSERT INTO weight_entries (localId, date, weightKg, bodyFat, boneMassKg, visceralFatKg, boneTScore, source, syncStatus, updatedAt)
          VALUES (?, ?, ?, ?, ?, ?, ?, 'DEXA', 'pending', ?)`,
         [Crypto.randomUUID(), date, weightKg, bodyFat ?? null, boneMassKg ?? null, visceralFatKg ?? null, boneTScore ?? null, now]
+      );
+    }
+  }
+
+  /**
+   * Log a skinfold-caliper reading as a weigh-in: the computed body-fat % goes in `bodyFat`,
+   * and the raw folds + method + sex ride along in `skinfoldJson` so the reading can be reopened
+   * and edited. Upserts on `date`, marks source 'CALIPER'. Leaves any DEXA columns untouched.
+   */
+  logSkinfold(input: { date: string; weightKg: number; bodyFat?: number | null; skinfoldJson: string }): void {
+    const { date, weightKg, bodyFat, skinfoldJson } = input;
+    const now = new Date().toISOString();
+    const existing = db.getFirstSync(`SELECT localId FROM weight_entries WHERE date = ?`, [date]) as any;
+    if (existing) {
+      db.runSync(
+        `UPDATE weight_entries SET weightKg = ?, bodyFat = ?, skinfoldJson = ?,
+                source = 'CALIPER', deleted = 0, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
+        [weightKg, bodyFat ?? null, skinfoldJson, now, existing.localId]
+      );
+    } else {
+      db.runSync(
+        `INSERT INTO weight_entries (localId, date, weightKg, bodyFat, skinfoldJson, source, syncStatus, updatedAt)
+         VALUES (?, ?, ?, ?, ?, 'CALIPER', 'pending', ?)`,
+        [Crypto.randomUUID(), date, weightKg, bodyFat ?? null, skinfoldJson, now]
       );
     }
   }

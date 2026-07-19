@@ -298,6 +298,9 @@ function runMigrations() {
   ensureColumn('weight_entries', 'boneTScore', 'REAL');
   // Progress photo attached to a weigh-in — a filename under Documents/progress-photos (device-local).
   ensureColumn('weight_entries', 'photoUri', 'TEXT');
+  // Skinfold-caliper session behind a computed body-fat % (source 'CALIPER'): a JSON blob of
+  // { method, sex, folds } (raw mm) so a caliper reading can be reopened, edited, and trended.
+  ensureColumn('weight_entries', 'skinfoldJson', 'TEXT');
   // Heart-rate summary + downsampled series (from Health) for the workout window.
   ensureColumn('workout_sessions', 'avgHeartRate', 'REAL');
   ensureColumn('workout_sessions', 'minHeartRate', 'REAL');
