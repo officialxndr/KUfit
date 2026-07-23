@@ -50,7 +50,7 @@ External network (Open Food Facts, ExerciseDB CDN) is called directly from the d
   (`getMeta`/`setMeta`) tracks seed versions (`baseFoodsVersion`, **`exerciseSeedVersion`**) so bundled
   data can re-seed in place when bumped.
   **New columns need a fresh app launch** to run `runMigrations()`.
-- **Repositories** (`FoodRepo`, `HealthRepo`, `WorkoutRepo`) — synchronous SQLite access, mapping
+- **Repositories** (`FoodRepo`, `WaterRepo`, `HealthRepo`, `WorkoutRepo`) — synchronous SQLite access, mapping
   rows ↔ domain types from `src/types`. Mutations set `syncStatus='pending'`; soft-deletes set
   `deleted=1`. Dedup on `barcode` / `serverId` / `exerciseDbId`.
 - **Why repos**: keeps SQL in one place and gives the future sync engine a clean seam.
@@ -530,6 +530,13 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
 - `components/FoodDetails.tsx` — `FoodBadgeRow` (diet/allergen badges + Nutri/NOVA/Eco score chips)
   and `FoodDetailSections` (expandable per-serving nutrient list + ingredients/additives), driven by
   a `FoodDetails` blob and scaled by the chosen servings.
+- **Water tracking** (optional; `profile.trackWater`, off by default so it never clutters the log) — a
+  `water_logs` table (append one row per quick-add, mirrors `food_logs`) + `WaterRepo`
+  (`addWater`/`getWaterTotal`/`deleteLastWater`/`getDailyWater`), amounts stored in **ml**. A gated
+  `<WaterCard>` on **Food → Today** (below the meals) shows a progress bar vs `profile.waterGoalMl` with
+  quick-add pills (glass/bottle) + undo, reloaded in `FoodToday`'s `refresh()` on focus. Converts to fl oz at
+  the display edge (`units.ts` `mlToDisplay`/`toMl`/`FL_OZ_ML`, `UNIT_LABELS.volume`). Settings →
+  **Water tracking** card toggles it + sets the goal. Included in backup (`backup.ts` `TABLES`) + the data-wipe.
 - **Logging shortcuts** (all in `FoodRepo` + `FoodToday`/`add-food`): a `food_log` row is a food item,
   a recipe, **or** a **quick-add** custom entry (nullable `food_logs.custom*` columns — a bare
   calorie + optional macros with no food, for restaurant meals; reached from the Food FAB / add-food →
@@ -735,6 +742,14 @@ intentionally **not** bottom sheets and keep their `animationType="fade"` modals
   ~2 lb/week + `MIN_SAFE_CALORIES` 1200 floor for the non-blocking safety warnings). `calcGoalCalories`
   **caps the rate used for the calorie target at `MAX_SAFE_RATE_KG`** (≈±1000 kcal/day) so an aggressive
   goal date can't produce an absurd target — the real pace is still flagged by `safeRateWarning`.
+  `calcEmpiricalMaintenance` is the **adaptive/empirical TDEE** — it back-calculates maintenance from real
+  data (`avgIntake − Δmass×KCAL_PER_KG/days`) rather than a formula; `KCAL_PER_KG` (7700) is the shared
+  body-mass energy constant (also used by `calcGoalCalories` + `HealthRepo.computeStats`'s pace delta). It
+  powers the **"Calculated maintenance" card** in Food → Stats (`FoodTrends`), which gathers avg intake over
+  full-logging days (`FoodRepo.getDailyCalories`, ≥500 cal) + a **least-squares weight-trend fit** over every
+  in-span weigh-in (`HealthRepo.getWeightEntries`), both across the same first→last weigh-in span. Gated on
+  ≥3 weigh-ins, ≥14-day span, ≥50 % logging density (≥10 full days), + a ≤~1.5 kg/wk plausibility guard; the
+  formula TDEE is shown beside it only when the window includes today (it reflects current weight).
   `epley.ts` (1RM), `activities.ts` (MET table + `caloriesBurnedFromDuration`), `units.ts` (conversions),
   `targets.ts` (resolves daily calorie/macro targets from active GoalPhase → profile → TDEE; emits a
   `warning` for unsafe goals via `goalSafetyWarning`; and when `activeCalorieSource !== 'off'` adds the

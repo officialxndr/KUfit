@@ -6,6 +6,7 @@ import { Image } from 'expo-image';
 import { X, Camera } from 'lucide-react-native';
 
 import { FsText, Button } from '@/components/ui';
+import { ModalHeader } from '@/components/ModalHeader';
 import { todayLocal } from '@/lib/date';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { pickProgressPhoto, resolveProgressPhotoUri, deleteProgressPhoto } from '@/lib/progressPhoto';
@@ -106,11 +107,11 @@ export default function LogWeight() {
 
   return (
     <View style={styles.screen}>
-      <View style={[styles.header, { paddingTop: insets.top + space[3] }]}>
-        <Pressable onPress={() => router.back()} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
-        <FsText variant="cardTitle">{editing ? 'Edit weigh-in' : 'Log weight'}</FsText>
-        <Pressable onPress={save} hitSlop={10}><FsText variant="bodyMedium" style={{ color: colors.success }}>Save</FsText></Pressable>
-      </View>
+      <ModalHeader
+        title={editing ? 'Edit weigh-in' : 'Log weight'}
+        onClose={() => router.back()}
+        right={<Pressable onPress={save} hitSlop={10}><FsText variant="bodyMedium" style={{ color: colors.success }}>Save</FsText></Pressable>}
+      />
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: space[4] }} keyboardShouldPersistTaps="handled">
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2], marginBottom: space[2] }}>

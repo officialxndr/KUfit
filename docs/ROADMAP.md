@@ -68,6 +68,25 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       <2 weigh-ins / goal reached / wrong-direction trend. The `MarkerRail` measures its width and **culls
       overlapping labels** (keeps both ends + greedily fills inner labels that fit) so tightly-spaced
       milestones no longer collide into an unreadable smear; ticks still render for every milestone.
+- [x] **Milestone timeline: current rate ⇄ by goal date** — a toggle on the milestone card flips the
+      projected-date ladder between **"Current rate"** (ETA at your current pace — the existing behaviour) and
+      **"By goal date"** (the date you'd need to hit each milestone to reach your goal by its goal date). The
+      new mode feeds `computeMilestones` the required signed rate (`-computeStats().requiredWeeklyRate`) instead
+      of `weeklyChange`, so the goal marker lands on your goal date and each milestone shows its required date.
+      Persisted on `profile.milestoneRateMode` (default `'current'`); the toggle only appears when a goal date +
+      a still-reachable timeline exist. Reached rows keep their actual crossing date; the rate caption switches
+      to "Lose/Gain ~X/wk to hit &lt;goal date&gt;".
+- [x] **Calculated maintenance (adaptive TDEE) card** — a **"Calculated maintenance"** card in Food → Stats
+      (`FoodTrends`) that back-calculates real maintenance from the user's own data instead of a population
+      formula: `maintenance = avgIntake − Δmass×7700/days` over the selected date window. Pure calc
+      `calcEmpiricalMaintenance` + the extracted `KCAL_PER_KG` constant live in `lib/tdee.ts` (the two prior
+      inline `7700` sites now share it). The weight trend is a **least-squares fit over every in-span weigh-in**
+      (robust to endpoint water-weight noise + uneven spacing; slope×span = the change over exactly the intake
+      period), the intake average counts only **full-logging days** (≥500 cal — near-zero days are partial logs),
+      and both halves cover the **same first→last weigh-in span**. Gated on data sufficiency — ≥3 weigh-ins,
+      ≥14-day span, and **≥50 % logging density** (≥10 full days) — plus a plausibility guard rejecting a trend
+      faster than ~1.5 kg/wk as water weight. Shows the model-based formula TDEE alongside **only when the
+      window includes today** (the formula reflects current weight, so a paged-back window would mismatch).
 - [x] **Full exercise catalog (1,500 + GIFs)** — fixed the seed to walk the source's `after`
       cursor (the working param; `cursor`/`offset`/`page` are ignored), pulling all ~1500 with GIFs
       (was ~440). Cleanup pass normalizes names, infers categories (Strength/Stretching/Cardio),
@@ -223,6 +242,11 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       re-log them in one tap from add-food (a saved meal **fans out** into individual editable logs, unlike
       a recipe). New `saved_meals` + `saved_meal_items` tables + `FoodRepo` CRUD. **Editable** via
       `app/saved-meal.tsx` (add-food row kebab → "Edit meal"): rename, adjust each item's servings, remove items.
+- [x] **Water intake tracker (optional)** — a toggle-gated daily water log on **Food → Today**
+      (`profile.trackWater`, off by default so it never clutters the interface). A `<WaterCard>` shows a
+      progress bar vs a daily goal with unit-aware quick-add pills (glass/bottle) + undo; stored in a new
+      `water_logs` table via `WaterRepo` (ml, mirrors `food_logs`) and shown in ml or fl oz per unit system.
+      Enable it + set the goal under Settings → **Water tracking**. Included in backup/restore + the data-wipe.
 - [x] **Quick-add / recent foods + inline edit-serving** — tap a logged item to adjust servings/delete.
 - [x] **Remembered quantity per food** — the add-food sheet prefills the last amount + unit you logged
       an item at (`food_items.lastAmount`/`lastUnit`, set on log via `foodRepo.setFoodItemLastEntry`);

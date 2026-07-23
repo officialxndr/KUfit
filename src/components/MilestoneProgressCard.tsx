@@ -102,12 +102,21 @@ export function MilestoneProgressCard({ compact = false }: { compact?: boolean }
     ? (unit === 'IMPERIAL' ? 5 : 2.5)
     : (unit === 'IMPERIAL' ? 10 : 5);
   const rateDisp = stats.weeklyChange != null ? disp(stats.weeklyChange) : null;
+  // "By goal date" mode: the signed weekly rate needed to reach the goal by its goal date, in the
+  // same convention as weeklyChange (negative = losing). `requiredWeeklyRate` is signed (current − goal),
+  // so negate it. Only available when a goal date + a still-reachable timeline exist.
+  const requiredRateDisp = stats.requiredWeeklyRate != null ? disp(-stats.requiredWeeklyRate) : null;
+  const mode = profile.milestoneRateMode ?? 'current';
+  const byGoalDate = mode === 'goaldate' && requiredRateDisp != null;
+  // Projection rate: current pace, or the pace required to hit the goal date. Every milestone's
+  // date then falls out of `computeMilestones`/`etaFor` — reached rows still show their actual date.
+  const activeRate = byGoalDate ? requiredRateDisp : rateDisp;
 
   const result = computeMilestones({
     start: disp(startKg),
     current: disp(currentKg!),
     goal: disp(goalKg!),
-    weeklyRate: rateDisp,
+    weeklyRate: activeRate,
     step: stepDisp,
   });
 
@@ -220,10 +229,33 @@ export function MilestoneProgressCard({ compact = false }: { compact?: boolean }
         ]}
       />
 
-      {rateDisp != null && Math.abs(rateDisp) >= 0.05 && (
+      {activeRate != null && Math.abs(activeRate) >= 0.05 && (
         <FsText variant="caption" style={{ marginTop: space[2] }}>
-          {rateDisp < 0 ? 'Losing' : 'Gaining'} ~{fmtVal(Math.round(Math.abs(rateDisp) * 10) / 10)} {label}/wk
+          {byGoalDate
+            ? `${activeRate < 0 ? 'Lose' : 'Gain'} ~${fmtVal(Math.round(Math.abs(activeRate) * 10) / 10)} ${label}/wk to hit ${stats.goalTargetDate}`
+            : `${activeRate < 0 ? 'Losing' : 'Gaining'} ~${fmtVal(Math.round(Math.abs(activeRate) * 10) / 10)} ${label}/wk · current pace`}
         </FsText>
+      )}
+
+      {/* Timeline basis: current pace vs. the pace required to hit the goal date. Only offered
+          when a goal date + reachable timeline exist (else the ladder stays on current-rate ETAs). */}
+      {requiredRateDisp != null && (
+        <View style={styles.toggle}>
+          {([['current', 'Current rate'], ['goaldate', 'By goal date']] as const).map(([key, lbl]) => {
+            const active = mode === key;
+            return (
+              <Pressable
+                key={key}
+                style={[styles.toggleBtn, active && styles.toggleActive]}
+                onPress={() => setProfile({ milestoneRateMode: key })}
+              >
+                <FsText variant="caption" style={{ color: active ? colors.white : colors.muted, fontWeight: '600' }}>
+                  {lbl}
+                </FsText>
+              </Pressable>
+            );
+          })}
+        </View>
       )}
 
       {/* Step toggle */}

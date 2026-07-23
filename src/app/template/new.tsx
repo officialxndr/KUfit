@@ -9,6 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { X, Trash2, GripVertical, Dumbbell, Link2, Link2Off } from 'lucide-react-native';
 
 import { FsText, Button, Card } from '@/components/ui';
+import { ModalHeader } from '@/components/ModalHeader';
 import { KebabMenu } from '@/components/KebabMenu';
 import { AttachmentDropdown } from '@/components/AttachmentDropdown';
 import { PerArmDropdown } from '@/components/PerArmDropdown';
@@ -325,12 +326,10 @@ export default function NewTemplate() {
     // its own GestureHandlerRootView. Taps still work without it, which is why the
     // kebab/buttons worked but the drag handle didn't.
     <GestureHandlerRootView style={styles.screen}>
-      <View style={[styles.header, { paddingTop: insets.top + space[3] }]}>
-        <Pressable onPress={() => (wizard && step === 2 ? setStep(1) : router.back())} hitSlop={10}>
-          <X color={colors.text} size={24} />
-        </Pressable>
-        <FsText variant="cardTitle">{title}</FsText>
-        {wizard && step === 1 ? (
+      <ModalHeader
+        title={title}
+        onClose={() => (wizard && step === 2 ? setStep(1) : router.back())}
+        right={wizard && step === 1 ? (
           <Pressable onPress={() => (exercises.length ? setStep(2) : Alert.alert('Add an exercise', 'Browse and add at least one exercise first.'))} hitSlop={10}>
             <FsText variant="bodyMedium" style={{ color: colors.primary }}>Next</FsText>
           </Pressable>
@@ -339,7 +338,7 @@ export default function NewTemplate() {
             <FsText variant="bodyMedium" style={{ color: colors.success }}>{wizard ? 'Finish' : 'Save'}</FsText>
           </Pressable>
         )}
-      </View>
+      />
 
       <Animated.ScrollView ref={scrollRef} contentContainerStyle={{ padding: space[4], paddingBottom: 120 }}>
         {(!wizard || step === 1) && (

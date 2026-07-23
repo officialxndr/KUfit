@@ -4,6 +4,9 @@ import type { ActivityLevel, Sex, GoalType, UnitSystem } from '@/types';
 export const MAX_SAFE_RATE_KG = 0.9072;
 /** Very-low calorie floor below which we surface a caution. */
 export const MIN_SAFE_CALORIES = 1200;
+/** Energy density of body-mass change (~7700 kcal per kg). Shared by the goal-pace
+ *  math (weekly rate → daily deficit/surplus) and the data-derived maintenance estimate. */
+export const KCAL_PER_KG = 7700;
 const KG_TO_LB = 2.20462;
 
 /**
@@ -112,7 +115,7 @@ export function calcGoalCalories(params: {
   // aggressive timeline can't produce an absurd target (the warning below still
   // flags the real pace). This bounds the daily adjustment to ~±1000 kcal.
   const cappedRateKg = Math.sign(requiredWeeklyRateKg) * Math.min(Math.abs(requiredWeeklyRateKg), MAX_SAFE_RATE_KG);
-  const dailyAdjustment = (cappedRateKg * 7700) / 7;
+  const dailyAdjustment = (cappedRateKg * KCAL_PER_KG) / 7;
 
   let target: number;
   if (goalType === 'LOSE') {
@@ -130,4 +133,39 @@ export function calcGoalCalories(params: {
   }
 
   return { target, weeklyRate: requiredWeeklyRateKg, warning };
+}
+
+export interface EmpiricalMaintenanceInput {
+  /** Average daily calories eaten over the period. */
+  avgDailyIntakeKcal: number;
+  /** Signed body-mass change over the period, in kg (negative = lost weight). */
+  weightChangeKg: number;
+  /** Number of days the change occurred over. */
+  days: number;
+}
+
+export interface EmpiricalMaintenance {
+  /** Estimated maintenance (TDEE) in kcal/day. */
+  maintenance: number;
+  /** Daily energy balance the weight change implies: positive = surplus, negative = deficit. */
+  dailyEnergyBalance: number;
+}
+
+/**
+ * Back-calculate maintenance calories from real data ("adaptive" / empirical TDEE).
+ * Over a period, (intake − expenditure) accumulates as body-mass change, so
+ *   expenditure = avgIntake − (Δmass × KCAL_PER_KG / days).
+ * Gaining while eating X ⇒ maintenance is *below* X; losing ⇒ *above* X. This is more
+ * accurate than a population formula because it's grounded in the user's own numbers —
+ * but only as good as the inputs, so callers must gate on enough logged intake +
+ * a long-enough, well-sampled weight trend before trusting it. Returns null on
+ * non-finite / non-positive results.
+ */
+export function calcEmpiricalMaintenance(input: EmpiricalMaintenanceInput): EmpiricalMaintenance | null {
+  const { avgDailyIntakeKcal, weightChangeKg, days } = input;
+  if (!Number.isFinite(avgDailyIntakeKcal) || !Number.isFinite(weightChangeKg) || !(days > 0)) return null;
+  const dailyEnergyBalance = (weightChangeKg * KCAL_PER_KG) / days;
+  const maintenance = avgDailyIntakeKcal - dailyEnergyBalance;
+  if (!Number.isFinite(maintenance) || maintenance <= 0) return null;
+  return { maintenance: Math.round(maintenance), dailyEnergyBalance: Math.round(dailyEnergyBalance) };
 }

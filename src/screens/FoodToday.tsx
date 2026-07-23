@@ -27,11 +27,13 @@ import { CalorieMacroCard } from '@/components/CalorieMacroCard';
 import { MonthCalendar } from '@/components/MonthCalendar';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { FoodQuantitySheet, type SheetFood } from '@/components/FoodQuantitySheet';
+import { WaterCard } from '@/components/WaterCard';
 import { useMotion } from '@/lib/useMotion';
 import { haptic } from '@/lib/haptics';
 import { usePullRefresh } from '@/stores/refreshStore';
 import { DURATION } from '@/theme/motion';
 import { foodRepo, type DayNutrients } from '@/lib/repositories/FoodRepo';
+import { waterRepo } from '@/lib/repositories/WaterRepo';
 import { resolveBaseTargets, activeCaloriesForDisplay } from '@/lib/targets';
 import { computeActiveCaloriesForRange } from '@/lib/activeCalories';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -134,6 +136,7 @@ export function FoodToday() {
   const [date, setDate] = useState(() => isoDate(new Date()));
   const [logs, setLogs] = useState<FoodLog[]>([]);
   const [totals, setTotals] = useState<DayNutrients>({ calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0, saturatedFat: 0 });
+  const [waterMl, setWaterMl] = useState(0);
   const [open, setOpen] = useState<Record<MealType, boolean>>({ BREAKFAST: true, LUNCH: true, DINNER: false, SNACK: false });
   const [page, setPage] = useState(0);
   const [calOpen, setCalOpen] = useState(false);
@@ -147,10 +150,14 @@ export function FoodToday() {
   const refresh = useCallback(() => {
     setLogs(foodRepo.getLogs(date));
     setTotals(foodRepo.getDayTotals(date));
+    setWaterMl(waterRepo.getWaterTotal(date));
     useActiveCaloriesStore.getState().refresh(profile.activeCalorieSource);
   }, [date, profile.activeCalorieSource]);
   useFocusEffect(refresh);
   usePullRefresh(refresh);
+
+  const addWater = (ml: number) => { waterRepo.addWater(date, ml); haptic.tap(); refresh(); };
+  const undoWater = () => { if (waterRepo.deleteLastWater(date)) { haptic.tap(); refresh(); } };
 
   // Days with logged food in the visible calendar month (for dots).
   const loadMarks = useCallback((month: Date) => {
@@ -414,6 +421,16 @@ export function FoodToday() {
           </View>
         );
       })}
+
+      {profile.trackWater && (
+        <WaterCard
+          totalMl={waterMl}
+          goalMl={profile.waterGoalMl}
+          unitSystem={profile.unitSystem}
+          onAdd={addWater}
+          onUndo={undoWater}
+        />
+      )}
 
       {/* Calendar modal — also used to pick a source day when copying a meal/day. */}
       <Modal visible={calOpen} transparent animationType="fade" onRequestClose={() => { setCalOpen(false); setCopyMode(null); }}>

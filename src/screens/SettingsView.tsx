@@ -18,6 +18,7 @@ import { writeAndShareBackup, importFromUri, wipeAllData } from '@/lib/backup';
 import { pickAvatar, resolveAvatarUri } from '@/lib/avatar';
 import { syncHealthWeights, ensureHealthWeightObserver } from '@/lib/healthSync';
 import { syncBodyFatGoalWeight } from '@/lib/goalWeight';
+import { UNIT_LABELS, mlToDisplay, toMl } from '@/lib/units';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useTourStore } from '@/stores/tourStore';
 import { useActiveCaloriesStore } from '@/stores/activeCaloriesStore';
@@ -54,6 +55,7 @@ const T = {
   offline: 'offline download demos gifs exercise media cache',
   health: 'health apple healthkit health connect steps active calories watch import weight body fat navy estimate',
   coaching: 'coaching reminders nudges prompts workout summary recap warnings',
+  water: 'water hydration drink intake fluid glass bottle daily goal ml oz ounces track',
   motion: 'motion animation animations confetti celebration reduce transitions',
   notifications: 'notifications reminders alerts schedule notify food weight measurement',
   devices: 'devices bluetooth scale kitchen food weigh grams renpho etekcity connect tare',
@@ -122,13 +124,19 @@ export function SettingsView() {
   const show = (terms: string) => q === '' || terms.includes(q);
   const [versionTaps, setVersionTaps] = useState(0);
   const [seeding, setSeeding] = useState(false);
+  const [waterGoalText, setWaterGoalText] = useState(() => String(mlToDisplay(profile.waterGoalMl, unit)));
+  const onWaterGoal = (t: string) => {
+    setWaterGoalText(t);
+    const n = Number(t);
+    if (t.trim() && Number.isFinite(n) && n > 0) setProfile({ waterGoalMl: Math.round(toMl(n, unit)) });
+  };
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
   const devUnlocked = __DEV__ && devMode;
 
   // Whether any visible section matches the query (developer card only counts if unlocked).
   const noResults = q !== '' && ![
     T.units, T.appearance, T.profile, T.body, T.goals, T.help, T.support,
-    T.data, T.offline, T.health, T.coaching, T.motion, T.notifications, T.server, T.about,
+    T.data, T.offline, T.health, T.coaching, T.water, T.motion, T.notifications, T.server, T.about,
     ...(devUnlocked ? [T.developer] : []),
   ].some(show);
 
@@ -643,6 +651,32 @@ export function SettingsView() {
             trackColor={{ true: colors.primary, false: colors.border }}
           />
         </View>
+      </Card>
+
+      <Card hidden={!show(T.water)} style={{ marginBottom: space[3] }}>
+        <SectionHeader title="Water tracking" />
+        <View style={styles.toggleRow}>
+          <View style={{ flex: 1, marginRight: space[3] }}>
+            <FsText variant="bodyMedium">Track water intake</FsText>
+            <FsText variant="caption">Adds a water tracker to Food → Today with quick-add buttons. Off keeps it hidden so it doesn't clutter the log.</FsText>
+          </View>
+          <Switch
+            value={profile.trackWater}
+            onValueChange={(v) => setProfile({ trackWater: v })}
+            trackColor={{ true: colors.primary, false: colors.border }}
+          />
+        </View>
+        {profile.trackWater && (
+          <View style={{ marginTop: space[3] }}>
+            <Field
+              label={`Daily goal (${UNIT_LABELS[unit].volume})`}
+              value={waterGoalText}
+              onChangeText={onWaterGoal}
+              keyboardType="numeric"
+              suffix={UNIT_LABELS[unit].volume}
+            />
+          </View>
+        )}
       </Card>
 
       <Card hidden={!show(T.notifications)} style={{ marginBottom: space[3] }}>

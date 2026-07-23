@@ -31,7 +31,7 @@ for backup + Home Assistant / **MCP** access (`serverStore` is null by default).
   schedules; `themeStore` = appearance; `refreshStore` = pull-to-refresh signal; `tourStore` = guided
   feature tour; `devStore` = hidden developer mode; `donationStore` = optional-donation prompt state).
 - **Data**: `src/lib/db.ts` (SQLite schema, mirrors the server Prisma models with
-  `localId`/`serverId`/`syncStatus` for future sync) + `src/lib/repositories/{Food,Health,Workout}Repo.ts`.
+  `localId`/`serverId`/`syncStatus` for future sync) + `src/lib/repositories/{Food,Water,Health,Workout}Repo.ts`.
   Repos are the only thing that touches the DB. Mutations mark rows `syncStatus='pending'`.
 - **Calc libs** (pure TS): `tdee.ts`, `epley.ts`, `activities.ts`, `units.ts`, `targets.ts`,
   `supersets.ts` (superset ordering + `normalizeSupersets`; `restAfterSet` also defers rest between a
@@ -276,6 +276,12 @@ for backup + Home Assistant / **MCP** access (`serverStore` is null by default).
   parse/format. **Never** `new Date(dateStr)` (parses as UTC midnight → renders a day early in US zones) or
   `new Date().toISOString().slice(0,10)` (UTC day → evening entries file under tomorrow). This was a real bug.
 - Screens read from repos in a `useFocusEffect(refresh)` callback so data refreshes on tab focus.
+- **Modal screens** (`presentation: 'modal'` routes in `app/_layout.tsx`) draw **behind the status bar**
+  (edge-to-edge), so their header MUST offset by the top safe-area inset or the title tucks under the
+  clock/battery. Always use the shared **`ModalHeader`** (`src/components/ModalHeader.tsx`) —
+  `<ModalHeader title onClose right? />` — never a hand-rolled header row. One component owns the top
+  spacing so modals can't drift (a bespoke header that added `insets.top` and one that didn't is exactly
+  how they stopped matching). It renders ✕ · title · optional action + a bottom divider.
 - Calorie/macro targets resolve via `resolveTargets(profile)` (active GoalPhase → profile → TDEE).
 - Native dirs (`ios/`, `android/`) are git-ignored and regenerated via `expo prebuild` / EAS.
 - **DB connection**: open with `{ useNewConnection: true }` (don't revert) — the shared connection's

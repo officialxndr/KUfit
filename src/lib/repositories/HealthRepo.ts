@@ -2,6 +2,7 @@ import * as Crypto from 'expo-crypto';
 import { db } from '@/lib/db';
 import type { BodyMeasurement, GoalPhase, GoalType, HealthStats, WeightEntry } from '@/types';
 import { todayLocal, longDate } from '@/lib/date';
+import { KCAL_PER_KG } from '@/lib/tdee';
 
 // ── Mappers ───────────────────────────────────────────────────────────────────
 
@@ -339,7 +340,7 @@ export class HealthRepo {
         // not the difference. Positive gap ⇒ eat less, negative ⇒ eat more.
         requiredWeeklyRate = (current.weightKg - goalWeightKg) / weeksUntilGoal;
         const rateGap = requiredWeeklyRate + (weeklyChange ?? 0);
-        dailyCalorieDelta = Math.round((rateGap * 7700) / 7);
+        dailyCalorieDelta = Math.round((rateGap * KCAL_PER_KG) / 7);
         onTrack = Math.abs(rateGap) < 0.1;
       }
     }

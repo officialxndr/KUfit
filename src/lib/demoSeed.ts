@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
+import { waterRepo } from '@/lib/repositories/WaterRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import type { Profile } from '@/stores/settingsStore';
 
@@ -92,6 +93,7 @@ const DEMO_PROFILE_DEFAULTS: Pick<Profile, (typeof DEMO_PROFILE_KEYS)[number]> =
 export function clearLoggedData(): void {
   db.withTransactionSync(() => {
     foodRepo.clearAllLogs();
+    waterRepo.clearAllWater();
     workoutRepo.clearAllSessions();
     healthRepo.clearAllWeightEntries();
     healthRepo.clearAllMeasurements();

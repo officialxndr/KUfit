@@ -24,7 +24,7 @@ const SCHEMA = 1;
 const TABLES = [
   'food_items', 'exercises', 'recipes', 'recipe_ingredients',
   'workout_templates', 'template_exercises', 'workout_sessions', 'session_exercises', 'exercise_sets',
-  'weight_entries', 'body_measurements', 'food_logs', 'goal_phases',
+  'weight_entries', 'body_measurements', 'food_logs', 'water_logs', 'goal_phases',
 ] as const;
 
 interface Backup {
@@ -145,7 +145,7 @@ export async function importFromUri(uri: string, mode: 'replace' | 'merge'): Pro
 export function wipeAllData(): void {
   db.withTransactionSync(() => {
     for (const t of [
-      'food_logs', 'recipe_ingredients', 'recipes', 'weight_entries', 'body_measurements',
+      'food_logs', 'water_logs', 'recipe_ingredients', 'recipes', 'weight_entries', 'body_measurements',
       'exercise_sets', 'session_exercises', 'workout_sessions', 'template_exercises', 'workout_templates', 'goal_phases',
     ]) db.runSync(`DELETE FROM ${t}`);
     db.runSync(`DELETE FROM food_items WHERE barcode IS NULL OR barcode NOT LIKE 'base:%'`);

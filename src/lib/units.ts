@@ -1,8 +1,8 @@
 import type { UnitSystem } from '@/types';
 
 export const UNIT_LABELS = {
-  METRIC: { weight: 'kg', height: 'cm', distance: 'km', smallLength: 'cm' },
-  IMPERIAL: { weight: 'lbs', height: 'ft/in', distance: 'mi', smallLength: 'in' },
+  METRIC: { weight: 'kg', height: 'cm', distance: 'km', smallLength: 'cm', volume: 'ml' },
+  IMPERIAL: { weight: 'lbs', height: 'ft/in', distance: 'mi', smallLength: 'in', volume: 'fl oz' },
 };
 
 export const toDisplay = (kg: number, system: UnitSystem): number =>
@@ -10,6 +10,21 @@ export const toDisplay = (kg: number, system: UnitSystem): number =>
 
 export const toKg = (value: number, system: UnitSystem): number =>
   system === 'IMPERIAL' ? value / 2.20462 : value;
+
+/** US fluid ounce in millilitres (the single shared constant; scales/food sheet dupe this locally). */
+export const FL_OZ_ML = 29.5735;
+
+/** Water/liquid volume: ml → display unit (ml for metric, US fl oz for imperial), whole number. */
+export const mlToDisplay = (ml: number, system: UnitSystem): number =>
+  system === 'IMPERIAL' ? Math.round(ml / FL_OZ_ML) : Math.round(ml);
+
+/** display volume → ml (stored metric). */
+export const toMl = (value: number, system: UnitSystem): number =>
+  system === 'IMPERIAL' ? value * FL_OZ_ML : value;
+
+/** e.g. "1500 ml" / "51 fl oz" (distinct from `formatVolume`, which is training tonnage in kg). */
+export const formatWater = (ml: number, system: UnitSystem): string =>
+  `${mlToDisplay(ml, system)} ${UNIT_LABELS[system].volume}`;
 
 export const cmToDisplay = (cm: number, system: UnitSystem): string =>
   system === 'IMPERIAL'

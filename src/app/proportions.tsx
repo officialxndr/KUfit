@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react';
 import { View, TextInput, StyleSheet, Pressable, Alert, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { X, Sparkles } from 'lucide-react-native';
+import { Sparkles } from 'lucide-react-native';
 
 import { FsText, Button, Badge } from '@/components/ui';
+import { ModalHeader } from '@/components/ModalHeader';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { UNIT_LABELS, inchesToCm } from '@/lib/units';
@@ -68,11 +69,7 @@ export default function Proportions() {
 
   return (
     <View style={styles.screen}>
-      <View style={[styles.header, { paddingTop: insets.top + space[3] }]}>
-        <Pressable onPress={close} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
-        <FsText variant="cardTitle">Ideal proportions</FsText>
-        <View style={{ width: 24 }} />
-      </View>
+      <ModalHeader title="Ideal proportions" onClose={close} />
 
       <ScrollView
         contentContainerStyle={{ padding: space[4], paddingBottom: insets.bottom + space[8] }}

@@ -115,6 +115,10 @@ export interface Profile {
   weeklySessionTarget: number | null;
   // Custom secondary nutrient goals (Nutrition section)
   nutrientGoals: NutrientGoal[];
+  /** Optional daily water-intake tracker (Food → Today card). Off by default so it stays out of the way. */
+  trackWater: boolean;
+  /** Daily water goal in **ml** (stored metric; shown in ml or fl oz per `unitSystem`). */
+  waterGoalMl: number;
   /** Per-site body-measurement goals, keyed by site, value in cm. */
   measurementGoals: Record<string, number>;
   /** Wrist circumference (cm) — the frame anchor for ideal-proportion targets (config, not a tracked site). */
@@ -128,6 +132,9 @@ export interface Profile {
   milestoneStartBasis: 'phase' | 'earliest' | 'peak' | 'custom';
   /** User-set starting weight in kg, used only when milestoneStartBasis === 'custom'. */
   milestoneStartKg: number | null;
+  /** Milestone timeline basis: 'current' = projected dates at your current pace; 'goaldate' = the dates
+   *  you'd need to hit each milestone to reach your goal by your goal date (required pace). */
+  milestoneRateMode: 'current' | 'goaldate';
 }
 
 const DEFAULT_PROFILE: Profile = {
@@ -170,12 +177,15 @@ const DEFAULT_PROFILE: Profile = {
   aiActiveEndpointId: null,
   weeklySessionTarget: null,
   nutrientGoals: [],
+  trackWater: false,
+  waterGoalMl: 2000,
   measurementGoals: {},
   wristCm: null,
   ankleCm: null,
   milestoneInterval: 'large',
   milestoneStartBasis: 'phase',
   milestoneStartKg: null,
+  milestoneRateMode: 'current',
 };
 
 interface SettingsState {

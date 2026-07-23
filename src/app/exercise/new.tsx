@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 
 import { FsText, Button, Chip } from '@/components/ui';
+import { ModalHeader } from '@/components/ModalHeader';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 
@@ -33,13 +34,11 @@ export default function NewExercise() {
 
   return (
     <View style={styles.screen}>
-      <View style={[styles.header, { paddingTop: insets.top + space[3] }]}>
-        <Pressable onPress={() => router.back()} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
-        <FsText variant="cardTitle">New Exercise</FsText>
-        <Pressable onPress={save} hitSlop={10}>
-          <FsText variant="bodyMedium" style={{ color: colors.success }}>Save</FsText>
-        </Pressable>
-      </View>
+      <ModalHeader
+        title="New Exercise"
+        onClose={() => router.back()}
+        right={<Pressable onPress={save} hitSlop={10}><FsText variant="bodyMedium" style={{ color: colors.success }}>Save</FsText></Pressable>}
+      />
 
       <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
         <Field label="Name">

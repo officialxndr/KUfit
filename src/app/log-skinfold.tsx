@@ -2,9 +2,8 @@ import { useMemo, useState } from 'react';
 import { View, TextInput, StyleSheet, Pressable, Alert, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { X } from 'lucide-react-native';
-
 import { FsText, Button, Chip } from '@/components/ui';
+import { ModalHeader } from '@/components/ModalHeader';
 import { DateField } from '@/components/DateField';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { syncBodyFatGoalWeight } from '@/lib/goalWeight';
@@ -112,11 +111,11 @@ export default function LogSkinfold() {
 
   return (
     <View style={styles.screen}>
-      <View style={[styles.header, { paddingTop: insets.top + space[3] }]}>
-        <Pressable onPress={() => router.back()} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
-        <FsText variant="cardTitle">{editing ? 'Edit skinfold' : 'Log skinfold'}</FsText>
-        <Pressable onPress={save} hitSlop={10}><FsText variant="bodyMedium" style={{ color: colors.success }}>Save</FsText></Pressable>
-      </View>
+      <ModalHeader
+        title={editing ? 'Edit skinfold' : 'Log skinfold'}
+        onClose={() => router.back()}
+        right={<Pressable onPress={save} hitSlop={10}><FsText variant="bodyMedium" style={{ color: colors.success }}>Save</FsText></Pressable>}
+      />
 
       <ScrollView
         contentContainerStyle={{ padding: space[4], paddingBottom: insets.bottom + space[8] }}

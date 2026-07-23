@@ -3,9 +3,10 @@ import { View, TextInput, StyleSheet, Pressable, ScrollView, Alert } from 'react
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { X, Bluetooth } from 'lucide-react-native';
+import { Bluetooth } from 'lucide-react-native';
 import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { TapeMeasureView } from '@/components/TapeMeasureView';
+import { ModalHeader } from '@/components/ModalHeader';
 
 import { FsText, Card, Button, SectionHeader } from '@/components/ui';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
@@ -79,10 +80,7 @@ export default function MeasurementsScreen() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaView style={styles.screen} edges={[]}>
-      <View style={styles.header}>
-        <FsText variant="h2">Measurements</FsText>
-        <Pressable onPress={() => router.back()} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
-      </View>
+      <ModalHeader title="Measurements" onClose={() => router.back()} />
 
       <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: 120 }}>
         <Pressable style={styles.tapeBtn} onPress={() => setMode('tape')}>

@@ -53,6 +53,16 @@ export function initDb() {
       deleted INTEGER DEFAULT 0
     );
 
+    CREATE TABLE IF NOT EXISTS water_logs (
+      localId TEXT PRIMARY KEY,
+      serverId TEXT,
+      syncStatus TEXT DEFAULT 'local',
+      date TEXT NOT NULL,
+      amountMl REAL NOT NULL,
+      updatedAt TEXT,
+      deleted INTEGER DEFAULT 0
+    );
+
     CREATE TABLE IF NOT EXISTS recipes (
       localId TEXT PRIMARY KEY,
       serverId TEXT,
@@ -250,6 +260,7 @@ export function initDb() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_food_logs_date ON food_logs(date);
+    CREATE INDEX IF NOT EXISTS idx_water_logs_date ON water_logs(date);
     CREATE INDEX IF NOT EXISTS idx_saved_meal_items ON saved_meal_items(savedMealLocalId);
     CREATE INDEX IF NOT EXISTS idx_weight_date ON weight_entries(date);
     CREATE INDEX IF NOT EXISTS idx_exercises_name ON exercises(name);
