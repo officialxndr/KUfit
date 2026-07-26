@@ -282,7 +282,12 @@ for backup + Home Assistant / **MCP** access (`serverStore` is null by default).
   `<ModalHeader title onClose right? />` — never a hand-rolled header row. One component owns the top
   spacing so modals can't drift (a bespoke header that added `insets.top` and one that didn't is exactly
   how they stopped matching). It renders ✕ · title · optional action + a bottom divider.
-- Calorie/macro targets resolve via `resolveTargets(profile)` (active GoalPhase → profile → TDEE).
+- Calorie/macro targets resolve via `resolveTargets(profile)` (active GoalPhase → profile → TDEE). The TDEE
+  **base** is the Mifflin formula unless `profile.calorieBasis === 'adaptive'`, in which case `resolveBaseTargets`
+  substitutes the cached empirical maintenance (`profile.adaptiveMaintenanceKcal`, refreshed by
+  `recomputeAdaptiveMaintenance()` on foreground; gated by `isAdaptiveUsable`) — the goal deficit still applies
+  on top. Keep the resolver **synchronous/cheap** (it runs per-keystroke in the food quantity sheet): read the
+  cached number, never recompute the empirical maintenance inside it.
 - Native dirs (`ios/`, `android/`) are git-ignored and regenerated via `expo prebuild` / EAS.
 - **DB connection**: open with `{ useNewConnection: true }` (don't revert) — the shared connection's
   dev-tools registration tears the native handle down in dev → black-screen `prepareSync` NPEs.

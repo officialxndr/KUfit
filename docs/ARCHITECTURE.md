@@ -750,6 +750,14 @@ intentionally **not** bottom sheets and keep their `animationType="fade"` modals
   in-span weigh-in (`HealthRepo.getWeightEntries`), both across the same first→last weigh-in span. Gated on
   ≥3 weigh-ins, ≥14-day span, ≥50 % logging density (≥10 full days), + a ≤~1.5 kg/wk plausibility guard; the
   formula TDEE is shown beside it only when the window includes today (it reflects current weight).
+  The compute lives in **`adaptiveMaintenance.ts`** (`computeAdaptiveMaintenance`, lifted out of the card so it
+  can also drive targets) alongside `recomputeAdaptiveMaintenance()` — run on each app foreground (chained after
+  `syncHealthWeights`, `_layout.tsx`) over a trailing 28-day window, caching the number on the profile
+  (`adaptiveMaintenanceKcal`/`…UpdatedAt`/`…LoggedDays`) so the hot-path resolver reads it synchronously. When
+  `profile.calorieBasis === 'adaptive'`, `resolveBaseTargets` swaps that cached number in for the formula TDEE
+  as the base (deficit still applied by `calcGoalCalories`), gated by **`isAdaptiveUsable`** (non-null + fresh
+  ≤10 days + 1.1–2.2× BMR; else falls back to formula). One-time apply reuses **`deficitAdjustedTarget`** to
+  freeze `maintenance − deficit` into `calorieGoal`; `ResolvedTargets.basis` reports which base was used.
   `epley.ts` (1RM), `activities.ts` (MET table + `caloriesBurnedFromDuration`), `units.ts` (conversions),
   `targets.ts` (resolves daily calorie/macro targets from active GoalPhase → profile → TDEE; emits a
   `warning` for unsafe goals via `goalSafetyWarning`; and when `activeCalorieSource !== 'off'` adds the

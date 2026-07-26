@@ -13,11 +13,13 @@ import { syncWidget } from '@/lib/widget';
 import { endLiveActivity } from '@/lib/liveActivity';
 import { initWatchBridge, syncWatch } from '@/lib/watch';
 import { syncHealthWeights, ensureHealthWeightObserver } from '@/lib/healthSync';
+import { recomputeAdaptiveMaintenance } from '@/lib/adaptiveMaintenance';
 import { repairOffFoodItems } from '@/lib/offRepair';
 import { lockPortrait } from '@/lib/orientation';
 import { syncNow } from '@/lib/sync';
 import { configureNotifications, syncScheduledNotifications } from '@/lib/reminders';
 import { useRemindersStore } from '@/stores/remindersStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { useServerStore } from '@/stores/serverStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { colors, SURFACE_PRESETS } from '@/theme/tokens';
@@ -65,14 +67,23 @@ export default function RootLayout() {
     initWatchBridge();
     // Import any weigh-ins added to Apple Health / Health Connect since we last looked, and
     // start a live observer so new ones land automatically while the app is open.
-    syncHealthWeights().catch(() => {});
+    // Recompute the adaptive-maintenance cache, but only once the persisted profile has
+    // rehydrated — at cold launch this effect can run first, and a write onto DEFAULT_PROFILE
+    // would be discarded by the persist merge (so the cache would look stale all session).
+    const recomputeWhenHydrated = () => {
+      if (useSettingsStore.getState().hydrated) recomputeAdaptiveMaintenance();
+      else { const unsub = useSettingsStore.subscribe((s) => { if (s.hydrated) { unsub(); recomputeAdaptiveMaintenance(); } }); }
+    };
+    // …then recompute the cache (after any new weigh-in resolves) so an 'adaptive' basis
+    // reflects the latest data on every launch.
+    syncHealthWeights().catch(() => {}).finally(recomputeWhenHydrated);
     ensureHealthWeightObserver();
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'background' || state === 'active') { syncWidget(); syncWatch(); }
       // Returning to the app: pull any weigh-ins added to Health while we were away, and
       // re-assert the observer (a permission grant may have happened outside the app).
       if (state === 'active') {
-        syncHealthWeights().catch(() => {});
+        syncHealthWeights().catch(() => {}).finally(recomputeWhenHydrated);
         ensureHealthWeightObserver();
       }
       // Push a snapshot to the optional Hale Hub when leaving the foreground. Upload-only

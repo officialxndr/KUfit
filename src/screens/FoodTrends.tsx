@@ -1,21 +1,19 @@
 import { useCallback, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Alert } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
-import { Card, FsText } from '@/components/ui';
+import { Card, FsText, Button } from '@/components/ui';
 import { MacroBars } from '@/components/MacroBar';
 import { DateRangeBar } from '@/components/DateRangeBar';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
-import { healthRepo } from '@/lib/repositories/HealthRepo';
-import { resolveBaseTargets } from '@/lib/targets';
-import { calcEmpiricalMaintenance } from '@/lib/tdee';
+import { resolveBaseTargets, deficitAdjustedTarget } from '@/lib/targets';
+import { computeAdaptiveMaintenance, type MaintResult } from '@/lib/adaptiveMaintenance';
 import { useDateRange } from '@/lib/useDateRange';
 import { usePullRefresh } from '@/stores/refreshStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
-import { isoLocalDay, addDays, parseLocalDay, todayLocal } from '@/lib/date';
+import { isoLocalDay, addDays, todayLocal } from '@/lib/date';
 
-const DAY_MS = 86_400_000;
 const isoDate = isoLocalDay;
 const parse = (iso: string) => new Date(`${iso}T00:00:00`);
 const WEEKDAY = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
@@ -23,81 +21,9 @@ const CHART_H = 80;
 const MAX_BARS = 60; // bucket the calorie bars beyond this so long ranges stay readable
 const REF = { fiber: 30, sugar: 50, saturatedFat: 20, sodium: 2300 };
 
-// "Calculated maintenance" (adaptive TDEE) data-sufficiency floors.
-const MIN_WEIGH_INS = 3;          // a slope needs ≥3 points to be more than a two-reading guess
-const MIN_SPAN_DAYS = 14;         // weigh-ins must bracket ≥ ~2 weeks (short spans are too noisy)
-const MIN_LOGGED_DAYS = 10;       // and enough logged food days to trust the intake average
-const MIN_LOG_DENSITY = 0.5;      // …covering ≥ half the span (so logged days represent the whole period)
-const MIN_FULL_DAY_KCAL = 500;    // days below this are treated as incomplete logging, not a real day of eating
-const MAX_TREND_RATE_KG_WK = 1.5; // a trend faster than this is ~always water/glycogen, not real energy balance
-
-type MaintResult =
-  | { ok: true; maintenance: number; avgIntake: number; deltaKg: number; spanDays: number; loggedDays: number; totalDays: number }
-  | { ok: false; reason: string };
-
-/** Least-squares slope (units of y per unit of x). Returns null if x has no spread. */
-function linRegressionSlope(xs: number[], ys: number[]): number | null {
-  const n = xs.length;
-  const mx = xs.reduce((s, v) => s + v, 0) / n;
-  const my = ys.reduce((s, v) => s + v, 0) / n;
-  let num = 0, den = 0;
-  for (let i = 0; i < n; i++) { num += (xs[i] - mx) * (ys[i] - my); den += (xs[i] - mx) ** 2; }
-  return den === 0 ? null : num / den;
-}
-
-/**
- * Empirical maintenance over the selected window: back-calculate expenditure from the
- * user's own average intake vs. their weight change across the same weigh-in span
- * (maintenance = avgIntake − Δmass×7700/days). The weight trend is a least-squares fit
- * over every in-span weigh-in (robust to endpoint water-weight noise + uneven spacing —
- * slope×span is the change over exactly the intake period), the intake average is over
- * days that look like full logging within that same span, and the whole thing is gated
- * on data density so a sparse/partial-logged window can't produce a confident-but-wrong
- * number. Returns an insufficiency reason when the data's too thin to trust.
- */
-function computeMaintenance(fromIso: string, endIso: string): MaintResult {
-  const entries = healthRepo.getWeightEntries(fromIso, endIso);
-  if (entries.length < MIN_WEIGH_INS) {
-    return { ok: false, reason: `Log at least ${MIN_WEIGH_INS} weigh-ins in this range to calculate maintenance.` };
-  }
-  const first = entries[0].date;
-  const last = entries[entries.length - 1].date;
-  const spanDays = Math.round((parseLocalDay(last).getTime() - parseLocalDay(first).getTime()) / DAY_MS);
-  if (spanDays < MIN_SPAN_DAYS) {
-    return { ok: false, reason: `Weigh-ins span only ${spanDays} day${spanDays === 1 ? '' : 's'} — needs ~2+ weeks. Try a longer range.` };
-  }
-
-  // Fit the weight trend across ALL in-span weigh-ins (day-offset → kg) so a single
-  // noisy reading can't dominate; Δ over the span = slope × spanDays.
-  const dayOffset = (d: string) => (parseLocalDay(d).getTime() - parseLocalDay(first).getTime()) / DAY_MS;
-  const slope = linRegressionSlope(entries.map((e) => dayOffset(e.date)), entries.map((e) => e.weightKg));
-  if (slope == null) {
-    return { ok: false, reason: 'Weigh-ins are all on one day — spread readings across the range.' };
-  }
-  const deltaKg = slope * spanDays;
-  // Reject a trend too fast to be real fat change — it'd be water/glycogen, not energy balance.
-  if (Math.abs(slope) * 7 > MAX_TREND_RATE_KG_WK) {
-    return { ok: false, reason: 'Weight swung too sharply over this span to calculate reliably (likely water weight). Try a longer range.' };
-  }
-
-  // Intake over the SAME span, counting only days that look like a full day of logging
-  // (near-zero days are partial logs, not real intake, and would bias maintenance low).
-  const fullDays = foodRepo.getDailyCalories(first, last).filter((r) => r.calories >= MIN_FULL_DAY_KCAL);
-  const totalDays = spanDays + 1;
-  const daysNeeded = Math.max(MIN_LOGGED_DAYS, Math.ceil(totalDays * MIN_LOG_DENSITY));
-  if (fullDays.length < daysNeeded) {
-    return { ok: false, reason: `Only ${fullDays.length} of ${totalDays} days logged in this span — need ~${daysNeeded}+ full days for a reliable estimate.` };
-  }
-  const avgIntake = fullDays.reduce((s, r) => s + r.calories, 0) / fullDays.length;
-
-  const res = calcEmpiricalMaintenance({ avgDailyIntakeKcal: avgIntake, weightChangeKg: deltaKg, days: spanDays });
-  // A pass through every data gate but a ≤0 result means gain-vs-intake contradiction (water weight), not scarcity.
-  if (!res) return { ok: false, reason: 'Your weight and intake don’t line up over this span (likely water weight). Try a longer range.' };
-  return { ok: true, maintenance: res.maintenance, avgIntake, deltaKg, spanDays, loggedDays: fullDays.length, totalDays };
-}
-
 export function FoodTrends() {
   const profile = useSettingsStore((s) => s.profile);
+  const setProfile = useSettingsStore((s) => s.setProfile);
   const range = useDateRange('week');
   const { fromIso, endIso, days } = range;
   const [cals, setCals] = useState<number[]>([]);
@@ -113,7 +39,7 @@ export function FoodTrends() {
     setAvgCalories(Math.round(n.avgCalories));
     setMacroAvg({ protein: n.avgProtein, carbs: n.avgCarbs, fat: n.avgFat });
     setNutrientAvg({ fiber: n.avgFiber, sugar: n.avgSugar, saturatedFat: n.avgSaturatedFat, sodium: n.avgSodium });
-    setMaint(computeMaintenance(fromIso, endIso));
+    setMaint(computeAdaptiveMaintenance(fromIso, endIso));
 
     // Per-day calories → bars, bucketed (averaged) past MAX_BARS so a year fits.
     const byDate = new Map(foodRepo.getDailyCalories(fromIso, endIso).map((r) => [r.date, r.calories]));
@@ -147,6 +73,27 @@ export function FoodTrends() {
   // The formula TDEE always reflects *today's* weight, so only compare it to the empirical
   // number when the window includes today (else it's an apples-to-oranges historical mismatch).
   const windowHasToday = endIso >= todayLocal();
+
+  // One-time apply: freeze the calculated maintenance (with the goal deficit applied) as the
+  // manual calorie goal. Turns off the continuous 'adaptive' basis so the number stays put.
+  const applyAsTarget = () => {
+    if (!maint || !maint.ok) return;
+    const target = deficitAdjustedTarget(profile, maint.maintenance);
+    if (target == null) {
+      Alert.alert('Add your details first', 'Set your weight, height, sex and birth date so maintenance can become a calorie target.');
+      return;
+    }
+    const diff = maint.maintenance - target;
+    const adj = diff === 0 ? '' : ` ${diff > 0 ? '−' : '+'} ${Math.abs(diff).toLocaleString()} for your goal`;
+    Alert.alert(
+      'Set calorie target?',
+      `Your calculated maintenance ${maint.maintenance.toLocaleString()} cal${adj} = ${target.toLocaleString()} cal/day. This replaces your current calorie goal.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Set target', onPress: () => setProfile({ calorieGoal: target, calorieBasis: 'formula' }) },
+      ]
+    );
+  };
 
   const status =
     goal === 0 || avgCalories === 0
@@ -253,6 +200,10 @@ export function FoodTrends() {
                   : `Your data runs ~${Math.abs(maint.maintenance - targets.tdee).toLocaleString()} cal/day ${maint.maintenance > targets.tdee ? 'higher' : 'lower'} than the formula.`}
               </FsText>
             )}
+            <Button title="Use as my calorie target" variant="ghost" onPress={applyAsTarget} style={{ marginTop: space[3] }} />
+            <FsText variant="caption" style={{ marginTop: space[1], color: colors.muted }}>
+              Or turn on the Adaptive basis in Goals to keep your target updating from this automatically.
+            </FsText>
           </>
         ) : (
           <FsText variant="caption" style={{ color: colors.muted }}>

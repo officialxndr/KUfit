@@ -31,7 +31,9 @@ export function FoodGoals() {
   // Calorie-anchored coupling: calories rescales macros (keeping ratio); editing a
   // macro re-weights the other two; presets split the calorie goal. A locked macro
   // stays put while the other two flex. Always sums to goal.
-  const setCalories = (n: number) => setProfile({ calorieGoal: n, ...toTargets(rescaleToCalories(n, macros, locked)) });
+  // A manual calorie edit is an explicit fixed target → leave the adaptive basis (else it'd
+  // silently shadow the number the user just set).
+  const setCalories = (n: number) => setProfile({ calorieGoal: n, calorieBasis: 'formula', ...toTargets(rescaleToCalories(n, macros, locked)) });
   const setMacro = (field: MacroKey, n: number) =>
     setProfile(toTargets(rebalanceMacro(calories, field, n, macros, locked)));
   const applyPreset = (r: typeof MACRO_PRESETS[number]) => setProfile(toTargets(presetMacros(calories, r, macros, locked)));

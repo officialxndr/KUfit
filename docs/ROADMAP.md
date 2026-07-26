@@ -97,6 +97,17 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       ≥14-day span, and **≥50 % logging density** (≥10 full days) — plus a plausibility guard rejecting a trend
       faster than ~1.5 kg/wk as water weight. Shows the model-based formula TDEE alongside **only when the
       window includes today** (the formula reflects current weight, so a paged-back window would mismatch).
+- [x] **Adaptive calorie basis (data-driven daily target)** — the calculated maintenance can now *drive* the
+      daily calorie target, two ways: a one-time **"Use as my calorie target"** button on the Food-stats card
+      (freezes maintenance − your goal deficit into `profile.calorieGoal`), and a continuous **Formula ⇄ Adaptive**
+      toggle in the Goals editor's Maintenance & TDEE card. When Adaptive is on, `resolveBaseTargets` substitutes
+      the cached empirical maintenance for the formula TDEE as the base and `calcGoalCalories` applies the goal
+      deficit on top (so every calorie surface follows; a `MAINTAIN` goal ⇒ eat at maintenance). The compute was
+      lifted to `lib/adaptiveMaintenance.ts`; `recomputeAdaptiveMaintenance()` runs on each app foreground (after
+      health-sync) over a trailing 28-day window and caches the number on the profile (`adaptiveMaintenanceKcal`
+      + updatedAt + loggedDays). Guardrails: `isAdaptiveUsable` requires the cache be non-null, fresh (≤10 days),
+      and physiologically plausible (1.1–2.2× BMR) — else it silently falls back to the formula. Consistent
+      logging bias self-cancels; the gates guard against *inconsistent* logging.
 - [x] **Full exercise catalog (1,500 + GIFs)** — fixed the seed to walk the source's `after`
       cursor (the working param; `cursor`/`offset`/`page` are ignored), pulling all ~1500 with GIFs
       (was ~440). Cleanup pass normalizes names, infers categories (Strength/Stretching/Cardio),

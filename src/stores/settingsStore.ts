@@ -147,6 +147,18 @@ export interface Profile {
   milestoneRateMode: 'current' | 'goaldate';
   /** User-defined milestones (target weights and target dates/events) shown on the weight-progress card. */
   customMilestones: CustomMilestone[];
+  // ── Adaptive (data-driven) calorie basis ──
+  /** What the daily calorie target is based on: 'formula' = Mifflin-St Jeor TDEE (default);
+   *  'adaptive' = your empirically-calculated maintenance (from intake vs. weight change) as the base,
+   *  with your goal deficit/surplus applied on top. Falls back to the formula when the cache is thin/stale. */
+  calorieBasis: 'formula' | 'adaptive';
+  /** Cached empirical maintenance (kcal/day) over the trailing window; recomputed on app foreground.
+   *  null when there isn't enough consistent logging to trust it. Written by recomputeAdaptiveMaintenance. */
+  adaptiveMaintenanceKcal: number | null;
+  /** Local day (YYYY-MM-DD) the cache was last recomputed — used for the resolver's staleness guard. */
+  adaptiveMaintenanceUpdatedAt: string | null;
+  /** How many full-logging days backed the cached number (confidence/coverage display). */
+  adaptiveMaintenanceLoggedDays: number | null;
 }
 
 const DEFAULT_PROFILE: Profile = {
@@ -199,6 +211,10 @@ const DEFAULT_PROFILE: Profile = {
   milestoneStartKg: null,
   milestoneRateMode: 'current',
   customMilestones: [],
+  calorieBasis: 'formula',
+  adaptiveMaintenanceKcal: null,
+  adaptiveMaintenanceUpdatedAt: null,
+  adaptiveMaintenanceLoggedDays: null,
 };
 
 interface SettingsState {

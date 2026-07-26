@@ -2,6 +2,7 @@ import { calcBMR, calcTDEE, calcGoalCalories, safeRateWarning, MIN_SAFE_CALORIES
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { activeCaloriesToday } from '@/stores/activeCaloriesStore';
+import { parseLocalDay } from '@/lib/date';
 import type { Profile } from '@/stores/settingsStore';
 import type { GoalPhase } from '@/types';
 
@@ -127,6 +128,9 @@ export interface ResolvedTargets {
   warning: string | null;
   /** The goal driving the target — active phase name, or "Profile default". */
   source: string;
+  /** Which maintenance base produced the target: 'formula' (Mifflin TDEE) or 'adaptive'
+   *  (the user's empirical maintenance). Manual/override targets report 'formula'. */
+  basis: 'formula' | 'adaptive';
 }
 
 export function ageFromBirthDate(birthDate: string | null): number | null {
@@ -134,6 +138,42 @@ export function ageFromBirthDate(birthDate: string | null): number | null {
   const diff = Date.now() - new Date(birthDate).getTime();
   const years = diff / (365.25 * 86400 * 1000);
   return years > 0 && years < 130 ? Math.floor(years) : null;
+}
+
+/** Whether the cached adaptive maintenance is trustworthy enough to drive the target:
+ *  present, recomputed recently (≤10 days), and physiologically plausible vs. BMR. When
+ *  any check fails, the target silently falls back to the formula TDEE. */
+export function isAdaptiveUsable(profile: Profile, bmr: number): boolean {
+  const kcal = profile.adaptiveMaintenanceKcal;
+  if (kcal == null || profile.adaptiveMaintenanceUpdatedAt == null) return false;
+  const ageDays = Math.round((Date.now() - parseLocalDay(profile.adaptiveMaintenanceUpdatedAt).getTime()) / 86_400_000);
+  if (ageDays > 10) return false;                         // stale — hasn't recomputed lately
+  if (kcal < bmr * 1.1 || kcal > bmr * 2.2) return false; // implausible vs. BMR → likely a bad-data window
+  return true;
+}
+
+/** Apply the active goal's deficit/surplus to an arbitrary maintenance base → the daily
+ *  calorie target, or null when the profile can't compute (missing weight/height/sex/age).
+ *  Used by the "use my calculated maintenance as my target" apply action so the frozen
+ *  number matches what the continuous adaptive basis would produce. */
+export function deficitAdjustedTarget(profile: Profile, maintenanceKcal: number): number | null {
+  const currentWeightKg = healthRepo.getLatestWeightEntry()?.weightKg ?? null;
+  const age = ageFromBirthDate(profile.birthDate);
+  if (currentWeightKg == null || profile.heightCm == null || profile.sex == null || age == null) return null;
+  const bmr = calcBMR({
+    weightKg: currentWeightKg, heightCm: profile.heightCm, ageYears: age, sex: profile.sex, activityLevel: profile.activityLevel,
+  });
+  const phase = healthRepo.getActiveGoalPhase();
+  const { target } = calcGoalCalories({
+    tdee: maintenanceKcal,
+    bmr,
+    goalType: phase?.goalType ?? profile.goalType,
+    currentWeightKg,
+    goalWeightKg: phase?.targetWeightKg ?? profile.goalWeightKg,
+    goalDate: phase?.endDate ?? profile.goalDate,
+    unitSystem: profile.unitSystem,
+  });
+  return target;
 }
 
 /**
@@ -197,6 +237,7 @@ export function resolveBaseTargets(profile: Profile): ResolvedTargets {
       tdee: null,
       warning: manualCalorie ? lowCalorieWarning(manualCalorie, null) : NEEDS_INFO_WARNING,
       source,
+      basis: 'formula',
     };
   }
 
@@ -212,11 +253,17 @@ export function resolveBaseTargets(profile: Profile): ResolvedTargets {
 
   if (manualCalorie != null) {
     withMacroDefaults(manualCalorie);
-    return { calorieTarget: manualCalorie, proteinTarget, carbsTarget, fatTarget, tdee, warning: lowCalorieWarning(manualCalorie, bmr), source };
+    return { calorieTarget: manualCalorie, proteinTarget, carbsTarget, fatTarget, tdee, warning: lowCalorieWarning(manualCalorie, bmr), source, basis: 'formula' };
   }
 
+  // Adaptive basis: use the cached empirical maintenance as the base (the goal deficit/surplus
+  // still applies on top via calcGoalCalories) when the user opted in and the cache is usable;
+  // otherwise fall back to the formula TDEE. `tdee` in the result stays the formula value.
+  const useAdaptive = profile.calorieBasis === 'adaptive' && isAdaptiveUsable(profile, bmr);
+  const base = useAdaptive ? profile.adaptiveMaintenanceKcal! : tdee;
+
   const { target, warning: goalWarning } = calcGoalCalories({
-    tdee,
+    tdee: base,
     bmr,
     goalType,
     currentWeightKg: currentWeightKg!,
@@ -227,5 +274,5 @@ export function resolveBaseTargets(profile: Profile): ResolvedTargets {
 
   withMacroDefaults(target);
   const warning = goalWarning ?? lowCalorieWarning(target, bmr);
-  return { calorieTarget: target, proteinTarget, carbsTarget, fatTarget, tdee, warning, source };
+  return { calorieTarget: target, proteinTarget, carbsTarget, fatTarget, tdee, warning, source, basis: useAdaptive ? 'adaptive' : 'formula' };
 }

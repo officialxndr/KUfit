@@ -13,8 +13,8 @@ import { DateField } from '@/components/DateField';
 import { GoalWarning } from '@/components/GoalWarning';
 import { GoalPhasesPanel } from '@/components/GoalPhasesPanel';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
-import { resolveTargets, goalSafetyWarning, ageFromBirthDate } from '@/lib/targets';
-import { safeRateWarning, calcTDEE, ACTIVITY_DESCRIPTIONS } from '@/lib/tdee';
+import { resolveTargets, goalSafetyWarning, ageFromBirthDate, isAdaptiveUsable, deficitAdjustedTarget } from '@/lib/targets';
+import { safeRateWarning, calcTDEE, calcBMR, ACTIVITY_DESCRIPTIONS } from '@/lib/tdee';
 import { MACRO_PRESETS, presetMacros, rescaleToCalories, rebalanceMacro, activePresetKey, type MacroKey } from '@/lib/macros';
 import { targetWeightForBodyFat } from '@/lib/bodyComposition';
 import { syncBodyFatGoalWeight, currentLeanMassKg } from '@/lib/goalWeight';
@@ -111,7 +111,9 @@ export function GoalsEditor({ focusSection, onOpenPhases }: { focusSection?: str
   const toTargets = (m: { protein: number; carbs: number; fat: number }) => ({ proteinTarget: m.protein, carbsTarget: m.carbs, fatTarget: m.fat });
   // Calorie-anchored: calories rescales macros; editing a macro re-weights the others; presets
   // split the goal; a locked macro stays put while the other two flex.
-  const setCalories = (n: number) => setProfile({ calorieGoal: n, ...toTargets(rescaleToCalories(n, macros, locked)) });
+  // A manual calorie edit is an explicit fixed target → leave the adaptive basis (else it'd
+  // silently shadow the number the user just set while the toggle still reads "Adaptive").
+  const setCalories = (n: number) => setProfile({ calorieGoal: n, calorieBasis: 'formula', ...toTargets(rescaleToCalories(n, macros, locked)) });
   const setMacro = (field: MacroKey, n: number) => setProfile(toTargets(rebalanceMacro(cal, field, n, macros, locked)));
   const applyPreset = (r: typeof MACRO_PRESETS[number]) => setProfile(toTargets(presetMacros(cal, r, macros, locked)));
   const toggleLock = (field: MacroKey) => setProfile({ lockedMacro: locked === field ? null : field });
@@ -443,9 +445,13 @@ function TdeeCard({ currentKg, profile, setProfile }: {
     );
   }
 
-  const result = calcTDEE({
+  const inputs = {
     weightKg: currentKg!, heightCm: profile.heightCm!, ageYears: age!, sex: profile.sex!, activityLevel: profile.activityLevel,
-  });
+  };
+  const result = calcTDEE(inputs);
+  // Unrounded BMR so this card's adaptive gate matches resolveBaseTargets' exactly (which uses
+  // calcBMR, not the rounded result.bmr) — avoids the card and the ring disagreeing at the band edge.
+  const rawBmr = calcBMR(inputs);
   const rateStr = (lbPerWk: number) => (unit === 'IMPERIAL' ? `${lbPerWk} lb/wk` : `${(lbPerWk * 0.4536).toFixed(2)} kg/wk`);
   const rows = [
     { label: `Moderate loss · ~${rateStr(1)}`, value: result.targets.moderateLoss },
@@ -455,44 +461,74 @@ function TdeeCard({ currentKg, profile, setProfile }: {
     { label: `Moderate gain · ~${rateStr(1)}`, value: result.targets.moderateGain },
   ];
   const activeCal = profile.calorieGoal;
+  const basis = profile.calorieBasis ?? 'formula';
+  const adaptiveKcal = profile.adaptiveMaintenanceKcal;
+  const adaptiveUsable = adaptiveKcal != null && isAdaptiveUsable(profile, rawBmr);
+  const adaptiveTarget = adaptiveUsable ? deficitAdjustedTarget(profile, adaptiveKcal!) : null;
 
   return (
     <Card style={{ marginBottom: space[2] }}>
       <FsText variant="cardTitle">Maintenance &amp; TDEE</FsText>
-      <FsText variant="caption" style={{ marginTop: 2, marginBottom: space[3] }}>
-        Estimated from your profile + latest weigh-in. Tap a target to set it as your calorie goal.
-      </FsText>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: space[3] }}>
-        <View><FsText variant="caption">BMR</FsText><FsText variant="stat" style={{ marginTop: 2 }}>{result.bmr}</FsText></View>
-        <View style={{ alignItems: 'flex-end' }}><FsText variant="caption">Maintenance (TDEE)</FsText><FsText variant="stat" style={{ marginTop: 2 }}>{result.tdee}</FsText></View>
+      <View style={{ marginTop: space[2], marginBottom: space[3] }}>
+        <Segmented
+          options={[{ key: 'formula', label: 'Formula' }, { key: 'adaptive', label: 'Adaptive' }]}
+          value={basis}
+          onSelect={(key) => setProfile(key === 'adaptive' ? { calorieBasis: 'adaptive', calorieGoal: null } : { calorieBasis: 'formula' })}
+        />
       </View>
 
-      <FsText variant="caption" style={{ marginBottom: space[2] }}>Activity level</FsText>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[2] }}>
-        {ACTIVITIES.map((a) => (
-          <Chip key={a} label={activityLabel(a)} selected={profile.activityLevel === a} onPress={() => setProfile({ activityLevel: a })} />
-        ))}
-      </View>
-      <FsText variant="caption" style={{ marginTop: space[2], marginBottom: space[3], color: colors.muted }}>
-        {ACTIVITY_DESCRIPTIONS[profile.activityLevel]}
-      </FsText>
+      {basis === 'formula' ? (
+        <>
+          <FsText variant="caption" style={{ marginBottom: space[3] }}>
+            Estimated from your profile + latest weigh-in. Tap a target to set it as your calorie goal.
+          </FsText>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: space[3] }}>
+            <View><FsText variant="caption">BMR</FsText><FsText variant="stat" style={{ marginTop: 2 }}>{result.bmr}</FsText></View>
+            <View style={{ alignItems: 'flex-end' }}><FsText variant="caption">Maintenance (TDEE)</FsText><FsText variant="stat" style={{ marginTop: 2 }}>{result.tdee}</FsText></View>
+          </View>
 
-      {rows.map((r, i) => {
-        const active = activeCal === r.value;
-        return (
-          <Pressable
-            key={r.label}
-            onPress={() => setProfile({ calorieGoal: r.value })}
-            style={[styles.tdeeRow, i > 0 && styles.rowDivider, active && { backgroundColor: 'rgba(99,102,241,0.12)' }]}
-          >
-            <FsText variant="body">{r.label}</FsText>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
-              <FsText variant="bodyMedium" style={active ? { color: colors.primary } : undefined}>{r.value} kcal</FsText>
-              {active && <Check color={colors.primary} size={16} />}
-            </View>
-          </Pressable>
-        );
-      })}
+          <FsText variant="caption" style={{ marginBottom: space[2] }}>Activity level</FsText>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[2] }}>
+            {ACTIVITIES.map((a) => (
+              <Chip key={a} label={activityLabel(a)} selected={profile.activityLevel === a} onPress={() => setProfile({ activityLevel: a })} />
+            ))}
+          </View>
+          <FsText variant="caption" style={{ marginTop: space[2], marginBottom: space[3], color: colors.muted }}>
+            {ACTIVITY_DESCRIPTIONS[profile.activityLevel]}
+          </FsText>
+
+          {rows.map((r, i) => {
+            const active = activeCal === r.value;
+            return (
+              <Pressable
+                key={r.label}
+                onPress={() => setProfile({ calorieGoal: r.value })}
+                style={[styles.tdeeRow, i > 0 && styles.rowDivider, active && { backgroundColor: 'rgba(99,102,241,0.12)' }]}
+              >
+                <FsText variant="body">{r.label}</FsText>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
+                  <FsText variant="bodyMedium" style={active ? { color: colors.primary } : undefined}>{r.value} kcal</FsText>
+                  {active && <Check color={colors.primary} size={16} />}
+                </View>
+              </Pressable>
+            );
+          })}
+        </>
+      ) : adaptiveUsable ? (
+        <>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: space[2] }}>
+            <View><FsText variant="caption">Adaptive maintenance</FsText><FsText variant="stat" style={{ marginTop: 2 }}>{adaptiveKcal}</FsText></View>
+            <View style={{ alignItems: 'flex-end' }}><FsText variant="caption">Daily target</FsText><FsText variant="stat" style={{ marginTop: 2 }}>{adaptiveTarget ?? '—'}</FsText></View>
+          </View>
+          <FsText variant="caption" style={{ color: colors.muted }}>
+            From your last {profile.adaptiveMaintenanceLoggedDays ?? 0} logged days — your goal's deficit is applied on top, and this updates automatically as you keep logging. Formula estimate: {result.tdee} kcal.
+          </FsText>
+        </>
+      ) : (
+        <FsText variant="caption" style={{ color: colors.muted }}>
+          Needs ~2–4 weeks of consistent weigh-ins + food logging to calculate your real maintenance. Using the formula estimate ({result.tdee} kcal) until then — keep logging and it switches over automatically.
+        </FsText>
+      )}
     </Card>
   );
 }
