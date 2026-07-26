@@ -189,7 +189,7 @@ export function FoodToday() {
   // shows `burned` only as a flame line). A null target (no goal set) stays null.
   const targets = {
     ...baseTargets,
-    calorieTarget: baseTargets.calorieTarget != null ? baseTargets.calorieTarget + burned : null,
+    calorieTarget: baseTargets.calorieTarget != null ? Math.round(baseTargets.calorieTarget + burned) : null,
   };
 
   // Custom nutrient goals override the soft REF defaults on the "Other nutrients" page.

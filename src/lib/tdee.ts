@@ -100,14 +100,14 @@ export function calcGoalCalories(params: {
   const { tdee, bmr, goalType, currentWeightKg, goalWeightKg, goalDate, unitSystem = 'IMPERIAL' } = params;
 
   if (goalType === 'MAINTAIN' || !goalWeightKg || !goalDate) {
-    return { target: tdee, weeklyRate: 0, warning: null };
+    return { target: Math.round(tdee), weeklyRate: 0, warning: null };
   }
 
   const weeksUntilGoal =
     (new Date(goalDate).getTime() - Date.now()) / (7 * 86400 * 1000);
 
   if (weeksUntilGoal <= 0) {
-    return { target: tdee, weeklyRate: 0, warning: 'Goal date is in the past.' };
+    return { target: Math.round(tdee), weeklyRate: 0, warning: 'Goal date is in the past.' };
   }
 
   const requiredWeeklyRateKg = (currentWeightKg - goalWeightKg) / weeksUntilGoal;
@@ -127,7 +127,7 @@ export function calcGoalCalories(params: {
   let warning: string | null = null;
   if (target < bmr) {
     warning = 'This timeline requires eating below your BMR — the energy your body needs at rest. Consider extending your goal date.';
-    target = bmr;
+    target = Math.round(bmr);
   } else {
     warning = safeRateWarning(currentWeightKg, goalWeightKg, goalDate, unitSystem);
   }

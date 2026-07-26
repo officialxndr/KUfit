@@ -186,7 +186,7 @@ export function resolveTargets(profile: Profile): ResolvedTargets {
   const base = resolveBaseTargets(profile);
   if (base.calorieTarget != null) {
     const eat = activeCaloriesForDisplay(profile);
-    if (eat > 0) return { ...base, calorieTarget: base.calorieTarget + eat };
+    if (eat > 0) return { ...base, calorieTarget: Math.round(base.calorieTarget + eat) };
   }
   return base;
 }
