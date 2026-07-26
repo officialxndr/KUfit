@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
-import { Flag, Check } from 'lucide-react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, runOnJS } from 'react-native-reanimated';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import { useRouter } from 'expo-router';
+import { Flag, Check, Plus } from 'lucide-react-native';
 
 import { Card, FsText } from '@/components/ui';
 import { Dropdown } from '@/components/Dropdown';
@@ -10,7 +12,7 @@ import { AnimatedNumber } from '@/components/anim/AnimatedNumber';
 import { PressableScale } from '@/components/anim/PressableScale';
 import { useMotion } from '@/lib/useMotion';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
-import { computeMilestones, type MilestoneDirection } from '@/lib/milestones';
+import { computeMilestones, projectDateFor, projectWeightAtDate, weightAtFraction, type MilestoneDirection } from '@/lib/milestones';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useNavStore } from '@/stores/navStore';
 import { toDisplay, toKg, formatWeight, UNIT_LABELS } from '@/lib/units';
@@ -38,6 +40,7 @@ export function MilestoneProgressCard({ compact = false }: { compact?: boolean }
   const profile = useSettingsStore((s) => s.profile);
   const setProfile = useSettingsStore((s) => s.setProfile);
   const setSection = useNavStore((s) => s.setSection);
+  const router = useRouter();
   const unit = profile.unitSystem;
   const label = UNIT_LABELS[unit].weight;
   const disp = (kg: number) => (unit === 'IMPERIAL' ? kg * LB_PER_KG : kg);
@@ -112,10 +115,13 @@ export function MilestoneProgressCard({ compact = false }: { compact?: boolean }
   // date then falls out of `computeMilestones`/`etaFor` — reached rows still show their actual date.
   const activeRate = byGoalDate ? requiredRateDisp : rateDisp;
 
+  const startD = disp(startKg);
+  const goalD = disp(goalKg!);
+  const currentD = disp(currentKg!);
   const result = computeMilestones({
-    start: disp(startKg),
-    current: disp(currentKg!),
-    goal: disp(goalKg!),
+    start: startD,
+    current: currentD,
+    goal: goalD,
     weeklyRate: activeRate,
     step: stepDisp,
   });
@@ -124,9 +130,11 @@ export function MilestoneProgressCard({ compact = false }: { compact?: boolean }
   const remaining = Math.abs(disp(currentKg!) - disp(goalKg!));
 
   // Actual date a reached milestone was first crossed (for the ladder's past rows).
+  // Use the *journey* direction (start→goal, from computeMilestones) — the top-level
+  // `direction` is current→goal and flips wrong once the goal is overshot.
   const achievedDate = (value: number): Date | null => {
     const targetKg = toKg(value, unit);
-    const hit = allEntries.find((e) => (direction === 'lose' ? e.weightKg <= targetKg : e.weightKg >= targetKg));
+    const hit = allEntries.find((e) => (result.direction === 'lose' ? e.weightKg <= targetKg : e.weightKg >= targetKg));
     return hit ? new Date(`${hit.date}T00:00:00`) : null;
   };
 
@@ -177,6 +185,64 @@ export function MilestoneProgressCard({ compact = false }: { compact?: boolean }
     }
   };
 
+  // ── Custom milestones: a target weight → projected date, or a target date/event →
+  // projected weight (placed on the weight bar at where you're trending to be by then). ──
+  const clampFrac = (n: number) => Math.min(Math.max(n, 0), 1);
+  const spanD = startD - goalD;
+  const posOf = (wDisp: number) => (spanD === 0 ? 1 : clampFrac((startD - wDisp) / spanD));
+  const showW = (wDisp: number) => `${fmtVal(Math.round(wDisp * 10) / 10)} ${label}`;
+  const shortDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  const todayStr = today();
+  const customs = (profile.customMilestones ?? []).map((c) => {
+    if (c.kind === 'weight') {
+      const wDisp = disp(c.weightKg);
+      // Journey direction (start→goal), so an already-crossed weight still reads as reached
+      // even after the goal is overshot (the top-level `direction` is current→goal).
+      const reached = result.direction === 'lose' ? currentKg! <= c.weightKg : currentKg! >= c.weightKg;
+      const eta = reached ? achievedDate(wDisp) : projectDateFor(wDisp, currentD, activeRate).etaDate;
+      return {
+        id: c.id,
+        railValue: Math.round(wDisp * 10) / 10 as number | null,
+        fraction: posOf(wDisp) as number | null,
+        reached,
+        primary: c.label ? `${c.label} · ${showW(wDisp)}` : showW(wDisp),
+        secondary: reached ? (eta ? `Reached ${shortDate(eta)}` : 'Reached') : eta ? fmtDate(eta) : 'No trend yet',
+      };
+    }
+    // Date/event milestone → projected weight on that day. "Today" is inclusive (projects
+    // the current weight), so a same-day event isn't mislabeled "Past date" for its own day.
+    const d = new Date(`${c.date}T00:00:00`);
+    const past = c.date < todayStr;
+    const projected = past ? null : c.date === todayStr ? currentD : projectWeightAtDate(d, currentD, activeRate);
+    return {
+      id: c.id,
+      railValue: projected != null ? Math.round(projected * 10) / 10 : null,
+      fraction: projected != null ? posOf(projected) : null,
+      reached: false,
+      primary: c.label ? `${c.label} · ${shortDate(d)}` : fmtDate(d),
+      secondary: past ? 'Past date' : projected != null ? `~${showW(projected)}` : 'No trend yet',
+    };
+  });
+
+  const customRail = customs
+    .filter((c) => c.fraction != null && c.railValue != null)
+    .map((c) => ({ value: c.railValue!, fraction: c.fraction!, tone: 'custom' as const }));
+
+  const goalMarker = result.markers.find((m) => m.isGoal);
+  const railItems: { value: number; fraction: number; tone: RailTone }[] = [
+    { value: toDisplay(startKg, unit), fraction: 0, tone: 'start' },
+    ...[
+      ...result.markers.filter((m) => !m.isGoal).map((m) => ({
+        value: m.value,
+        fraction: m.fraction,
+        tone: (m.reached ? 'reached' : 'upcoming') as RailTone,
+      })),
+      ...customRail,
+    ].sort((a, b) => a.fraction - b.fraction),
+    ...(goalMarker ? [{ value: goalMarker.value, fraction: 1, tone: 'goal' as RailTone }] : []),
+  ];
+
   return (
     <Card style={{ marginBottom: space[3] }}>
       <View style={styles.headRow}>
@@ -216,18 +282,13 @@ export function MilestoneProgressCard({ compact = false }: { compact?: boolean }
         </FsText>
       </View>
 
-      {/* Bar + milestone timeline below it */}
-      <ProgressBar progress={result.progress} />
-      <MarkerRail
-        items={[
-          { value: toDisplay(startKg, unit), fraction: 0, tone: 'start' },
-          ...result.markers.map((m) => ({
-            value: m.value,
-            fraction: m.fraction,
-            tone: m.isGoal ? ('goal' as const) : m.reached ? ('reached' as const) : ('upcoming' as const),
-          })),
-        ]}
+      {/* Bar + milestone timeline below it. Drag anywhere on the bar to scrub a
+          projected weight + date at that point along the journey. */}
+      <ProgressBar
+        progress={result.progress}
+        scrub={{ start: startD, goal: goalD, current: currentD, rate: activeRate, unitLabel: label }}
       />
+      <MarkerRail items={railItems} />
 
       {activeRate != null && Math.abs(activeRate) >= 0.05 && (
         <FsText variant="caption" style={{ marginTop: space[2] }}>
@@ -306,12 +367,55 @@ export function MilestoneProgressCard({ compact = false }: { compact?: boolean }
           );
         })}
       </View>
+
+      {/* Custom milestones — user-set target weights + dates/events */}
+      <View style={{ marginTop: space[4] }}>
+        <View style={styles.headRow}>
+          <FsText variant="cardTitle" style={{ fontSize: 15 }}>Your milestones</FsText>
+          <Pressable
+            onPress={() => router.push('/custom-milestone')}
+            hitSlop={8}
+            style={{ marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 4 }}
+          >
+            <Plus color={colors.primary} size={16} />
+            <FsText variant="caption" style={{ color: colors.primary, fontWeight: '600' }}>Add</FsText>
+          </Pressable>
+        </View>
+        {customs.length === 0 ? (
+          <FsText variant="caption" style={{ color: colors.muted, marginTop: space[2] }}>
+            Add a target weight to see when you’ll reach it — or a date/event (like Thanksgiving) to see the weight you’re on track for.
+          </FsText>
+        ) : (
+          customs.map((c) => (
+            <Pressable key={c.id} onPress={() => router.push(`/custom-milestone?id=${c.id}`)} style={styles.row}>
+              <View style={styles.rowLeft}>
+                <View style={[styles.dot, { backgroundColor: colors.warning, borderColor: colors.warning }]} />
+                <FsText variant="bodyMedium">{c.primary}</FsText>
+              </View>
+              <FsText variant="caption" style={{ color: c.reached ? colors.success : colors.muted }}>{c.secondary}</FsText>
+            </Pressable>
+          ))
+        )}
+      </View>
     </Card>
   );
 }
 
-/** Clean filling bar (start → goal). Reuses the MacroBar animation pattern. */
-function ProgressBar({ progress }: { progress: number }) {
+interface ScrubConfig {
+  /** Display-unit start weight (bar left) and goal (bar right). */
+  start: number;
+  goal: number;
+  /** Display-unit current weight + signed weekly rate (null ⇒ no date projection). */
+  current: number;
+  rate: number | null;
+  unitLabel: string;
+}
+
+/** Clean filling bar (start → goal). Reuses the MacroBar animation pattern. When
+ *  `scrub` is set the bar is draggable: dragging shows a live tooltip of the projected
+ *  weight + date at that point along the journey, and snaps back on release. The fill
+ *  itself stays at actual progress — the scrub is an exploratory overlay. */
+function ProgressBar({ progress, scrub }: { progress: number; scrub?: ScrubConfig }) {
   const { animate } = useMotion();
   const p = useSharedValue(animate ? 0 : progress);
   useEffect(() => {
@@ -319,16 +423,84 @@ function ProgressBar({ progress }: { progress: number }) {
   }, [progress, animate, p]);
   const fillStyle = useAnimatedStyle(() => ({ width: `${p.value * 100}%` }));
 
+  // Scrub state: track pixel width (for touchX→fraction) + the live drag fraction
+  // (-1 = idle/hidden). Position stays on the UI thread; only the label text hops to JS.
+  const width = useSharedValue(0);
+  const frac = useSharedValue(-1);
+  const [tip, setTip] = useState<{ w: string; sub: string } | null>(null);
+
+  const updateTip = (f: number) => {
+    if (!scrub) return;
+    const wDisp = weightAtFraction(scrub.start, scrub.goal, f);
+    const dir = scrub.goal <= scrub.start ? 'lose' : 'gain';
+    const reached = dir === 'lose' ? scrub.current <= wDisp : scrub.current >= wDisp;
+    const eta = projectDateFor(wDisp, scrub.current, scrub.rate).etaDate;
+    const sub = reached ? 'already there' : eta ? fmtDate(eta) : 'no trend yet';
+    setTip({ w: `${fmtVal(Math.round(wDisp * 10) / 10)} ${scrub.unitLabel}`, sub });
+  };
+  const clearTip = () => setTip(null);
+
+  // activeOffsetX/failOffsetY let the horizontal scrub win over the vertical ScrollView
+  // only on horizontal intent (and yield to scroll on vertical) — no long-press needed.
+  const pan = Gesture.Pan()
+    .enabled(!!scrub)
+    .activeOffsetX([-8, 8])
+    .failOffsetY([-12, 12])
+    .shouldCancelWhenOutside(false)
+    .hitSlop({ top: 20, bottom: 20 })
+    .onStart((e) => {
+      const f = width.value > 0 ? Math.min(Math.max(e.x / width.value, 0), 1) : 0;
+      frac.value = f;
+      runOnJS(updateTip)(f);
+    })
+    .onUpdate((e) => {
+      const f = width.value > 0 ? Math.min(Math.max(e.x / width.value, 0), 1) : 0;
+      frac.value = f;
+      runOnJS(updateTip)(f);
+    })
+    .onFinalize(() => {
+      frac.value = -1;
+      runOnJS(clearTip)();
+    });
+
+  const handleStyle = useAnimatedStyle(() => ({
+    opacity: frac.value < 0 ? 0 : 1,
+    transform: [{ translateX: (frac.value < 0 ? 0 : frac.value * width.value) - 1 }],
+  }));
+  const TIP_HALF = 55;
+  const tipStyle = useAnimatedStyle(() => {
+    const x = frac.value < 0 ? 0 : frac.value * width.value;
+    const cx = Math.min(Math.max(x, TIP_HALF), Math.max(width.value - TIP_HALF, TIP_HALF));
+    return { opacity: frac.value < 0 ? 0 : 1, transform: [{ translateX: cx - TIP_HALF }] };
+  });
+
+  const track = (
+    <View style={styles.track} onLayout={scrub ? (e) => { width.value = e.nativeEvent.layout.width; } : undefined}>
+      <Animated.View style={[styles.fill, fillStyle]} />
+    </View>
+  );
+
   return (
     <View style={styles.barRow}>
-      <View style={styles.track}>
-        <Animated.View style={[styles.fill, fillStyle]} />
-      </View>
+      {scrub ? <GestureDetector gesture={pan}>{track}</GestureDetector> : track}
+      {scrub && (
+        <>
+          <Animated.View pointerEvents="none" style={[styles.scrubHandle, handleStyle]} />
+          <Animated.View pointerEvents="none" style={[styles.scrubTip, tipStyle]}>
+            {tip && (
+              <View style={styles.scrubTipBubble}>
+                <FsText variant="caption" style={{ color: colors.text, fontWeight: '700' }}>{tip.w}</FsText>
+                <FsText variant="caption" style={{ color: colors.muted, fontSize: 10, lineHeight: 13 }}>{tip.sub}</FsText>
+              </View>
+            )}
+          </Animated.View>
+        </>
+      )}
     </View>
   );
 }
 
-type RailTone = 'start' | 'reached' | 'upcoming' | 'goal';
+type RailTone = 'start' | 'reached' | 'upcoming' | 'goal' | 'custom';
 
 /**
  * Milestone timeline below the bar: a tick at every fraction, with labels added
@@ -370,7 +542,7 @@ function MarkerRail({ items }: { items: { value: number; fraction: number; tone:
   return (
     <View style={styles.rail} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
       {items.map((m, i) => {
-        const color = m.tone === 'goal' ? colors.primary : m.tone === 'reached' ? colors.success : colors.muted;
+        const color = m.tone === 'goal' ? colors.primary : m.tone === 'reached' ? colors.success : m.tone === 'custom' ? colors.warning : colors.muted;
         // Clamp the end markers to the edges so their labels don't clip off the card.
         const pos = m.fraction <= 0.001
           ? { left: 0, alignItems: 'flex-start' as const }
@@ -400,6 +572,12 @@ const styles = themedStyles(() => StyleSheet.create({
   barRow: { height: 14, justifyContent: 'center', marginTop: space[3] },
   track: { height: 12, borderRadius: radius.full, backgroundColor: colors.surfaceHigh, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: radius.full, backgroundColor: colors.primary },
+  scrubHandle: { position: 'absolute', left: 0, top: -4, width: 2, height: 20, borderRadius: 1, backgroundColor: colors.primary },
+  scrubTip: { position: 'absolute', left: 0, bottom: 22, width: 110, alignItems: 'center' },
+  scrubTipBubble: {
+    backgroundColor: colors.surfaceHigh, borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 4,
+    alignItems: 'center', borderWidth: 1, borderColor: colors.border,
+  },
   endLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
   rail: { position: 'relative', height: 28, marginTop: 5 },
   railItem: { position: 'absolute', top: 0 },

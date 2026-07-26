@@ -780,6 +780,15 @@ intentionally **not** bottom sheets and keep their `animationType="fade"` modals
   The rate is `computeStats().weeklyChange` (so dates match Goal ETA); the left anchor + 5/10 step are
   configurable via `profile.milestoneStartBasis` (`phase`→active-phase start / `earliest` / `peak` / `custom`
   + `milestoneStartKg`) and `profile.milestoneInterval` (`small`=5 lb/2.5 kg, `large`=10 lb/5 kg).
+  The full-mode bar is **scrubbable** — a RNGH `Gesture.Pan` (with `activeOffsetX`/`failOffsetY` so it wins on
+  horizontal intent and yields to the vertical `ScrollView` otherwise — the pattern to copy for any in-scroll
+  horizontal scrub) drives a live tooltip of the projected **weight + date** at the dragged point, snapping back
+  on release (fill stays at actual progress). **Custom milestones** (`profile.customMilestones: CustomMilestone[]`)
+  add user markers — a target **weight** (→ projected date) or target **date/event** (→ projected weight, placed
+  on the bar at that weight) — managed via the `custom-milestone` modal route and rendered as amber rail ticks +
+  a "Your milestones" list. All projection reuses `milestones.ts` pure helpers **`projectDateFor`** (weight→date),
+  **`projectWeightAtDate`** (date→weight), **`weightAtFraction`** (bar %→weight); `computeMilestones`'s internal
+  `etaFor` delegates to `projectDateFor`, so ladder/scrubber/customs share identical date math.
   `heartRate.ts` (pure HR helpers for workouts: `summarizeHeartRate` → avg/min/max, `downsample` for
   storage/charting, `maxHeartRate(age) = 220 − age`, and `zoneBreakdown` for the 5-zone time-in-zone
   bars). Consumed by `components/HeartRatePanel.tsx` (stats + `LineChart` + zone bars) on the workout

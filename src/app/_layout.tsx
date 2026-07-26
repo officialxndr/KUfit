@@ -121,6 +121,7 @@ export default function RootLayout() {
           <Stack.Screen name="photo-compare" options={{ presentation: 'fullScreenModal' }} />
           <Stack.Screen name="log-dexa" options={{ presentation: 'modal' }} />
           <Stack.Screen name="log-skinfold" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="custom-milestone" options={{ presentation: 'modal' }} />
           <Stack.Screen name="proportions" options={{ presentation: 'modal' }} />
           <Stack.Screen name="custom-food" options={{ presentation: 'modal' }} />
           <Stack.Screen name="quick-add" options={{ presentation: 'modal' }} />

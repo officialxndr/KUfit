@@ -49,6 +49,47 @@ export interface MilestoneArgs {
 const round1 = (n: number) => Math.round(n * 10) / 10;
 const clamp01 = (n: number) => Math.min(Math.max(n, 0), 1);
 
+/**
+ * Projected calendar date to *reach* weight `w` from `current` at `weeklyRate`
+ * (all in the same unit; negative rate = losing). null when un-projectable: no/zero
+ * rate, or `w` is behind us / already there (weeks ≤ 0). Shared by the milestone
+ * ladder, the bar scrubber, and custom (target-weight) milestones so every projected
+ * date uses identical math.
+ */
+export function projectDateFor(
+  w: number,
+  current: number,
+  weeklyRate: number | null,
+  now: number = Date.now()
+): { etaDate: Date | null; weeksAway: number | null } {
+  if (weeklyRate == null || weeklyRate === 0) return { etaDate: null, weeksAway: null };
+  const weeks = (w - current) / weeklyRate;
+  if (!Number.isFinite(weeks) || weeks <= 0) return { etaDate: null, weeksAway: null };
+  return { etaDate: new Date(now + weeks * 7 * DAY_MS), weeksAway: weeks };
+}
+
+/**
+ * Projected weight at a future `date`, extrapolating `current` forward at `weeklyRate`
+ * (same unit). null when there's no rate or the date is in the past. Used by custom
+ * (target-date/event) milestones — "what will I weigh on Thanksgiving?".
+ */
+export function projectWeightAtDate(
+  date: Date,
+  current: number,
+  weeklyRate: number | null,
+  now: number = Date.now()
+): number | null {
+  if (weeklyRate == null) return null;
+  const weeks = (date.getTime() - now) / (7 * DAY_MS);
+  if (weeks < 0) return null;
+  return current + weeklyRate * weeks;
+}
+
+/** Weight at a 0…1 position along the start→goal bar (inverse of `position`). */
+export function weightAtFraction(start: number, goal: number, fraction: number): number {
+  return start + clamp01(fraction) * (goal - start);
+}
+
 export function computeMilestones({
   start,
   current,
@@ -64,14 +105,8 @@ export function computeMilestones({
   const reachedGoal = direction === 'lose' ? current <= goal : current >= goal;
   const isReached = (w: number) => (direction === 'lose' ? current <= w : current >= w);
 
-  // Projected date to *reach* weight `w` from `current` at `weeklyRate`. Only
-  // meaningful for a future point we're trending toward (weeks > 0).
-  const etaFor = (w: number): { etaDate: Date | null; weeksAway: number | null } => {
-    if (weeklyRate == null || weeklyRate === 0) return { etaDate: null, weeksAway: null };
-    const weeks = (w - current) / weeklyRate;
-    if (!Number.isFinite(weeks) || weeks <= 0) return { etaDate: null, weeksAway: null };
-    return { etaDate: new Date(now + weeks * 7 * DAY_MS), weeksAway: weeks };
-  };
+  // Projected date to *reach* weight `w` from `current` at `weeklyRate` (shared helper).
+  const etaFor = (w: number) => projectDateFor(w, current, weeklyRate, now);
 
   const markers: MilestoneMarker[] = [];
 

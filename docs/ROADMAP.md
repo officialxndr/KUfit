@@ -76,6 +76,16 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       Persisted on `profile.milestoneRateMode` (default `'current'`); the toggle only appears when a goal date +
       a still-reachable timeline exist. Reached rows keep their actual crossing date; the rate caption switches
       to "Lose/Gain ~X/wk to hit &lt;goal date&gt;".
+- [x] **Milestone bar scrubbing + custom milestones** — the progress bar is now **draggable** (RNGH
+      `Gesture.Pan` with `activeOffsetX`/`failOffsetY` so it coexists with the vertical scroll): dragging shows
+      a live tooltip of the projected **weight + date** at any point along the start→goal journey, snapping back
+      on release (the fill stays at actual progress — the scrub is an overlay). Plus a **"Your milestones"**
+      section for user-defined markers, two kinds: a **target weight** (→ projected date you'll reach it) or a
+      **target date/event** like Thanksgiving (→ projected weight you'll be, placed on the bar at that weight).
+      Persisted on `profile.customMilestones` (`CustomMilestone[]`), added/edited/deleted via a
+      `custom-milestone` modal route. All projection reuses shared pure helpers in `lib/milestones.ts`
+      (`projectDateFor`, `projectWeightAtDate`, `weightAtFraction`; `computeMilestones`'s `etaFor` now delegates
+      to `projectDateFor` so the ladder, scrubber, and customs use identical math).
 - [x] **Calculated maintenance (adaptive TDEE) card** — a **"Calculated maintenance"** card in Food → Stats
       (`FoodTrends`) that back-calculates real maintenance from the user's own data instead of a population
       formula: `maintenance = avgIntake − Δmass×7700/days` over the selected date window. Pure calc

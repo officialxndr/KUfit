@@ -26,6 +26,16 @@ export interface AiEndpoint {
   model: string;
 }
 
+/**
+ * A user-defined milestone on the weight-progress card: either a target **weight**
+ * (→ "when will I reach it?") or a target **date/event** (→ "what will I weigh then?",
+ * e.g. Thanksgiving). Weight is stored metric (kg); date is a `YYYY-MM-DD` local day.
+ */
+export type CustomMilestone = { id: string; label?: string } & (
+  | { kind: 'weight'; weightKg: number }
+  | { kind: 'date'; date: string }
+);
+
 /** A user-tracked secondary nutrient goal (beyond calories/macros). */
 export interface NutrientGoal {
   /** A NUTRIENT_DEFS key (e.g. "potassium") or a core key: fiber/sugar/sodium/saturatedFat. */
@@ -135,6 +145,8 @@ export interface Profile {
   /** Milestone timeline basis: 'current' = projected dates at your current pace; 'goaldate' = the dates
    *  you'd need to hit each milestone to reach your goal by your goal date (required pace). */
   milestoneRateMode: 'current' | 'goaldate';
+  /** User-defined milestones (target weights and target dates/events) shown on the weight-progress card. */
+  customMilestones: CustomMilestone[];
 }
 
 const DEFAULT_PROFILE: Profile = {
@@ -186,6 +198,7 @@ const DEFAULT_PROFILE: Profile = {
   milestoneStartBasis: 'phase',
   milestoneStartKg: null,
   milestoneRateMode: 'current',
+  customMilestones: [],
 };
 
 interface SettingsState {
