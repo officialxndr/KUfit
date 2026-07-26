@@ -183,6 +183,13 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       configurable lead side; volume sums both arms (load factor forced to 1) and rest fires after the
       second arm. Schema: `exercises.unilateral`/`leadSide`, `exercise_sets.side`; pure list transforms
       in `lib/unilateral.ts`.
+- [x] **Coaching notes** — a persistent per-exercise technique cue (`exercises.coachingNote`) that shows as a
+      banner on the session exercise card **every** time you do that movement, so form tips build into a habit.
+      Add/edit from the session kebab ("coaching note") or the exercise detail screen; distinct from the
+      per-performance `session_exercises.notes`. Each note has a **per-exercise hide/show** (`coachingNoteHidden`)
+      that **persists across workouts** — tap the eye to hide the banner, a "Show note" chip brings it back.
+      Both columns are user overrides preserved across a catalog reseed (kept out of `upsertExercise`'s catalog
+      cols) and aliased into the `getTemplates` JOIN so from-template workouts carry them.
 - [x] **Inline logging selectors** — Per-arm, Cable attachment, and **Load counting** are anchored
       dropdowns under the exercise name (and in the template builder + exercise detail "Logging
       defaults"). Reusable `components/Dropdown.tsx` + `PerArmDropdown`/`AttachmentDropdown`/`LoadDropdown`.

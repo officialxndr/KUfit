@@ -4,7 +4,7 @@ import Animated, { ZoomIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
-import { Check, Plus, Minus, Trash2, X, Timer, Delete, ChevronDown, StickyNote, Info, Link2, Link2Off, Flame, HeartPulse, Scale, ArrowUp } from 'lucide-react-native';
+import { Check, Plus, Minus, Trash2, X, Timer, Delete, ChevronDown, StickyNote, Info, Link2, Link2Off, Flame, HeartPulse, Scale, ArrowUp, Lightbulb, Eye, EyeOff } from 'lucide-react-native';
 
 import { FsText, Button, Card } from '@/components/ui';
 import { KebabMenu } from '@/components/KebabMenu';
@@ -25,7 +25,7 @@ import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { health } from '@/lib/health';
 import { caloriesBurnedFromDuration } from '@/lib/activities';
 import { nextSetCell, restAfterSet, supersetRuns, supersetLabels } from '@/lib/supersets';
-import { colors, radius, space, themedStyles } from '@/theme/tokens';
+import { colors, radius, space, tintBg, themedStyles } from '@/theme/tokens';
 import type { LocalExercise, LocalSet } from '@/types';
 
 type Field = 'w' | 'r';
@@ -46,6 +46,7 @@ export default function SessionScreen() {
     active, name, startedAt, exercises,
     addSet, updateSet, removeSet, removeExercise, setNotes, setRestSeconds,
     setExercisePerSide, setAttachment, setUnilateral, setLeadSide, startSuperset, ungroup, discard,
+    setCoachingNote, setCoachingNoteHidden,
   } = useSessionStore();
 
   const REST_PRESETS = [30, 60, 90, 120, 180];
@@ -65,6 +66,7 @@ export default function SessionScreen() {
   const restRemaining = restEndsAt > 0 ? Math.max(0, Math.ceil((restEndsAt - Date.now()) / 1000)) : 0;
   const restBuzzed = useRef(0);
   const [notesEx, setNotesEx] = useState<{ id: string; text: string } | null>(null);
+  const [coachingEx, setCoachingEx] = useState<{ id: string; text: string } | null>(null);
   const [loadEx, setLoadEx] = useState<{ id: string; perSide: boolean } | null>(null);
   // `setId` present → editing one set's rest override; absent → the exercise default.
   const [restEx, setRestEx] = useState<{ id: string; setId?: string; seconds: number } | null>(null);
@@ -318,6 +320,7 @@ export default function SessionScreen() {
               ? { icon: Link2Off, label: 'Remove from superset', onPress: () => onSupersetPress(ex) }
               : { icon: Link2, label: 'Superset', onPress: () => onSupersetPress(ex) },
             { icon: StickyNote, label: ex.notes ? 'Edit notes' : 'Add notes', onPress: () => setNotesEx({ id: ex.localId, text: ex.notes ?? '' }) },
+            { icon: Lightbulb, label: ex.exercise.coachingNote ? 'Edit coaching note' : 'Add coaching note', onPress: () => setCoachingEx({ id: ex.localId, text: ex.exercise.coachingNote ?? '' }) },
             { icon: Timer, label: 'Rest timer', onPress: () => { setRestEx({ id: ex.localId, seconds: ex.restSeconds || 90 }); setCustomRest(''); } },
             { icon: Scale, label: 'Load counting', onPress: () => setLoadEx({ id: ex.localId, perSide: isPerSide(ex.exercise) }) },
             { icon: Trash2, label: 'Delete exercise', danger: true, onPress: () => confirmRemoveExercise(ex.localId, ex.exercise.name) },
@@ -338,6 +341,24 @@ export default function SessionScreen() {
           onChange={(v) => setAttachment(ex.localId, v)}
         />
       </View>
+
+      {/* Persistent coaching note (technique cue) — shown every workout, hide/show remembered per-exercise. */}
+      {!!ex.exercise.coachingNote && (
+        ex.exercise.coachingNoteHidden ? (
+          <Pressable style={styles.coachHiddenChip} onPress={() => setCoachingNoteHidden(ex.localId, false)} hitSlop={6}>
+            <Eye color={colors.muted} size={13} />
+            <FsText variant="caption" style={{ color: colors.muted }}>Show note</FsText>
+          </Pressable>
+        ) : (
+          <View style={styles.coachNote}>
+            <Lightbulb color={colors.primary} size={14} />
+            <FsText variant="caption" style={{ flex: 1, color: colors.text }}>{ex.exercise.coachingNote}</FsText>
+            <Pressable onPress={() => setCoachingNoteHidden(ex.localId, true)} hitSlop={8}>
+              <EyeOff color={colors.muted} size={14} />
+            </Pressable>
+          </View>
+        )
+      )}
 
       {!!ex.notes && (
         <View style={styles.noteChip}>
@@ -644,6 +665,39 @@ export default function SessionScreen() {
         </Pressable>
       </Modal>
 
+      {/* Coaching note editor (persistent per-exercise technique cue) */}
+      <Modal visible={!!coachingEx} transparent animationType="fade" onRequestClose={() => setCoachingEx(null)}>
+        <Pressable style={styles.noteBackdrop} onPress={() => setCoachingEx(null)}>
+          <Pressable style={styles.noteCard} onPress={(e) => e.stopPropagation()}>
+            <FsText variant="cardTitle" style={{ marginBottom: space[1] }}>Coaching note</FsText>
+            <FsText variant="caption" style={{ marginBottom: space[3], color: colors.muted }}>
+              Shows every time you do this exercise — a technique cue to build into a habit.
+            </FsText>
+            <TextInput
+              value={coachingEx?.text ?? ''}
+              onChangeText={(t) => setCoachingEx((n) => (n ? { ...n, text: t } : n))}
+              placeholder="e.g. keep elbows soft, squeeze at the top, control the negative"
+              placeholderTextColor={colors.muted}
+              multiline
+              style={styles.noteInput}
+            />
+            <View style={{ flexDirection: 'row', gap: space[2], marginTop: space[3] }}>
+              <View style={{ flex: 1 }}><Button title="Cancel" variant="ghost" onPress={() => setCoachingEx(null)} /></View>
+              <View style={{ flex: 1 }}>
+                <Button title="Save" onPress={() => {
+                  if (coachingEx) {
+                    const t = coachingEx.text.trim();
+                    setCoachingNote(coachingEx.id, t);
+                    if (t) setCoachingNoteHidden(coachingEx.id, false); // a freshly-written note should be visible
+                  }
+                  setCoachingEx(null);
+                }} />
+              </View>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* Load counting (per-side volume) — same control as the exercise detail, inline mid-workout */}
       <Modal visible={!!loadEx} transparent animationType="fade" onRequestClose={() => setLoadEx(null)}>
         <Pressable style={styles.noteBackdrop} onPress={() => setLoadEx(null)}>
@@ -701,6 +755,15 @@ const styles = themedStyles(() => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: colors.surfaceHigh, borderRadius: radius.sm,
     paddingHorizontal: 10, paddingVertical: 6, marginBottom: space[2],
+  },
+  coachNote: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: tintBg.primary, borderRadius: radius.sm,
+    paddingHorizontal: 10, paddingVertical: 8, marginBottom: space[2],
+  },
+  coachHiddenChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
+    paddingVertical: 4, marginBottom: space[2],
   },
   gridHead: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
   setRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4, borderRadius: radius.sm, backgroundColor: colors.surface },

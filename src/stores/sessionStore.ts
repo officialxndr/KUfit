@@ -38,6 +38,10 @@ interface SessionState {
   setUnilateral: (exLocalId: string, unilateral: boolean) => void;
   /** Set which arm is logged first (reorders each round's L/R rows). Persists to the exercise row. */
   setLeadSide: (exLocalId: string, leadSide: Side) => void;
+  /** Set the persistent per-exercise coaching note (technique cue). Persists to the exercise row. */
+  setCoachingNote: (exLocalId: string, note: string) => void;
+  /** Hide/show this exercise's coaching-note banner (persists to the exercise row, across workouts). */
+  setCoachingNoteHidden: (exLocalId: string, hidden: boolean) => void;
   /** Begin a superset on `exLocalId`; the next added exercise joins its group. */
   startSuperset: (exLocalId: string) => void;
   /** Remove an exercise from its superset group. */
@@ -190,6 +194,30 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set((s) => ({
       exercises: s.exercises.map((e) =>
         e.localId === exLocalId ? { ...e, exercise: { ...e.exercise, perSide } } : e
+      ),
+    }));
+  },
+
+  setCoachingNote: (exLocalId, note) => {
+    const ex = get().exercises.find((e) => e.localId === exLocalId);
+    if (!ex) return;
+    const trimmed = note.trim() || null;
+    workoutRepo.setExerciseCoachingNote(ex.exercise.id, trimmed); // persist on the exercise definition
+    // Patch every card sharing this exercise definition (it can appear more than once in a session).
+    set((s) => ({
+      exercises: s.exercises.map((e) =>
+        e.exercise.id === ex.exercise.id ? { ...e, exercise: { ...e.exercise, coachingNote: trimmed } } : e
+      ),
+    }));
+  },
+
+  setCoachingNoteHidden: (exLocalId, hidden) => {
+    const ex = get().exercises.find((e) => e.localId === exLocalId);
+    if (!ex) return;
+    workoutRepo.setExerciseCoachingNoteHidden(ex.exercise.id, hidden); // persist on the exercise definition
+    set((s) => ({
+      exercises: s.exercises.map((e) =>
+        e.exercise.id === ex.exercise.id ? { ...e, exercise: { ...e.exercise, coachingNoteHidden: hidden } } : e
       ),
     }));
   },

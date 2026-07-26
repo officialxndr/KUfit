@@ -324,6 +324,12 @@ function runMigrations() {
   // Unilateral (per-arm) logging: each set splits into L/R rows. `leadSide` = side logged first.
   ensureColumn('exercises', 'unilateral', 'INTEGER');
   ensureColumn('exercises', 'leadSide', 'TEXT');
+  // Persistent per-exercise coaching note (a technique cue shown every time you do the
+  // exercise) + whether the user has hidden its banner. Both are user overrides — like
+  // perSide/unilateral/leadSide they're preserved across a catalog reseed (kept out of
+  // upsertExercise's catalog columns). Distinct from session_exercises.notes (per-performance).
+  ensureColumn('exercises', 'coachingNote', 'TEXT');
+  ensureColumn('exercises', 'coachingNoteHidden', 'INTEGER DEFAULT 0');
   // Side a logged set belongs to ('L'/'R') for unilateral exercises; null = bilateral.
   ensureColumn('exercise_sets', 'side', 'TEXT');
   // Quick-add: a bare calorie (+ optional macros) entry with no food item / recipe —

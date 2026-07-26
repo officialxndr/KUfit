@@ -232,6 +232,11 @@ export interface Exercise {
   unilateral?: boolean | null
   /** Which side is logged first for a unilateral exercise ('L' default). */
   leadSide?: Side | null
+  /** Persistent per-exercise coaching note (technique cue), shown every time the exercise is
+   *  used. Distinct from the per-performance `session_exercises.notes`. null = no note. */
+  coachingNote?: string | null
+  /** Whether the user has hidden this exercise's coaching-note banner (persists across workouts). */
+  coachingNoteHidden?: boolean | null
 }
 
 /** Side of a unilateral (per-arm) set. null = bilateral / not per-arm. */

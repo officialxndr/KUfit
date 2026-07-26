@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
-import { View, StyleSheet, Pressable, Alert } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { View, StyleSheet, Pressable, Alert, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft, Dumbbell, Trash2 } from 'lucide-react-native';
+import { ChevronLeft, Dumbbell, Trash2, Eye, EyeOff } from 'lucide-react-native';
 
 import { Screen, FsText, Badge, Card, SectionHeader } from '@/components/ui';
 import { PerArmDropdown } from '@/components/PerArmDropdown';
@@ -19,11 +19,13 @@ export default function ExerciseDetail() {
   const router = useRouter();
   const [exercise, setExercise] = useState<Exercise | null>(null);
   const [source, setSource] = useState<MediaSource>(null);
+  const [noteText, setNoteText] = useState('');
 
   useEffect(() => {
     if (!id) return;
     const ex = workoutRepo.getExerciseById(id);
     setExercise(ex);
+    setNoteText(ex?.coachingNote ?? '');
     if (ex) {
       setSource(resolveMediaSource(ex));
       // Best-effort: cache the remote GIF for offline next time.
@@ -32,6 +34,13 @@ export default function ExerciseDetail() {
       });
     }
   }, [id]);
+
+  // The coaching-note field persists on blur, but onBlur doesn't reliably fire when the user
+  // navigates away with the keyboard still open (swipe-back / hardware back / the back chevron
+  // is outside the ScrollView) — so also flush the latest note on unmount. `flushNote` is a
+  // "latest ref" reassigned each render so the unmount cleanup sees the current text.
+  const flushNote = useRef<() => void>(() => {});
+  useEffect(() => () => flushNote.current(), []);
 
   if (!exercise) {
     return (
@@ -53,6 +62,26 @@ export default function ExerciseDetail() {
   const applyLeadSide = (val: 'L' | 'R') => {
     workoutRepo.setExerciseLeadSide(exercise.id, val);
     setExercise({ ...exercise, leadSide: val });
+  };
+  const applyCoachingNote = () => {
+    const t = noteText.trim() || null;
+    if (t === (exercise.coachingNote ?? null)) return; // no change
+    workoutRepo.setExerciseCoachingNote(exercise.id, t);
+    const patch: Partial<Exercise> = { coachingNote: t };
+    // Writing a note un-hides it, so a re-added note isn't stuck behind the "Show note" chip.
+    if (t && exercise.coachingNoteHidden) { workoutRepo.setExerciseCoachingNoteHidden(exercise.id, false); patch.coachingNoteHidden = false; }
+    setExercise({ ...exercise, ...patch });
+  };
+  // DB-only flush (no setState) for the unmount path; reassigned each render with the latest values.
+  flushNote.current = () => {
+    const t = noteText.trim() || null;
+    if (t === (exercise.coachingNote ?? null)) return;
+    workoutRepo.setExerciseCoachingNote(exercise.id, t);
+    if (t && exercise.coachingNoteHidden) workoutRepo.setExerciseCoachingNoteHidden(exercise.id, false);
+  };
+  const applyNoteHidden = (hidden: boolean) => {
+    workoutRepo.setExerciseCoachingNoteHidden(exercise.id, hidden);
+    setExercise({ ...exercise, coachingNoteHidden: hidden });
   };
   const onDelete = () => {
     const u = workoutRepo.getExerciseUsage(exercise.id);
@@ -122,6 +151,33 @@ export default function ExerciseDetail() {
           </View>
         </Card>
 
+        <Card style={{ marginTop: space[4] }}>
+          <SectionHeader title="Coaching note" />
+          <FsText variant="caption" style={{ marginBottom: space[3], color: colors.muted }}>
+            A technique cue shown on this exercise every time you do it in a workout — to build good form into a habit.
+          </FsText>
+          <TextInput
+            value={noteText}
+            onChangeText={setNoteText}
+            onBlur={applyCoachingNote}
+            placeholder="e.g. keep elbows soft, squeeze at the top, control the negative"
+            placeholderTextColor={colors.muted}
+            multiline
+            style={styles.noteInput}
+          />
+          {!!exercise.coachingNote && (
+            <Pressable style={[styles.cfgRow, { marginTop: space[3] }]} onPress={() => applyNoteHidden(!exercise.coachingNoteHidden)}>
+              <View style={{ flex: 1 }}>
+                <FsText variant="bodyMedium">Show in workouts</FsText>
+                <FsText variant="caption" style={{ color: colors.muted }}>
+                  {exercise.coachingNoteHidden ? 'Hidden — tap to show it during workouts.' : 'Visible during workouts.'}
+                </FsText>
+              </View>
+              {exercise.coachingNoteHidden ? <EyeOff color={colors.muted} size={18} /> : <Eye color={colors.primary} size={18} />}
+            </Pressable>
+          )}
+        </Card>
+
         {exercise.instructions.length > 0 && (
           <Card style={{ marginTop: space[4] }}>
             <SectionHeader title="Instructions" />
@@ -189,6 +245,11 @@ const styles = themedStyles(() => StyleSheet.create({
   },
   badgeRow: { flexDirection: 'row', gap: space[2], marginTop: space[3], flexWrap: 'wrap' },
   cfgRow: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  noteInput: {
+    backgroundColor: colors.surfaceHigh, borderRadius: radius.md,
+    paddingHorizontal: 14, paddingVertical: 12, color: colors.text, fontSize: 14,
+    minHeight: 84, textAlignVertical: 'top',
+  },
   deleteBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space[2],
     marginTop: space[4], paddingVertical: 13, borderRadius: radius.md,

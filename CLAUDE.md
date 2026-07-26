@@ -298,7 +298,13 @@ for backup + Home Assistant / **MCP** access (`serverStore` is null by default).
 - **Per-arm + attachments**: per-arm/lead-side + load counting are **global per-exercise defaults**
   (`exercises.unilateral`/`leadSide`/`perSide`) — set once, reused on every add. A **cable attachment** is
   **per-performance** (`session_exercises.attachment`), and history/PRs/ghosts key on **(exercise +
-  attachment)**. Unilateral sets are flat L/R rows (`exercise_sets.side`) → volume factor 1 (both arms
+  attachment)**. A **coaching note** (`exercises.coachingNote` + `coachingNoteHidden`, distinct from the
+  per-performance `session_exercises.notes`) is another **global per-exercise** field — a technique cue shown
+  on the session exercise card every workout, with a per-exercise hide/show that persists. **All these
+  user-override columns are preserved across a catalog reseed by OMISSION** — `WorkoutRepo.upsertExercise`
+  deliberately leaves them out of `catalogCols`/the UPDATE, so never add them there or a `SEED_VERSION` bump
+  wipes them. To carry a global field into a from-template workout, alias it in the `getTemplates` JOIN
+  (`e.x AS e_x`) since that path hand-builds the `mapExercise` row. Unilateral sets are flat L/R rows (`exercise_sets.side`) → volume factor 1 (both arms
   summed). The inline selectors are the reusable `components/{Dropdown,PerArmDropdown,AttachmentDropdown,
   LoadDropdown}` — keep `Dropdown`'s visibility/position as separate state (so the menu doesn't flash to
   the corner on close; same for `KebabMenu`).

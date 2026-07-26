@@ -43,6 +43,8 @@ function mapExercise(row: any): Exercise {
     perSide: row.perSide == null ? null : !!row.perSide,
     unilateral: row.unilateral == null ? null : !!row.unilateral,
     leadSide: (row.leadSide as Exercise['leadSide']) ?? null,
+    coachingNote: row.coachingNote ?? null,
+    coachingNoteHidden: row.coachingNoteHidden == null ? null : !!row.coachingNoteHidden,
   };
 }
 
@@ -310,6 +312,23 @@ export class WorkoutRepo {
     );
   }
 
+  /** Set (or clear, with null/'') the persistent coaching note for an exercise. */
+  setExerciseCoachingNote(localId: string, note: string | null): void {
+    const trimmed = note?.trim() || null;
+    db.runSync(
+      `UPDATE exercises SET coachingNote = ?, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
+      [trimmed, new Date().toISOString(), localId]
+    );
+  }
+
+  /** Hide/show the coaching-note banner for an exercise (persists across workouts). */
+  setExerciseCoachingNoteHidden(localId: string, hidden: boolean): void {
+    db.runSync(
+      `UPDATE exercises SET coachingNoteHidden = ?, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
+      [hidden ? 1 : 0, new Date().toISOString(), localId]
+    );
+  }
+
   getDistinctMuscleGroups(): string[] {
     const rows = db.getAllSync(
       `SELECT DISTINCT muscleGroup FROM exercises WHERE muscleGroup IS NOT NULL ORDER BY muscleGroup`
@@ -342,7 +361,8 @@ export class WorkoutRepo {
                 e.gifUrl AS e_gifUrl,
                 e.musclesPrimary AS e_musclesPrimary, e.musclesSecondary AS e_musclesSecondary,
                 e.category AS e_category, e.isCustom AS e_isCustom,
-                e.perSide AS e_perSide, e.unilateral AS e_unilateral, e.leadSide AS e_leadSide
+                e.perSide AS e_perSide, e.unilateral AS e_unilateral, e.leadSide AS e_leadSide,
+                e.coachingNote AS e_coachingNote, e.coachingNoteHidden AS e_coachingNoteHidden
          FROM template_exercises te
          JOIN exercises e ON te.exerciseLocalId = e.localId
          WHERE te.templateLocalId = ?
@@ -351,7 +371,7 @@ export class WorkoutRepo {
       ) as any[];
       const exercises = exRows.map((er) => ({
         id: er.localId,
-        exercise: mapExercise({ localId: er.e_localId, name: er.e_name, muscleGroup: er.e_muscleGroup, equipment: er.e_equipment, description: er.e_description, instructions: er.e_instructions, tips: er.e_tips, imageUrl: er.e_imageUrl, videoUrl: er.e_videoUrl, gifUrl: er.e_gifUrl, musclesPrimary: er.e_musclesPrimary, musclesSecondary: er.e_musclesSecondary, category: er.e_category, isCustom: er.e_isCustom, perSide: er.e_perSide, unilateral: er.e_unilateral, leadSide: er.e_leadSide }),
+        exercise: mapExercise({ localId: er.e_localId, name: er.e_name, muscleGroup: er.e_muscleGroup, equipment: er.e_equipment, description: er.e_description, instructions: er.e_instructions, tips: er.e_tips, imageUrl: er.e_imageUrl, videoUrl: er.e_videoUrl, gifUrl: er.e_gifUrl, musclesPrimary: er.e_musclesPrimary, musclesSecondary: er.e_musclesSecondary, category: er.e_category, isCustom: er.e_isCustom, perSide: er.e_perSide, unilateral: er.e_unilateral, leadSide: er.e_leadSide, coachingNote: er.e_coachingNote, coachingNoteHidden: er.e_coachingNoteHidden }),
         defaultSets: er.defaultSets ?? 3,
         defaultReps: er.defaultReps ?? null,
         defaultWeightKg: er.defaultWeightKg ?? null,

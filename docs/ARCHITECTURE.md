@@ -390,7 +390,12 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
   (`getLastSetsForExercise`/`getBestEpleyForExercise`/`getExerciseSessionHistory` take an optional
   attachment). **Per-arm** is a per-exercise default (`exercises.unilateral`/`leadSide`); each logical set
   becomes flat L/R rows tagged `exercise_sets.side`, and `supersets.restAfterSet` defers rest until the
-  second arm. Custom exercises: `searchExercises(onlyCustom)`, `deleteCustomExercise` (refuses seeded
+  second arm. A **coaching note** is another global per-exercise field (`exercises.coachingNote` +
+  `coachingNoteHidden`; `setExerciseCoachingNote`/`…Hidden` + `sessionStore.setCoachingNote`/`…Hidden`) — a
+  technique cue rendered as a banner on the session exercise card every workout, with a per-exercise persisted
+  hide/show; distinct from the per-performance `session_exercises.notes`, and (like the other user overrides)
+  preserved across a catalog reseed by omission from `upsertExercise` + aliased into the `getTemplates` JOIN so
+  from-template workouts carry it. Custom exercises: `searchExercises(onlyCustom)`, `deleteCustomExercise` (refuses seeded
   rows), `getExerciseUsage` (delete confirm).
 - `lib/renphoTape.ts` — **Renpho RF-BMF01 smart tape measure** (BLE) integration via `react-native-ble-plx`.
   `useRenphoTape()` hook exposes `{ status, reading, error, start, stop }` and is **continuous**: it scans
