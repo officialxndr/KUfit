@@ -29,6 +29,19 @@ interface RoutineState {
   markDone: (routineId: string, templateId: string) => void;
 }
 
+/** The variant "next up" in an A/B variation group: the one done least recently (or never).
+ *  A never-done group deterministically picks the first variant (ties → variants[0]). */
+export function pickNextVariant(variants: string[], lastDones: Record<string, number>): string | null {
+  if (!variants.length) return null;
+  let next = variants[0];
+  let nextTime = lastDones[next] ?? 0;
+  for (const v of variants) {
+    const t = lastDones[v] ?? 0;
+    if (t < nextTime) { next = v; nextTime = t; }
+  }
+  return next;
+}
+
 /** The template in a routine that's "next up": a user-pinned override if valid, else the one
  *  done least recently (or never). */
 export function getNextTemplateId(routine: Routine): string | null {

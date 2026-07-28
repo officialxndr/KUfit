@@ -293,6 +293,13 @@ for backup + Home Assistant / **MCP** access (`serverStore` is null by default).
   dev-tools registration tears the native handle down in dev → black-screen `prepareSync` NPEs.
 - **Supersets** must always have **≥2 adjacent members**; route membership/order changes through
   `normalizeSupersets` (in both `templateDraftStore` and `sessionStore`).
+- **Workout variations (A/B)**: a template's versions live in `workout_templates.variants` (JSON) +
+  `variantLastDones` (JSON map); each `template_exercises.variant` is null (**shared**) or a version name.
+  Starting a version = `buildLocalExercisesFromTemplate(id, variant)` filtered to `variant IS NULL OR = chosen`.
+  **Resolve the version once** in `startFromTemplate` (caller's pick, else `pickNextVariant`) and pass the same
+  value to `startSession` + the build — never let them default independently (the stamp mutates the LRD map).
+  The builder grid shows only `activeVariant`; its **drag-reorder must splice the reordered visible rows back
+  into the full `exercises` list** (never rebuild from the filtered view — that drops hidden versions).
 - **Workout volume** counts two-arm dumbbell/kettlebell work ×2 via `loadFactor` (`exercise.perSide`,
   default by equipment). 1RM/top-weight stay per-hand. Compute volume from sets × factor, not a stored total.
 - **Per-arm + attachments**: per-arm/lead-side + load counting are **global per-exercise defaults**
@@ -300,7 +307,9 @@ for backup + Home Assistant / **MCP** access (`serverStore` is null by default).
   **per-performance** (`session_exercises.attachment`), and history/PRs/ghosts key on **(exercise +
   attachment)**. A **coaching note** (`exercises.coachingNote` + `coachingNoteHidden`, distinct from the
   per-performance `session_exercises.notes`) is another **global per-exercise** field — a technique cue shown
-  on the session exercise card every workout, with a per-exercise hide/show that persists. **All these
+  on the session exercise card every workout, with a per-exercise hide/show that persists. Editable from
+  the session kebab, the exercise detail screen, and the **template builder** (`template/new.tsx`) — all via
+  `setExerciseCoachingNote` on the global row, so it's entered once and carries everywhere. **All these
   user-override columns are preserved across a catalog reseed by OMISSION** — `WorkoutRepo.upsertExercise`
   deliberately leaves them out of `catalogCols`/the UPDATE, so never add them there or a `SEED_VERSION` bump
   wipes them. To carry a global field into a from-template workout, alias it in the `getTemplates` JOIN

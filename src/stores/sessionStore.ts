@@ -5,6 +5,7 @@ import { normalizeSupersets } from '@/lib/supersets';
 import { appendRound, removeSetOrRound, expandToPairs, collapseToSingles, reorderLead } from '@/lib/unilateral';
 import { startLiveActivity, updateLiveActivity, endLiveActivity } from '@/lib/liveActivity';
 import { syncWatch, endWatch, launchWatchWorkout } from '@/lib/watch';
+import { pickNextVariant } from '@/stores/routineStore';
 import type { Exercise, LocalExercise, LocalSet, Side } from '@/types';
 
 /**
@@ -22,7 +23,7 @@ interface SessionState {
   pendingSuperset: { group: string; afterLocalId: string } | null;
 
   startEmpty: () => void;
-  startFromTemplate: (templateLocalId: string, name: string) => void;
+  startFromTemplate: (templateLocalId: string, name: string, variant?: string | null) => void;
   addExercise: (exercise: Exercise) => void;
   removeExercise: (localId: string) => void;
   addSet: (exLocalId: string) => void;
@@ -71,9 +72,17 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     launchWatchWorkout();
   },
 
-  startFromTemplate: (templateLocalId, name) => {
-    const sessionLocalId = workoutRepo.startSession(name, templateLocalId);
-    const exercises = workoutRepo.buildLocalExercisesFromTemplate(templateLocalId);
+  startFromTemplate: (templateLocalId, name, variant) => {
+    // Resolve the version to start ONCE and pass the same value to both the session stamp and the
+    // exercise build (so they can't disagree): use the caller's choice, else auto-alternate to the
+    // least-recently-done variant when the template is a variation group.
+    let v = variant ?? null;
+    if (v == null) {
+      const t = workoutRepo.getTemplates().find((x) => x.id === templateLocalId);
+      if (t?.variants?.length) v = pickNextVariant(t.variants, t.variantLastDones ?? {});
+    }
+    const sessionLocalId = workoutRepo.startSession(name, templateLocalId, v);
+    const exercises = workoutRepo.buildLocalExercisesFromTemplate(templateLocalId, v);
     set({ active: true, sessionLocalId, name, startedAt: nowIso(), exercises, counter: 1000, pendingSuperset: null });
     startLiveActivity(get());
     syncWatch(get());

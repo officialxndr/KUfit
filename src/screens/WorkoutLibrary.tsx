@@ -8,7 +8,7 @@ import { Card, FsText, Button, SectionHeader, Badge } from '@/components/ui';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useTemplateDraftStore } from '@/stores/templateDraftStore';
-import { useRoutineStore, getNextTemplateId, type Routine } from '@/stores/routineStore';
+import { useRoutineStore, getNextTemplateId, pickNextVariant, type Routine } from '@/stores/routineStore';
 import { colors, radius, space, tintBg, themedStyles } from '@/theme/tokens';
 import type { WorkoutTemplate } from '@/types';
 
@@ -39,8 +39,8 @@ export function WorkoutLibrary() {
     session.startEmpty();
     router.push('/session');
   };
-  const startTemplate = (t: WorkoutTemplate) => {
-    session.startFromTemplate(t.id, t.name);
+  const startTemplate = (t: WorkoutTemplate, variant?: string | null) => {
+    session.startFromTemplate(t.id, t.name, variant ?? null);
     router.push('/session');
   };
   const newTemplate = () => {
@@ -314,27 +314,42 @@ export function WorkoutLibrary() {
                 </FsText>
               )}
               <View style={styles.grid}>
-                {items.map((t) => (
-                  <Pressable key={t.id} style={styles.gridItem} onPress={() => startTemplate(t)}>
-                    <Card style={{ flex: 1, minHeight: 124, justifyContent: 'space-between' }}>
-                      <FsText variant="cardTitle" numberOfLines={2}>{t.name}</FsText>
-                      <View>
-                        <FsText variant="caption">{t.exercises.length} exercises</FsText>
-                        {t.lastPerformedAt && (
-                          <FsText variant="caption">Last {formatDistanceToNow(new Date(t.lastPerformedAt))} ago</FsText>
-                        )}
-                      </View>
-                      <View style={styles.tplActions}>
-                        <Pressable onPress={() => editTemplate(t)} hitSlop={8} style={styles.tplActionBtn}>
-                          <Pencil color={colors.muted} size={15} />
-                        </Pressable>
-                        <Pressable onPress={() => confirmDeleteTemplate(t)} hitSlop={8} style={styles.tplActionBtn}>
-                          <Trash2 color={colors.danger} size={15} />
-                        </Pressable>
-                      </View>
-                    </Card>
-                  </Pressable>
-                ))}
+                {items.map((t) => {
+                  const variants = t.variants ?? [];
+                  // The version a plain card-tap will start: least-recently-done (auto-alternate).
+                  const nextV = variants.length ? pickNextVariant(variants, t.variantLastDones ?? {}) : null;
+                  const exCount = nextV ? t.exercises.filter((e) => e.variant == null || e.variant === nextV).length : t.exercises.length;
+                  return (
+                    <Pressable key={t.id} style={styles.gridItem} onPress={() => startTemplate(t, nextV)}>
+                      <Card style={{ flex: 1, minHeight: 124, justifyContent: 'space-between' }}>
+                        <FsText variant="cardTitle" numberOfLines={2}>{t.name}</FsText>
+                        <View>
+                          <FsText variant="caption">{exCount} exercises</FsText>
+                          {t.lastPerformedAt && (
+                            <FsText variant="caption">Last {formatDistanceToNow(new Date(t.lastPerformedAt))} ago</FsText>
+                          )}
+                          {variants.length > 0 && (
+                            <View style={styles.variantPills}>
+                              {variants.map((v) => (
+                                <Pressable key={v} onPress={() => startTemplate(t, v)} style={[styles.variantPill, v === nextV && styles.variantPillNext]} hitSlop={4}>
+                                  <FsText variant="caption" style={{ color: v === nextV ? colors.white : colors.muted, fontWeight: '700' }}>{v}</FsText>
+                                </Pressable>
+                              ))}
+                            </View>
+                          )}
+                        </View>
+                        <View style={styles.tplActions}>
+                          <Pressable onPress={() => editTemplate(t)} hitSlop={8} style={styles.tplActionBtn}>
+                            <Pencil color={colors.muted} size={15} />
+                          </Pressable>
+                          <Pressable onPress={() => confirmDeleteTemplate(t)} hitSlop={8} style={styles.tplActionBtn}>
+                            <Trash2 color={colors.danger} size={15} />
+                          </Pressable>
+                        </View>
+                      </Card>
+                    </Pressable>
+                  );
+                })}
               </View>
             </View>
           ))}
@@ -468,6 +483,9 @@ const styles = themedStyles(() => StyleSheet.create({
   },
   filterChipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   tplActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: space[3], marginTop: space[2], paddingTop: space[2], borderTopWidth: 1, borderTopColor: colors.border },
+  variantPills: { flexDirection: 'row', gap: space[1], marginTop: space[1] },
+  variantPill: { minWidth: 26, paddingVertical: 2, paddingHorizontal: 8, borderRadius: radius.sm, backgroundColor: colors.surfaceHigh, alignItems: 'center' },
+  variantPillNext: { backgroundColor: colors.primary },
   tplActionBtn: { padding: 2 },
   pickBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: space[4] },
   pickCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: space[4] },

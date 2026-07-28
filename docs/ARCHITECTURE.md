@@ -46,7 +46,15 @@ External network (Open Food Facts, ExerciseDB CDN) is called directly from the d
   `recipes.servingWeightG` (optional grams-per-serving), **`exercises.perSide`** (per-side volume
   override — see *Per-side load* below), **`exercises.unilateral`/`leadSide`** + **`exercise_sets.side`**
   (per-arm logging — see *Attachments & per-arm* below), and **`session_exercises.attachment`** /
-  **`template_exercises.attachment`** (cable attachment per performance). An `app_meta` key/value table
+  **`template_exercises.attachment`** (cable attachment per performance), and **workout variations** —
+  `workout_templates.variants` (JSON list of version names) + `variantLastDones` (JSON epoch-ms map for
+  auto-alternation) + a per-row **`template_exercises.variant`** (null = shared across all versions). Starting
+  a version filters `buildLocalExercisesFromTemplate(id, variant)` to `variant IS NULL OR = chosen` (then
+  re-normalizes supersets left with <2 members); `sessionStore.startFromTemplate` resolves the version once
+  (caller's choice, else `pickNextVariant` LRD) and passes the same value to `startSession` (stamps the map)
+  + the build, so they never disagree. The builder (`templateDraftStore` + `template/new.tsx`) filters the
+  grid to `activeVariant` and its drag-reorder splices the reordered visible rows back into the full list so
+  hidden-version exercises aren't dropped. An `app_meta` key/value table
   (`getMeta`/`setMeta`) tracks seed versions (`baseFoodsVersion`, **`exerciseSeedVersion`**) so bundled
   data can re-seed in place when bumped.
   **New columns need a fresh app launch** to run `runMigrations()`.

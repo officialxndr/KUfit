@@ -156,7 +156,7 @@ export function WorkoutHistory() {
         </Pressable>
       </Modal>
 
-      <WorkoutSummarySheet session={detail} unit={unit} onClose={() => setDetail(null)} />
+      <WorkoutSummarySheet session={detail} unit={unit} onClose={() => setDetail(null)} onEdited={refresh} />
     </>
   );
 }

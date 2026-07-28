@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, TextInput, StyleSheet, Pressable, Alert } from 'react-native';
+import { View, TextInput, StyleSheet, Pressable, Alert, Modal } from 'react-native';
 import Animated, { useAnimatedRef, useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
 import Sortable, { type SortableGridRenderItem, type SortableGridDragEndParams } from 'react-native-sortables';
 import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { X, Trash2, GripVertical, Dumbbell, Link2, Link2Off } from 'lucide-react-native';
+import { X, Trash2, GripVertical, Dumbbell, Link2, Link2Off, Lightbulb, Plus, Tag, Layers } from 'lucide-react-native';
 
 import { FsText, Button, Card } from '@/components/ui';
 import { ModalHeader } from '@/components/ModalHeader';
@@ -18,7 +18,7 @@ import { useNavStore } from '@/stores/navStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { toDisplay, toKg, UNIT_LABELS } from '@/lib/units';
-import { colors, radius, space, themedStyles } from '@/theme/tokens';
+import { colors, radius, space, tintBg, themedStyles } from '@/theme/tokens';
 
 /** A draggable unit in the editor: one solo exercise, or a contiguous superset run. */
 type Block = { key: string; group: string | null; items: DraftExercise[] };
@@ -75,7 +75,7 @@ export default function NewTemplate() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id?: string; mode?: string }>();
   const unit = useSettingsStore((s) => s.profile.unitSystem);
-  const { editingId, name, label, exercises, setName, setLabel, removeExercise, setExercises, patch, startSuperset, ungroup, linkExerciseInto, loadTemplate, save } = useTemplateDraftStore();
+  const { editingId, name, label, exercises, variants, activeVariant, setName, setLabel, setVariants, setActiveVariant, setExerciseVariant, removeExercise, setExercises, patch, startSuperset, ungroup, linkExerciseInto, loadTemplate, save } = useTemplateDraftStore();
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
 
   // Link-handle (drag-to-superset) state. The chain handle's pan is independent of the
@@ -159,6 +159,7 @@ export default function NewTemplate() {
 
   const wizard = params.mode === 'wizard' && !editingId;
   const [step, setStep] = useState<1 | 2>(1);
+  const [coachingEx, setCoachingEx] = useState<{ id: string; text: string } | null>(null);
 
   // Superset labels (A1/A2…) for adjacent exercises sharing a group, keyed by exercise id.
   const ssLabels = useMemo(() => {
@@ -182,28 +183,43 @@ export default function NewTemplate() {
 
   // Group adjacent superset members into one draggable block so a superset moves
   // as a single locked unit; solo exercises are blocks of one.
+  // When the template has variants, show only the exercises in the active variant (shared + that
+  // variant's own). With no variants, show everything.
+  const isInActiveVariant = useCallback(
+    (e: DraftExercise) => activeVariant == null || e.variant == null || e.variant === activeVariant,
+    [activeVariant]
+  );
+  const visible = useMemo(() => exercises.filter(isInActiveVariant), [exercises, isInActiveVariant]);
+
   const blocks = useMemo<Block[]>(() => {
     const out: Block[] = [];
     let i = 0;
-    while (i < exercises.length) {
-      const g = exercises[i].supersetGroup;
+    while (i < visible.length) {
+      const g = visible[i].supersetGroup;
       if (g) {
         let j = i;
-        while (j < exercises.length && exercises[j].supersetGroup === g) j++;
-        out.push({ key: `g:${g}`, group: g, items: exercises.slice(i, j) });
+        while (j < visible.length && visible[j].supersetGroup === g) j++;
+        out.push({ key: `g:${g}`, group: g, items: visible.slice(i, j) });
         i = j;
       } else {
-        out.push({ key: `e:${exercises[i].exercise.id}`, group: null, items: [exercises[i]] });
+        out.push({ key: `e:${visible[i].exercise.id}`, group: null, items: [visible[i]] });
         i++;
       }
     }
     return out;
-  }, [exercises]);
+  }, [visible]);
 
-  // Reorder only — superset linking is handled by the chain handle's own gesture.
+  // Reorder only — superset linking is handled by the chain handle's own gesture. The grid shows
+  // only the active variant, so splice the reordered visible exercises back into the FULL list
+  // (leaving hidden-variant exercises in place) — otherwise they'd be dropped on drag.
   const onDragEnd = useCallback(
-    ({ data }: SortableGridDragEndParams<Block>) => setExercises(data.flatMap((b) => b.items)),
-    [setExercises]
+    ({ data }: SortableGridDragEndParams<Block>) => {
+      const newVisible = data.flatMap((b) => b.items);
+      if (activeVariant == null) { setExercises(newVisible); return; }
+      let vi = 0;
+      setExercises(exercises.map((e) => (isInActiveVariant(e) ? newVisible[vi++] : e)));
+    },
+    [setExercises, exercises, activeVariant, isInActiveVariant]
   );
 
   const onSupersetPress = (exerciseId: string, grouped: boolean) => {
@@ -217,6 +233,17 @@ export default function NewTemplate() {
     workoutRepo.setExerciseUnilateral(d.exercise.id, next.unilateral);
     if (next.unilateral) workoutRepo.setExerciseLeadSide(d.exercise.id, next.leadSide);
     patch(d.exercise.id, { exercise: { ...d.exercise, unilateral: next.unilateral, leadSide: next.leadSide } });
+  };
+
+  // Coaching note is a global per-exercise field — persist it + reflect it in the draft so it
+  // shows here and carries into every workout/template that uses this exercise. Writing a note
+  // un-hides it so a re-added note isn't stuck behind the "Show note" chip in a workout.
+  const applyCoachingNote = (d: DraftExercise, text: string) => {
+    const t = text.trim() || null;
+    workoutRepo.setExerciseCoachingNote(d.exercise.id, t);
+    const unhide = !!t && !!d.exercise.coachingNoteHidden;
+    if (unhide) workoutRepo.setExerciseCoachingNoteHidden(d.exercise.id, false);
+    patch(d.exercise.id, { exercise: { ...d.exercise, coachingNote: t, ...(unhide ? { coachingNoteHidden: false } : {}) } });
   };
 
   // Deep-link / fallback: load the template if we arrived with an id but the draft isn't primed.
@@ -253,6 +280,9 @@ export default function NewTemplate() {
             {ssLabels[d.exercise.id] && (
               <View style={styles.ssBadge}><FsText variant="caption" style={{ color: colors.white, fontWeight: '700' }}>{ssLabels[d.exercise.id]}</FsText></View>
             )}
+            {variants.length > 0 && d.variant && (
+              <View style={styles.variantBadge}><FsText variant="caption" style={{ color: colors.white, fontWeight: '700' }}>{d.variant}</FsText></View>
+            )}
             <FsText variant="cardTitle" numberOfLines={1}>{d.exercise.name}</FsText>
           </View>
           {d.exercise.muscleGroup ? <FsText variant="caption">{d.exercise.muscleGroup}</FsText> : null}
@@ -262,10 +292,22 @@ export default function NewTemplate() {
             d.supersetGroup
               ? { icon: Link2Off, label: 'Remove from superset', onPress: () => onSupersetPress(d.exercise.id, true) }
               : { icon: Link2, label: 'Superset', onPress: () => onSupersetPress(d.exercise.id, false) },
+            { icon: Lightbulb, label: d.exercise.coachingNote ? 'Edit coaching note' : 'Add coaching note', onPress: () => setCoachingEx({ id: d.exercise.id, text: d.exercise.coachingNote ?? '' }) },
+            ...(variants.length > 0 && activeVariant ? [
+              d.variant
+                ? { icon: Layers, label: 'Make shared (all versions)', onPress: () => setExerciseVariant(d.exercise.id, null) }
+                : { icon: Tag, label: `Only in version ${activeVariant}`, onPress: () => setExerciseVariant(d.exercise.id, activeVariant) },
+            ] : []),
             { icon: Trash2, label: 'Remove exercise', danger: true, onPress: () => removeExercise(d.exercise.id) },
           ]}
         />
       </View>
+      {showConfig && !!d.exercise.coachingNote && (
+        <Pressable style={styles.coachNote} onPress={() => setCoachingEx({ id: d.exercise.id, text: d.exercise.coachingNote ?? '' })}>
+          <Lightbulb color={colors.primary} size={14} />
+          <FsText variant="caption" style={{ flex: 1, color: colors.text }}>{d.exercise.coachingNote}</FsText>
+        </Pressable>
+      )}
       {showConfig && (
         <>
           {/* Per-arm + attachment sit above the numeric fields, below the name/muscle label. */}
@@ -361,6 +403,38 @@ export default function NewTemplate() {
           </Card>
         )}
 
+        {/* Variation (A/B) switcher: build one workout with shared exercises + version-specific ones. */}
+        {variants.length === 0 ? (
+          <Pressable style={styles.addVariantBtn} onPress={() => { setVariants(['A', 'B']); setActiveVariant('A'); }}>
+            <Layers color={colors.primary} size={14} />
+            <FsText variant="caption" style={{ color: colors.primary, fontWeight: '600' }}>Add A/B variations</FsText>
+          </Pressable>
+        ) : (
+          <View style={{ marginBottom: space[3] }}>
+            <View style={styles.variantSwitch}>
+              {variants.map((v) => {
+                const on = activeVariant === v;
+                return (
+                  <Pressable key={v} style={[styles.variantTab, on && styles.variantTabActive]} onPress={() => setActiveVariant(v)}>
+                    <FsText variant="caption" style={{ color: on ? colors.white : colors.muted, fontWeight: '700' }}>{v}</FsText>
+                  </Pressable>
+                );
+              })}
+              <Pressable style={styles.variantTab} onPress={() => { const next = String.fromCharCode(65 + variants.length); setVariants([...variants, next]); setActiveVariant(next); }} hitSlop={6}>
+                <Plus color={colors.muted} size={14} />
+              </Pressable>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
+              <FsText variant="caption" style={{ color: colors.muted, flex: 1 }}>
+                Editing version {activeVariant} — shared exercises + {activeVariant}-only. Use ⋯ on an exercise to pin it to a version.
+              </FsText>
+              <Pressable onPress={() => { setVariants([]); setActiveVariant(null); }} hitSlop={6}>
+                <FsText variant="caption" style={{ color: colors.muted, fontWeight: '600' }}>Remove</FsText>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
         <Sortable.Grid
           columns={1}
           data={blocks}
@@ -375,6 +449,38 @@ export default function NewTemplate() {
           <Button title="Browse & Add Exercise" variant="ghost" onPress={() => router.push('/exercises?pick=template')} />
         )}
       </Animated.ScrollView>
+
+      {/* Coaching note editor (persistent per-exercise, carries into every workout) */}
+      <Modal visible={!!coachingEx} transparent animationType="fade" onRequestClose={() => setCoachingEx(null)}>
+        <Pressable style={styles.noteBackdrop} onPress={() => setCoachingEx(null)}>
+          <Pressable style={styles.noteCard} onPress={(e) => e.stopPropagation()}>
+            <FsText variant="cardTitle" style={{ marginBottom: space[1] }}>Coaching note</FsText>
+            <FsText variant="caption" style={{ marginBottom: space[3], color: colors.muted }}>
+              Shows on this exercise every time you do it — and carries into every workout that uses it.
+            </FsText>
+            <TextInput
+              value={coachingEx?.text ?? ''}
+              onChangeText={(t) => setCoachingEx((n) => (n ? { ...n, text: t } : n))}
+              placeholder="e.g. keep elbows soft, squeeze at the top, control the negative"
+              placeholderTextColor={colors.muted}
+              multiline
+              style={styles.noteInput}
+            />
+            <View style={{ flexDirection: 'row', gap: space[2], marginTop: space[3] }}>
+              <View style={{ flex: 1 }}><Button title="Cancel" variant="ghost" onPress={() => setCoachingEx(null)} /></View>
+              <View style={{ flex: 1 }}>
+                <Button title="Save" onPress={() => {
+                  if (coachingEx) {
+                    const d = exercises.find((e) => e.exercise.id === coachingEx.id);
+                    if (d) applyCoachingNote(d, coachingEx.text);
+                  }
+                  setCoachingEx(null);
+                }} />
+              </View>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </GestureHandlerRootView>
   );
 }
@@ -408,9 +514,26 @@ const styles = themedStyles(() => StyleSheet.create({
     backgroundColor: colors.bg + 'E6', alignItems: 'center', justifyContent: 'center', zIndex: 2,
   },
   ssBadge: { backgroundColor: colors.primary, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 1 },
+  variantBadge: { backgroundColor: colors.warning, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 1 },
+  addVariantBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingVertical: 6, marginBottom: space[3] },
+  variantSwitch: { flexDirection: 'row', gap: space[1] },
+  variantTab: { minWidth: 40, paddingVertical: 6, paddingHorizontal: 12, borderRadius: radius.sm, backgroundColor: colors.surfaceHigh, alignItems: 'center' },
+  variantTabActive: { backgroundColor: colors.primary },
   field: { marginBottom: space[3] },
   input: {
     backgroundColor: colors.surfaceHigh, borderRadius: radius.md,
     paddingHorizontal: 14, paddingVertical: 12, color: colors.text, fontSize: 14,
+  },
+  coachNote: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: tintBg.primary, borderRadius: radius.sm,
+    paddingHorizontal: 10, paddingVertical: 8, marginBottom: space[2],
+  },
+  noteBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: space[6] },
+  noteCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: space[4] },
+  noteInput: {
+    backgroundColor: colors.surfaceHigh, borderRadius: radius.md,
+    paddingHorizontal: 14, paddingVertical: 12, color: colors.text, fontSize: 14,
+    minHeight: 84, textAlignVertical: 'top',
   },
 }));

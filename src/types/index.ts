@@ -288,6 +288,10 @@ export interface WorkoutTemplate {
   name: string
   description?: string | null
   label?: string | null
+  /** Variant names for an A/B-style variation group (e.g. ['A','B']). Empty/undefined = a plain template. */
+  variants?: string[]
+  /** Per-variant last-performed epoch-ms map, for least-recently-done auto-alternation. */
+  variantLastDones?: Record<string, number>
   exercises: {
     id: string
     exercise: Exercise
@@ -300,6 +304,8 @@ export interface WorkoutTemplate {
     supersetGroup?: string | null
     /** Default cable attachment for this exercise in the template (Rope, V-Bar, …). */
     attachment?: string | null
+    /** Which variant this exercise belongs to (null = shared across all variants). */
+    variant?: string | null
   }[]
   lastPerformedAt?: string | null
   createdAt: string

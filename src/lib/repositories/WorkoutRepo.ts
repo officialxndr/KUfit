@@ -12,7 +12,8 @@ export interface TemplateInput {
   name: string;
   description?: string;
   label?: string | null;
-  exercises: Array<{ exerciseId: string; defaultSets: number; defaultReps?: number; defaultWeightKg?: number; restSeconds?: number; order: number; supersetGroup?: string | null; attachment?: string | null }>;
+  variants?: string[];
+  exercises: Array<{ exerciseId: string; defaultSets: number; defaultReps?: number; defaultWeightKg?: number; restSeconds?: number; order: number; supersetGroup?: string | null; attachment?: string | null; variant?: string | null }>;
 }
 
 // ── Mappers ───────────────────────────────────────────────────────────────────
@@ -20,6 +21,11 @@ export interface TemplateInput {
 function parseJsonArray(val: any): string[] {
   if (!val) return [];
   try { return JSON.parse(val); } catch { return []; }
+}
+
+function parseJsonMap(val: any): Record<string, number> {
+  if (!val) return {};
+  try { const o = JSON.parse(val); return o && typeof o === 'object' ? o : {}; } catch { return {}; }
 }
 
 function mapExercise(row: any): Exercise {
@@ -54,6 +60,8 @@ function mapTemplate(row: any, exercises: WorkoutTemplate['exercises']): Workout
     name: row.name,
     description: row.description ?? null,
     label: row.label ?? null,
+    variants: parseJsonArray(row.variants),
+    variantLastDones: parseJsonMap(row.variantLastDones),
     exercises,
     lastPerformedAt: row.lastPerformedAt ?? null,
     createdAt: row.updatedAt ?? new Date().toISOString(),
@@ -379,6 +387,7 @@ export class WorkoutRepo {
         order: er.sortOrder,
         supersetGroup: er.supersetGroup ?? null,
         attachment: er.attachment ?? null,
+        variant: er.variant ?? null,
       }));
       return mapTemplate(row, exercises);
     });
@@ -387,19 +396,19 @@ export class WorkoutRepo {
   saveTemplate(template: TemplateInput): string {
     const localId = Crypto.randomUUID();
     db.runSync(
-      `INSERT INTO workout_templates (localId, name, description, label, syncStatus, updatedAt)
-       VALUES (?, ?, ?, ?, 'pending', ?)`,
-      [localId, template.name, template.description ?? null, template.label ?? null, new Date().toISOString()]
+      `INSERT INTO workout_templates (localId, name, description, label, variants, syncStatus, updatedAt)
+       VALUES (?, ?, ?, ?, ?, 'pending', ?)`,
+      [localId, template.name, template.description ?? null, template.label ?? null, JSON.stringify(template.variants ?? []), new Date().toISOString()]
     );
     this.replaceTemplateExercises(localId, template.exercises);
     return localId;
   }
 
-  /** Update an existing template's name/label/description and replace its exercises. */
+  /** Update an existing template's name/label/description/variants and replace its exercises. */
   updateTemplate(localId: string, template: TemplateInput): void {
     db.runSync(
-      `UPDATE workout_templates SET name = ?, description = ?, label = ?, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
-      [template.name, template.description ?? null, template.label ?? null, new Date().toISOString(), localId]
+      `UPDATE workout_templates SET name = ?, description = ?, label = ?, variants = ?, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
+      [template.name, template.description ?? null, template.label ?? null, JSON.stringify(template.variants ?? []), new Date().toISOString(), localId]
     );
     db.runSync(`DELETE FROM template_exercises WHERE templateLocalId = ?`, [localId]);
     this.replaceTemplateExercises(localId, template.exercises);
@@ -409,9 +418,9 @@ export class WorkoutRepo {
     for (const ex of exercises) {
       db.runSync(
         `INSERT INTO template_exercises
-           (localId, templateLocalId, exerciseLocalId, defaultSets, defaultReps, defaultWeightKg, restSeconds, sortOrder, supersetGroup, attachment)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [Crypto.randomUUID(), templateLocalId, ex.exerciseId, ex.defaultSets, ex.defaultReps ?? null, ex.defaultWeightKg ?? null, ex.restSeconds ?? null, ex.order, ex.supersetGroup ?? null, ex.attachment ?? null]
+           (localId, templateLocalId, exerciseLocalId, defaultSets, defaultReps, defaultWeightKg, restSeconds, sortOrder, supersetGroup, attachment, variant)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [Crypto.randomUUID(), templateLocalId, ex.exerciseId, ex.defaultSets, ex.defaultReps ?? null, ex.defaultWeightKg ?? null, ex.restSeconds ?? null, ex.order, ex.supersetGroup ?? null, ex.attachment ?? null, ex.variant ?? null]
       );
     }
   }
@@ -425,18 +434,28 @@ export class WorkoutRepo {
 
   // ── Sessions ────────────────────────────────────────────────────────────────
 
-  startSession(name: string, templateLocalId?: string): string {
+  startSession(name: string, templateLocalId?: string, variant?: string | null): string {
     const localId = Crypto.randomUUID();
+    const now = new Date().toISOString();
     db.runSync(
       `INSERT INTO workout_sessions (localId, name, templateLocalId, startedAt, syncStatus, updatedAt)
        VALUES (?, ?, ?, ?, 'pending', ?)`,
-      [localId, name, templateLocalId ?? null, new Date().toISOString(), new Date().toISOString()]
+      [localId, name, templateLocalId ?? null, now, now]
     );
     if (templateLocalId) {
-      db.runSync(
-        `UPDATE workout_templates SET lastPerformedAt = ? WHERE localId = ?`,
-        [new Date().toISOString(), templateLocalId]
-      );
+      // Stamp lastPerformedAt (drives the "Last X ago" caption) and, for a variant group, the
+      // per-variant last-done map (drives least-recently-done auto-alternation).
+      if (variant) {
+        const row = db.getFirstSync(`SELECT variantLastDones FROM workout_templates WHERE localId = ?`, [templateLocalId]) as any;
+        const map = parseJsonMap(row?.variantLastDones);
+        map[variant] = Date.now();
+        db.runSync(
+          `UPDATE workout_templates SET lastPerformedAt = ?, variantLastDones = ? WHERE localId = ?`,
+          [now, JSON.stringify(map), templateLocalId]
+        );
+      } else {
+        db.runSync(`UPDATE workout_templates SET lastPerformedAt = ? WHERE localId = ?`, [now, templateLocalId]);
+      }
     }
     return localId;
   }
@@ -529,6 +548,48 @@ export class WorkoutRepo {
     db.runSync(`DELETE FROM workout_sessions WHERE localId = ?`, [localId]);
   }
 
+  private hydrateSessionRow(row: any): WorkoutSession {
+    const seRows = db.getAllSync(
+      `SELECT se.*, e.localId AS e_localId, e.name AS e_name,
+              e.muscleGroup AS e_muscleGroup, e.equipment AS e_equipment,
+              e.instructions AS e_instructions, e.tips AS e_tips,
+              e.imageUrl AS e_imageUrl, e.videoUrl AS e_videoUrl, e.gifUrl AS e_gifUrl,
+              e.musclesPrimary AS e_musclesPrimary, e.musclesSecondary AS e_musclesSecondary,
+              e.description AS e_description, e.category AS e_category, e.isCustom AS e_isCustom,
+              e.perSide AS e_perSide, e.unilateral AS e_unilateral, e.leadSide AS e_leadSide
+       FROM session_exercises se
+       JOIN exercises e ON se.exerciseLocalId = e.localId
+       WHERE se.sessionLocalId = ?
+       ORDER BY se.sortOrder`,
+      [row.localId]
+    ) as any[];
+
+    const exercises: SessionExercise[] = seRows.map((ser) => {
+      const sets = db.getAllSync(
+        `SELECT * FROM exercise_sets WHERE sessionExerciseLocalId = ? ORDER BY setNumber, side`,
+        [ser.localId]
+      ) as any[];
+      return {
+        id: ser.localId,
+        exercise: mapExercise({ localId: ser.e_localId, name: ser.e_name, muscleGroup: ser.e_muscleGroup, equipment: ser.e_equipment, description: ser.e_description, instructions: ser.e_instructions, tips: ser.e_tips, imageUrl: ser.e_imageUrl, videoUrl: ser.e_videoUrl, gifUrl: ser.e_gifUrl, musclesPrimary: ser.e_musclesPrimary, musclesSecondary: ser.e_musclesSecondary, category: ser.e_category, isCustom: ser.e_isCustom, perSide: ser.e_perSide, unilateral: ser.e_unilateral, leadSide: ser.e_leadSide }),
+        notes: ser.notes ?? null,
+        order: ser.sortOrder,
+        attachment: ser.attachment ?? null,
+        sets: sets.map((s) => ({
+          id: s.localId,
+          setNumber: s.setNumber,
+          weightKg: s.weightKg,
+          reps: s.reps,
+          rpe: s.rpe ?? null,
+          isPersonalBest: !!s.isPersonalBest,
+          side: (s.side as 'L' | 'R' | null) ?? null,
+        })),
+      };
+    });
+
+    return mapSession(row, exercises);
+  }
+
   getSessions(limit = 30, finishedOnly = true): WorkoutSession[] {
     let sql = `SELECT ws.*, wt.name AS templateName
                FROM workout_sessions ws
@@ -536,49 +597,79 @@ export class WorkoutRepo {
                WHERE ws.deleted = 0`;
     if (finishedOnly) sql += ` AND ws.finishedAt IS NOT NULL`;
     sql += ` ORDER BY ws.startedAt DESC LIMIT ?`;
-    const rows = db.getAllSync(sql, [limit]) as any[];
+    return (db.getAllSync(sql, [limit]) as any[]).map((row) => this.hydrateSessionRow(row));
+  }
 
-    return rows.map((row) => {
-      const seRows = db.getAllSync(
-        `SELECT se.*, e.localId AS e_localId, e.name AS e_name,
-                e.muscleGroup AS e_muscleGroup, e.equipment AS e_equipment,
-                e.instructions AS e_instructions, e.tips AS e_tips,
-                e.imageUrl AS e_imageUrl, e.videoUrl AS e_videoUrl, e.gifUrl AS e_gifUrl,
-                e.musclesPrimary AS e_musclesPrimary, e.musclesSecondary AS e_musclesSecondary,
-                e.description AS e_description, e.category AS e_category, e.isCustom AS e_isCustom,
-                e.perSide AS e_perSide, e.unilateral AS e_unilateral, e.leadSide AS e_leadSide
-         FROM session_exercises se
-         JOIN exercises e ON se.exerciseLocalId = e.localId
-         WHERE se.sessionLocalId = ?
-         ORDER BY se.sortOrder`,
-        [row.localId]
-      ) as any[];
+  /** Hydrate a single finished session by localId — used to re-read after an edit (no other by-id read exists). */
+  getSession(localId: string): WorkoutSession | null {
+    const row = db.getFirstSync(
+      `SELECT ws.*, wt.name AS templateName
+       FROM workout_sessions ws
+       LEFT JOIN workout_templates wt ON ws.templateLocalId = wt.localId
+       WHERE ws.localId = ? AND ws.deleted = 0`,
+      [localId]
+    ) as any;
+    return row ? this.hydrateSessionRow(row) : null;
+  }
 
-      const exercises: SessionExercise[] = seRows.map((ser) => {
-        const sets = db.getAllSync(
-          `SELECT * FROM exercise_sets WHERE sessionExerciseLocalId = ? ORDER BY setNumber, side`,
-          [ser.localId]
-        ) as any[];
-        return {
-          id: ser.localId,
-          exercise: mapExercise({ localId: ser.e_localId, name: ser.e_name, muscleGroup: ser.e_muscleGroup, equipment: ser.e_equipment, description: ser.e_description, instructions: ser.e_instructions, tips: ser.e_tips, imageUrl: ser.e_imageUrl, videoUrl: ser.e_videoUrl, gifUrl: ser.e_gifUrl, musclesPrimary: ser.e_musclesPrimary, musclesSecondary: ser.e_musclesSecondary, category: ser.e_category, isCustom: ser.e_isCustom, perSide: ser.e_perSide, unilateral: ser.e_unilateral, leadSide: ser.e_leadSide }),
-          notes: ser.notes ?? null,
-          order: ser.sortOrder,
-          attachment: ser.attachment ?? null,
-          sets: sets.map((s) => ({
-            id: s.localId,
-            setNumber: s.setNumber,
-            weightKg: s.weightKg,
-            reps: s.reps,
-            rpe: s.rpe ?? null,
-            isPersonalBest: !!s.isPersonalBest,
-            side: (s.side as 'L' | 'R' | null) ?? null,
-          })),
-        };
-      });
+  // ── Editing a finished workout (fix a mistyped set, add/remove a set) ─────────
+  // Sets are pure children with no sync columns, so an edit marks the PARENT session
+  // 'pending' for the snapshot sync. Derived stats (volume, top weight, 1RM, ghosts)
+  // all recompute from sets on read, so no stored totals need touching here.
 
-      return mapSession(row, exercises);
-    });
+  /** Mark the session that owns a set as pending (must run BEFORE the set is deleted). */
+  private bumpSessionForSet(setLocalId: string): void {
+    db.runSync(
+      `UPDATE workout_sessions SET syncStatus = 'pending', updatedAt = ?
+       WHERE localId = (SELECT se.sessionLocalId FROM session_exercises se
+                        JOIN exercise_sets es ON es.sessionExerciseLocalId = se.localId
+                        WHERE es.localId = ?)`,
+      [new Date().toISOString(), setLocalId]
+    );
+  }
+
+  /** Edit a logged set's weight/reps on a finished workout. Clears the stored PR badge — it was
+   *  computed once at finish, and a corrected weight shouldn't keep claiming a personal best (the
+   *  all-time PR line recomputes from the new value anyway). */
+  updateSet(setLocalId: string, patch: { weightKg?: number; reps?: number; rpe?: number | null }): void {
+    const cols: string[] = [];
+    const vals: (number | null)[] = [];
+    if (patch.weightKg != null) { cols.push('weightKg = ?'); vals.push(patch.weightKg); }
+    if (patch.reps != null) { cols.push('reps = ?'); vals.push(patch.reps); }
+    if ('rpe' in patch) { cols.push('rpe = ?'); vals.push(patch.rpe ?? null); }
+    if (!cols.length) return;
+    cols.push('isPersonalBest = 0');
+    db.runSync(`UPDATE exercise_sets SET ${cols.join(', ')} WHERE localId = ?`, [...vals, setLocalId]);
+    this.bumpSessionForSet(setLocalId);
+  }
+
+  /** Append a set to a logged exercise on a finished workout. For a unilateral exercise (sets
+   *  carry a side) it adds an L+R pair, matching how sets are logged live. */
+  addSetToLoggedExercise(sessionExerciseLocalId: string, weightKg: number, reps: number): void {
+    const existing = db.getAllSync(
+      `SELECT setNumber, side FROM exercise_sets WHERE sessionExerciseLocalId = ?`,
+      [sessionExerciseLocalId]
+    ) as { setNumber: number; side: string | null }[];
+    const unilateral = existing.some((s) => s.side != null);
+    const nextNum = existing.reduce((m, s) => Math.max(m, s.setNumber), 0) + 1;
+    for (const side of unilateral ? ['L', 'R'] : [null]) {
+      db.runSync(
+        `INSERT INTO exercise_sets (localId, sessionExerciseLocalId, setNumber, weightKg, reps, side, isPersonalBest)
+         VALUES (?, ?, ?, ?, ?, ?, 0)`,
+        [Crypto.randomUUID(), sessionExerciseLocalId, nextNum, weightKg, reps, side]
+      );
+    }
+    db.runSync(
+      `UPDATE workout_sessions SET syncStatus = 'pending', updatedAt = ?
+       WHERE localId = (SELECT sessionLocalId FROM session_exercises WHERE localId = ?)`,
+      [new Date().toISOString(), sessionExerciseLocalId]
+    );
+  }
+
+  /** Delete a logged set from a finished workout. */
+  deleteSet(setLocalId: string): void {
+    this.bumpSessionForSet(setLocalId); // resolve the owning session while the set still exists
+    db.runSync(`DELETE FROM exercise_sets WHERE localId = ?`, [setLocalId]);
   }
 
   // Last sets for an exercise (for ghost values in session screen). When an attachment is
@@ -710,16 +801,24 @@ export class WorkoutRepo {
     return out;
   }
 
-  // Build LocalExercise list from a template for a new session
+  // Build LocalExercise list from a template for a new session. For a variant group, `variant`
+  // selects which day: shared exercises (variant == null) + that variant's own are included.
   buildLocalExercisesFromTemplate(
-    templateLocalId: string
+    templateLocalId: string,
+    variant?: string | null
   ): LocalExercise[] {
     const tmpl = this.getTemplates().find((t) => t.id === templateLocalId);
     if (!tmpl) return [];
+    const src = tmpl.exercises.filter((te) => te.variant == null || te.variant === variant);
+
+    // A superset needs ≥2 members; if the variant filter left a group with only one, ungroup it.
+    const groupCounts = new Map<string, number>();
+    for (const te of src) if (te.supersetGroup) groupCounts.set(te.supersetGroup, (groupCounts.get(te.supersetGroup) ?? 0) + 1);
+
     let counter = 0;
     const nextId = () => String(++counter);
 
-    return tmpl.exercises.map((te) => {
+    return src.map((te) => {
       const lastSets = this.getLastSetsForExercise(te.exercise.id, te.attachment ?? null);
       const sets = this.makeLocalSets(
         te.exercise,
@@ -727,6 +826,7 @@ export class WorkoutRepo {
         { count: te.defaultSets, reps: te.defaultReps ?? undefined, weightKg: te.defaultWeightKg ?? undefined },
         nextId
       );
+      const supersetGroup = te.supersetGroup && (groupCounts.get(te.supersetGroup) ?? 0) >= 2 ? te.supersetGroup : null;
       return {
         localId: nextId(),
         exerciseId: te.exercise.id,
@@ -736,7 +836,7 @@ export class WorkoutRepo {
         sets,
         lastSets,
         restSeconds: te.restSeconds ?? DEFAULT_REST_SECONDS,
-        supersetGroup: te.supersetGroup ?? null,
+        supersetGroup,
         attachment: te.attachment ?? null,
       };
     });
@@ -856,19 +956,20 @@ export class WorkoutRepo {
     const localId = existing?.localId ?? Crypto.randomUUID();
     db.runSync(
       `INSERT OR REPLACE INTO workout_templates
-         (localId, serverId, name, description, label, lastPerformedAt, syncStatus, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, 'synced', ?)`,
-      [localId, tmpl.id, tmpl.name, tmpl.description ?? null, tmpl.label ?? null, tmpl.lastPerformedAt ?? null, tmpl.createdAt]
+         (localId, serverId, name, description, label, variants, variantLastDones, lastPerformedAt, syncStatus, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)`,
+      [localId, tmpl.id, tmpl.name, tmpl.description ?? null, tmpl.label ?? null,
+       JSON.stringify(tmpl.variants ?? []), JSON.stringify(tmpl.variantLastDones ?? {}), tmpl.lastPerformedAt ?? null, tmpl.createdAt]
     );
-    // Re-insert exercises
+    // Re-insert exercises (carry supersetGroup/attachment/variant so grouping + variations survive a restore).
     db.runSync(`DELETE FROM template_exercises WHERE templateLocalId = ?`, [localId]);
     for (const te of tmpl.exercises) {
       const exLocalId = this.upsertExercise(te.exercise);
       db.runSync(
         `INSERT INTO template_exercises
-           (localId, templateLocalId, exerciseLocalId, defaultSets, defaultReps, defaultWeightKg, restSeconds, sortOrder)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [Crypto.randomUUID(), localId, exLocalId, te.defaultSets, te.defaultReps ?? null, te.defaultWeightKg ?? null, te.restSeconds ?? null, te.order]
+           (localId, templateLocalId, exerciseLocalId, defaultSets, defaultReps, defaultWeightKg, restSeconds, sortOrder, supersetGroup, attachment, variant)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [Crypto.randomUUID(), localId, exLocalId, te.defaultSets, te.defaultReps ?? null, te.defaultWeightKg ?? null, te.restSeconds ?? null, te.order, te.supersetGroup ?? null, te.attachment ?? null, te.variant ?? null]
       );
     }
     return localId;

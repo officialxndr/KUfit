@@ -145,6 +145,8 @@ export function initDb() {
       name TEXT NOT NULL,
       description TEXT,
       label TEXT,
+      variants TEXT,
+      variantLastDones TEXT,
       lastPerformedAt TEXT,
       updatedAt TEXT,
       deleted INTEGER DEFAULT 0
@@ -158,7 +160,8 @@ export function initDb() {
       defaultReps INTEGER,
       defaultWeightKg REAL,
       restSeconds INTEGER,
-      sortOrder INTEGER NOT NULL
+      sortOrder INTEGER NOT NULL,
+      variant TEXT
     );
 
     CREATE TABLE IF NOT EXISTS workout_sessions (
@@ -321,6 +324,12 @@ function runMigrations() {
   // (exercise + attachment) so each attachment is its own progress line.
   ensureColumn('session_exercises', 'attachment', 'TEXT');
   ensureColumn('template_exercises', 'attachment', 'TEXT');
+  // Workout variations (A/B days): a template carries a JSON list of variant names + a per-variant
+  // last-performed map (for auto-alternation); each template_exercise is tagged with the variant it
+  // belongs to (null = shared across all variants). Filtered at start by (variant IS NULL OR = chosen).
+  ensureColumn('template_exercises', 'variant', 'TEXT');
+  ensureColumn('workout_templates', 'variants', 'TEXT');
+  ensureColumn('workout_templates', 'variantLastDones', 'TEXT');
   // Unilateral (per-arm) logging: each set splits into L/R rows. `leadSide` = side logged first.
   ensureColumn('exercises', 'unilateral', 'INTEGER');
   ensureColumn('exercises', 'leadSide', 'TEXT');

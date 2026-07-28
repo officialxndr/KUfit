@@ -13,6 +13,8 @@ export interface DraftExercise {
   supersetGroup: string | null;
   /** Default cable attachment for this exercise (Rope, V-Bar, …); null = none. */
   attachment: string | null;
+  /** Variation this exercise belongs to (null = shared across all variants). */
+  variant: string | null;
 }
 
 interface TemplateDraftState {
@@ -21,12 +23,22 @@ interface TemplateDraftState {
   description: string;
   label: string;
   exercises: DraftExercise[];
+  /** Variation names for an A/B workout (empty = a plain template). */
+  variants: string[];
+  /** Which variant the editor is currently showing/editing (null = template has no variants). */
+  activeVariant: string | null;
   /** When set, the next added exercise joins this superset group after `afterId`. */
   pendingSuperset: { group: string; afterId: string } | null;
   reset: () => void;
   loadTemplate: (t: WorkoutTemplate) => void;
   setName: (name: string) => void;
   setLabel: (label: string) => void;
+  /** Replace the variant list; reassigns exercises pinned to a removed variant back to shared. */
+  setVariants: (variants: string[]) => void;
+  setActiveVariant: (variant: string | null) => void;
+  /** Pin an exercise to a variant (null = shared). A superset moves as a unit — all its members
+   *  get the same variant — so a group can never straddle two versions (which would break on reorder). */
+  setExerciseVariant: (exerciseId: string, variant: string | null) => void;
   addExercise: (exercise: Exercise) => void;
   removeExercise: (exerciseId: string) => void;
   moveExercise: (exerciseId: string, dir: -1 | 1) => void;
@@ -46,13 +58,17 @@ export const useTemplateDraftStore = create<TemplateDraftState>((set, get) => ({
   description: '',
   label: '',
   exercises: [],
+  variants: [],
+  activeVariant: null,
   pendingSuperset: null,
-  reset: () => set({ editingId: null, name: '', description: '', label: '', exercises: [], pendingSuperset: null }),
+  reset: () => set({ editingId: null, name: '', description: '', label: '', exercises: [], variants: [], activeVariant: null, pendingSuperset: null }),
   loadTemplate: (t) => set({
     editingId: t.id,
     name: t.name,
     description: t.description ?? '',
     label: t.label ?? '',
+    variants: t.variants ?? [],
+    activeVariant: t.variants?.[0] ?? null,
     pendingSuperset: null,
     exercises: normalizeSupersets(
       t.exercises
@@ -66,11 +82,29 @@ export const useTemplateDraftStore = create<TemplateDraftState>((set, get) => ({
           restSeconds: te.restSeconds ?? 120,
           supersetGroup: te.supersetGroup ?? null,
           attachment: te.attachment ?? null,
+          variant: te.variant ?? null,
         }))
     ),
   }),
   setName: (name) => set({ name }),
   setLabel: (label) => set({ label }),
+  setVariants: (variants) => set((s) => ({
+    variants,
+    activeVariant: variants.includes(s.activeVariant ?? '') ? s.activeVariant : (variants[0] ?? null),
+    // Reassign any exercise pinned to a now-removed variant back to shared, so nothing is hidden/lost.
+    exercises: s.exercises.map((e) => (e.variant && !variants.includes(e.variant) ? { ...e, variant: null } : e)),
+  })),
+  setActiveVariant: (activeVariant) => set({ activeVariant }),
+  setExerciseVariant: (exerciseId, variant) => set((s) => {
+    const ex = s.exercises.find((e) => e.exercise.id === exerciseId);
+    if (!ex) return s;
+    const group = ex.supersetGroup;
+    return {
+      exercises: s.exercises.map((e) =>
+        e.exercise.id === exerciseId || (group != null && e.supersetGroup === group) ? { ...e, variant } : e
+      ),
+    };
+  }),
   addExercise: (exercise) => {
     // Prefill the default weight + reps with what you last lifted, so building a routine doesn't mean
     // looking up the other workout. Uses the heaviest set from this exercise's most recent finished
@@ -87,6 +121,8 @@ export const useTemplateDraftStore = create<TemplateDraftState>((set, get) => ({
         defaultWeightKg: top && top.weightKg > 0 ? top.weightKg : null,
         restSeconds: 120,
         supersetGroup: pending?.group ?? null, attachment: null,
+        // A newly added exercise is tagged with the variant currently being edited (null = shared).
+        variant: s.activeVariant ?? null,
       };
       if (!pending) return { exercises: [...s.exercises, draft] };
       // Commit the group on the source exercise and insert the new one right after it.
@@ -142,12 +178,13 @@ export const useTemplateDraftStore = create<TemplateDraftState>((set, get) => ({
       return { exercises: normalizeSupersets(next) };
     }),
   save: () => {
-    const { editingId, name, description, label, exercises } = get();
+    const { editingId, name, description, label, variants, exercises } = get();
     if (!name.trim() || exercises.length === 0) return null;
     const input = {
       name: name.trim(),
       description: description.trim() || undefined,
       label: label.trim() || null,
+      variants,
       exercises: exercises.map((e, i) => ({
         exerciseId: e.exercise.id,
         defaultSets: e.defaultSets,
@@ -157,12 +194,13 @@ export const useTemplateDraftStore = create<TemplateDraftState>((set, get) => ({
         order: i,
         supersetGroup: e.supersetGroup ?? null,
         attachment: e.attachment ?? null,
+        variant: e.variant ?? null,
       })),
     };
     let id: string;
     if (editingId) { workoutRepo.updateTemplate(editingId, input); id = editingId; }
     else { id = workoutRepo.saveTemplate(input); }
-    set({ editingId: null, name: '', description: '', label: '', exercises: [], pendingSuperset: null });
+    set({ editingId: null, name: '', description: '', label: '', exercises: [], variants: [], activeVariant: null, pendingSuperset: null });
     return id;
   },
 }));

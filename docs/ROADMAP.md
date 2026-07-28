@@ -185,8 +185,9 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       in `lib/unilateral.ts`.
 - [x] **Coaching notes** — a persistent per-exercise technique cue (`exercises.coachingNote`) that shows as a
       banner on the session exercise card **every** time you do that movement, so form tips build into a habit.
-      Add/edit from the session kebab ("coaching note") or the exercise detail screen; distinct from the
-      per-performance `session_exercises.notes`. Each note has a **per-exercise hide/show** (`coachingNoteHidden`)
+      Add/edit from the session kebab ("coaching note"), the exercise detail screen, or the **template
+      builder** (creation + editing) — all write the same global exercise note, so it's entered once and
+      carries into every workout/template; distinct from the per-performance `session_exercises.notes`. Each note has a **per-exercise hide/show** (`coachingNoteHidden`)
       that **persists across workouts** — tap the eye to hide the banner, a "Show note" chip brings it back.
       Both columns are user overrides preserved across a catalog reseed (kept out of `upsertExercise`'s catalog
       cols) and aliased into the `getTemplates` JOIN so from-template workouts carry them.
@@ -329,7 +330,24 @@ Honest status of the rebuild. **Update this when features land or plans change.*
       change (`presetMacros` + the `locked` arg). Wired into Food → Goals and the Goals editor.
 - [x] **Workout history** — month navigator (‹ ›), calendar day picker (`MonthCalendar`),
       swipe-to-delete sessions.
+- [x] **Edit a past workout** — an **Edit** toggle in the history detail sheet (`WorkoutSummarySheet`) lets you
+      fix a mistyped set (tap → weight/reps editor), add a set, or delete one on a *finished* session.
+      Repo mutators `updateSet`/`addSetToLoggedExercise`/`deleteSet` key on the stable `exercise_sets.localId`
+      and bump the parent `workout_sessions.syncStatus` (sets have no sync columns of their own); a new
+      `getSession(localId)` re-reads after each edit. All derived stats (volume, top weight, 1RM, all-time PR,
+      **ghost prefills**) recompute from the corrected sets on read — so fixing a bogus 200 lb set un-poisons
+      future prefills + PR lines; the one stored value, the per-set PR badge, is cleared on edit.
 - [x] **Routines** — create/**edit**/delete, **default** toggle, and a "Start {routine}" FAB action.
+- [x] **Workout variations (A/B days)** — one workout with named versions (A, B, …) that share most exercises
+      but swap a few. Exercises are **shared by default**; the builder's per-exercise ⋯ → "Only in {version}"
+      pins one to a version (amber badge), and a **version switcher** (Add A/B · tabs · +) filters what you
+      edit. Model: `workout_templates.variants` (JSON list) + `variantLastDones` (JSON map) + a `variant` tag
+      on each `template_exercises` row (null = shared); starting a version builds `variant IS NULL OR = chosen`
+      (and re-normalizes any superset left with <2 members). In the library it's **one card with A/B pills** —
+      tap a pill to start that version, or tap the card to **auto-alternate** to the least-recently-done one
+      (`pickNextVariant`, mirroring the routine rotation); `startFromTemplate` resolves the version once so the
+      last-done stamp + built exercises always agree. Round-trips through save/edit/start/backup/restore/sync;
+      plain (no-variant) templates are unchanged.
 - [x] **Custom exercises** — `exercise/new` create form; joins the library grouped by muscle.
 - [x] **Onboarding wizard** (`onboarding`, gated on `settingsStore.onboarded`).
 - [x] **Haptics** (`lib/haptics.ts`) on set-complete, nav taps, FAB, finish.
