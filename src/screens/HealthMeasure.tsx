@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, Pressable, TextInput, ScrollView } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ruler, X, Pencil, Check, ChevronRight, Sparkles } from 'lucide-react-native';
+import Svg, { Path, Line, Circle } from 'react-native-svg';
 
 import { Card, FsText, Button, SectionHeader } from '@/components/ui';
 import { StepperField } from '@/components/StepperField';
@@ -11,6 +12,8 @@ import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { UNIT_LABELS, inchesToCm } from '@/lib/units';
 import { idealProportions } from '@/lib/proportions';
+import { smoothPath } from '@/lib/svgPath';
+import { shortDate } from '@/lib/date';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { BodyMeasurement } from '@/types';
 
@@ -22,6 +25,13 @@ const SITES: { key: SiteKey; label: string }[] = [
   { key: 'leftCalf', label: 'Left Calf' }, { key: 'rightCalf', label: 'Right Calf' },
 ];
 const SITE_LABEL = (k: SiteKey) => SITES.find((s) => s.key === k)?.label ?? String(k);
+// Trend windows — the tappable "Change over time" cells, which also select what the chart plots.
+const PERIODS: { months: number; label: string }[] = [
+  { months: 1, label: '1 mo' },
+  { months: 3, label: '3 mo' },
+  { months: 6, label: '6 mo' },
+  { months: 12, label: '1 yr' },
+];
 
 // Ideal-proportion targets now derive from the wrist anchor — see `lib/proportions.ts`
 // (`idealProportions`) and the "Ideal proportions" configure flow (`app/proportions.tsx`).
@@ -203,6 +213,15 @@ function SiteDetail({ visible, siteKey, entries, unit, toLen, fromLen, lengthLab
     return toLen(curCm) - toLen(past);
   };
 
+  // Windowed series for the chart — all measurements of this site in the selected period (ascending).
+  const [periodMonths, setPeriodMonths] = useState(3);
+  const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - periodMonths);
+  const cutoffIso = cutoff.toISOString().slice(0, 10);
+  const chartPoints = entries
+    .filter((m) => m.date >= cutoffIso && m[siteKey] != null)
+    .map((m) => ({ date: m.date, v: toLen(m[siteKey] as number) }))
+    .reverse();
+
   // Next round-number landmark above the current value (0.5 in / 1 cm steps).
   const step = unit === 'IMPERIAL' ? 0.5 : 1;
   const nextLandmark = curDisp != null ? (Math.floor(curDisp / step) + 1) * step : null;
@@ -221,18 +240,24 @@ function SiteDetail({ visible, siteKey, entries, unit, toLen, fromLen, lengthLab
               {curDisp != null ? `${curDisp.toFixed(1)} ${lengthLabel}` : '—'}
             </FsText>
 
-            {/* Trends */}
+            {/* Trends — tap a window to plot it on the chart below */}
             <FsText variant="overline" style={{ marginTop: space[2], marginBottom: space[2] }}>Change over time</FsText>
             <View style={styles.trendRow}>
-              {([['3 mo', trend(3)], ['6 mo', trend(6)], ['1 yr', trend(12)]] as const).map(([l, d]) => (
-                <View key={l} style={styles.trendCell}>
-                  <FsText variant="caption">{l}</FsText>
-                  <FsText variant="cardTitle" style={{ color: d == null || Math.abs(d) < 0.05 ? colors.muted : d < 0 ? colors.success : colors.danger }}>
-                    {d == null ? '—' : `${d > 0 ? '+' : ''}${d.toFixed(1)}`}
-                  </FsText>
-                </View>
-              ))}
+              {PERIODS.map(({ months, label }) => {
+                const d = trend(months);
+                const active = periodMonths === months;
+                const valueColor = active ? colors.white : d == null || Math.abs(d) < 0.05 ? colors.muted : d < 0 ? colors.success : colors.danger;
+                return (
+                  <Pressable key={label} style={[styles.trendCell, active && styles.trendCellOn]} onPress={() => setPeriodMonths(months)}>
+                    <FsText variant="caption" style={{ color: active ? colors.white : undefined }}>{label}</FsText>
+                    <FsText variant="cardTitle" style={{ color: valueColor }}>
+                      {d == null ? '—' : `${d > 0 ? '+' : ''}${d.toFixed(1)}`}
+                    </FsText>
+                  </Pressable>
+                );
+              })}
             </View>
+            <MeasurementChart points={chartPoints} />
             {nextLandmark != null && (
               <FsText variant="caption" style={{ marginTop: space[2] }}>
                 Next landmark: {nextLandmark.toFixed(1)} {lengthLabel}
@@ -282,6 +307,61 @@ function SiteDetail({ visible, siteKey, entries, unit, toLen, fromLen, lengthLab
             </View>
           </ScrollView>
     </BottomSheet>
+  );
+}
+
+/** Sparse per-site measurement trend: smooth line, y-axis ticks, first/last date. */
+function MeasurementChart({ points }: { points: { date: string; v: number }[] }) {
+  const W = 320, H = 110;
+  if (points.length < 2) {
+    return (
+      <View style={{ height: H, alignItems: 'center', justifyContent: 'center', marginTop: space[3] }}>
+        <FsText variant="caption">Log two measurements in this window to see a trend.</FsText>
+      </View>
+    );
+  }
+  const vals = points.map((p) => p.v);
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  const pad = (hi - lo) * 0.15 || 1;
+  const min = lo - pad, max = hi + pad;
+  const mid = (min + max) / 2;
+  const x = (i: number) => (i / (points.length - 1)) * W;
+  const y = (v: number) => H - ((v - min) / (max - min)) * H;
+  const path = smoothPath(vals.map((v, i) => ({ x: x(i), y: y(v) })));
+  const showMarkers = points.length <= 12;
+  const fmtTick = (v: number) => (Math.abs(v - Math.round(v)) < 0.05 ? String(Math.round(v)) : v.toFixed(1));
+  const yTicks = [hi, mid, lo];
+  const Y_AXIS_W = 34;
+
+  return (
+    <View style={{ marginTop: space[3] }}>
+      <View style={{ flexDirection: 'row' }}>
+        {/* Y-axis labels */}
+        <View style={{ width: Y_AXIS_W, height: H }}>
+          {yTicks.map((v) => (
+            <FsText key={v} variant="caption" style={{ position: 'absolute', right: 4, top: y(v) - 7, fontSize: 10 }}>
+              {fmtTick(v)}
+            </FsText>
+          ))}
+        </View>
+        <View style={{ flex: 1 }}>
+          <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
+            {/* horizontal gridlines */}
+            {yTicks.map((v) => (
+              <Line key={v} x1={0} y1={y(v)} x2={W} y2={y(v)} stroke={colors.border} strokeWidth={1} opacity={0.5} />
+            ))}
+            <Path d={path} fill="none" stroke={colors.primary} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+            {showMarkers && vals.map((v, i) => (
+              <Circle key={i} cx={x(i)} cy={y(v)} r={2.8} fill={colors.surface} stroke={colors.primary} strokeWidth={1.6} />
+            ))}
+          </Svg>
+        </View>
+      </View>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingLeft: Y_AXIS_W }}>
+        <FsText variant="caption">{shortDate(points[0].date)}</FsText>
+        <FsText variant="caption">{shortDate(points[points.length - 1].date)}</FsText>
+      </View>
+    </View>
   );
 }
 
@@ -397,6 +477,7 @@ const styles = themedStyles(() => StyleSheet.create({
   colDeltaTap: { width: 44, textAlign: 'right' },
   trendRow: { flexDirection: 'row', gap: space[2] },
   trendCell: { flex: 1, alignItems: 'center', backgroundColor: colors.surfaceHigh, borderRadius: radius.md, paddingVertical: space[3], gap: 2 },
+  trendCellOn: { backgroundColor: colors.primary },
   goalRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], marginTop: space[4], paddingTop: space[3], borderTopWidth: 1, borderTopColor: colors.border },
   ratioBox: { marginTop: space[4], padding: space[3], backgroundColor: colors.surfaceHigh, borderRadius: radius.md },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
