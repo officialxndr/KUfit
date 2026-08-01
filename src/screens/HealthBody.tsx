@@ -14,7 +14,7 @@ import { computeBodyFatView } from '@/lib/bodyFatResolve';
 import { syncBodyFatGoalWeight } from '@/lib/goalWeight';
 import { haptic } from '@/lib/haptics';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
-import type { WeightEntry, BodyMeasurement, UnitSystem } from '@/types';
+import type { WeightEntry, BodyMeasurement, UnitSystem, Sex } from '@/types';
 import { todayLocal } from '@/lib/date';
 
 /** Waist change since a scan — direction only; visceral fat tracks waist directionally. */
@@ -38,12 +38,37 @@ function joinList(items: string[]): string {
   return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
 }
 
-function bfBand(bf: number): { label: string; tone: 'success' | 'warning' | 'danger' | 'primary' } {
-  if (bf < 14) return { label: 'Athletic range', tone: 'success' };
-  if (bf < 22) return { label: 'Fitness range', tone: 'primary' };
-  if (bf < 32) return { label: 'Average range', tone: 'warning' };
-  return { label: 'High range', tone: 'danger' };
+type BfTone = 'success' | 'warning' | 'danger' | 'primary';
+interface BfBand {
+  label: string;
+  min: number;
+  max: number | null; // null = open-ended (High)
+  tone: BfTone;
 }
+
+// Standard ACE/Jackson–Pollock body-fat categories, split by sex (a 32% reading
+// means something very different for a man vs. a woman).
+const BF_BANDS: Record<'MALE' | 'FEMALE', BfBand[]> = {
+  MALE: [
+    { label: 'Essential', min: 2, max: 5, tone: 'success' },
+    { label: 'Athletic', min: 6, max: 13, tone: 'success' },
+    { label: 'Fitness', min: 14, max: 17, tone: 'primary' },
+    { label: 'Average', min: 18, max: 24, tone: 'warning' },
+    { label: 'High', min: 25, max: null, tone: 'danger' },
+  ],
+  FEMALE: [
+    { label: 'Essential', min: 10, max: 13, tone: 'success' },
+    { label: 'Athletic', min: 14, max: 20, tone: 'success' },
+    { label: 'Fitness', min: 21, max: 24, tone: 'primary' },
+    { label: 'Average', min: 25, max: 31, tone: 'warning' },
+    { label: 'High', min: 32, max: null, tone: 'danger' },
+  ],
+};
+
+// Non-female falls back to the male table (Navy estimates only cover M/F anyway).
+const bandsFor = (sex: Sex | null | undefined): BfBand[] => BF_BANDS[sex === 'FEMALE' ? 'FEMALE' : 'MALE'];
+const bfBand = (bf: number, sex: Sex | null | undefined): BfBand =>
+  bandsFor(sex).find((b) => (b.max == null ? bf >= b.min : bf <= b.max)) ?? bandsFor(sex)[bandsFor(sex).length - 1];
 
 export function HealthBody() {
   const router = useRouter();
@@ -131,7 +156,7 @@ export function HealthBody() {
   const hM = profile.heightCm ? profile.heightCm / 100 : null;
   const bmi = hM ? weightKg / (hM * hM) : null;
   const ffmi = hM ? leanKg / (hM * hM) : null;
-  const band = bfBand(bf);
+  const band = bfBand(bf, profile.sex);
   // Optional body-fat goal: target total mass at that %, holding current lean mass.
   // Only surfaced when the goal is actually expressed by body fat (not scale weight).
   const goalBf = profile.goalMode === 'bodyfat' ? profile.goalBodyFat : null;
@@ -167,15 +192,7 @@ export function HealthBody() {
           </View>
           <Badge label={band.label} tone={band.tone} />
         </View>
-        <View style={styles.rangeBar}>
-          <View style={{ width: `${Math.min(bf, 40) / 40 * 100}%`, height: '100%', backgroundColor: colors.primary, borderRadius: radius.full }} />
-        </View>
-        <View style={styles.rangeLabels}>
-          <FsText variant="caption" style={{ fontSize: 10 }}>Essential</FsText>
-          <FsText variant="caption" style={{ fontSize: 10 }}>Athletic</FsText>
-          <FsText variant="caption" style={{ fontSize: 10 }}>Fitness</FsText>
-          <FsText variant="caption" style={{ fontSize: 10 }}>High</FsText>
-        </View>
+        <BodyFatBar bf={bf} sex={profile.sex} />
         {canChooseSource && (
           <SourceToggle
             dexaLabel={dexaSource === 'measured' ? (dexa != null ? 'DEXA' : 'Measured') : 'Estimate'}
@@ -334,6 +351,54 @@ function SourceToggle({ dexaLabel, dexaBf, navyBf, value, onChange }: {
   );
 }
 
+/**
+ * Sex-aware body-fat range bar: color-coded segments sized to their real % span
+ * (High is open-ended, capped at 40 so segments stay proportionate) with a
+ * marker dot at the current reading, labels under each segment, and the bands
+ * spelled out so the category reads honestly.
+ */
+function BodyFatBar({ bf, sex }: { bf: number; sex: Sex | null | undefined }) {
+  const bands = bandsFor(sex);
+  const low = bands[0].min;
+  const cap = 40;
+  const pct = (v: number) => Math.max(0, Math.min(cap, v) - low) / (cap - low) * 100;
+  const band = bfBand(bf, sex);
+  const toneColor: Record<BfTone, string> = {
+    success: colors.success, primary: colors.primary, warning: colors.warning, danger: colors.danger,
+  };
+  // Segments span from each band's min to the next band's min (last one to the cap),
+  // so they stay contiguous and cover the whole scale.
+  const segWidth = (i: number) => pct(bands[i + 1]?.min ?? cap) - pct(bands[i].min);
+  return (
+    <View style={{ marginTop: space[3] }}>
+      <View style={{ height: 10, position: 'relative' }}>
+        <View style={[styles.rangeMarker, { left: `${pct(bf)}%`, backgroundColor: toneColor[band.tone] }]} />
+      </View>
+      <View style={styles.rangeBar}>
+        {bands.map((b, i) => (
+          <View
+            key={b.label}
+            style={[styles.rangeSeg, { width: `${segWidth(i)}%`, backgroundColor: toneColor[b.tone] }]}
+          />
+        ))}
+      </View>
+      <View style={styles.rangeLabels}>
+        {bands.map((b, i) => (
+          <FsText key={b.label} variant="caption" style={[styles.rangeLabel, { width: `${segWidth(i)}%` }]}>
+            {b.label}
+          </FsText>
+        ))}
+      </View>
+      {(sex === 'MALE' || sex === 'FEMALE') && (
+        <FsText variant="caption" style={styles.rangeNote}>
+          {sex === 'MALE' ? 'Men' : 'Women'}:{' '}
+          {bands.map((b) => `${b.label} ${b.max == null ? `≥${b.min}` : `${b.min}–${b.max}`}%`).join(' · ')}
+        </FsText>
+      )}
+    </View>
+  );
+}
+
 function Metric({ label, value, tone, onPress }: { label: string; value: string; tone?: string; onPress?: () => void }) {
   if (onPress) {
     // Tappable CTA state (e.g. "Add height") — smaller, accent-colored text so it
@@ -427,8 +492,12 @@ function Mini({ label, value }: { label: string; value: string }) {
 const styles = themedStyles(() => StyleSheet.create({
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   srcPill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, backgroundColor: 'rgba(99,102,241,0.15)' },
-  rangeBar: { height: 12, borderRadius: radius.full, backgroundColor: colors.surfaceHigh, overflow: 'hidden', marginTop: space[3] },
-  rangeLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: space[2] },
+  rangeBar: { flexDirection: 'row', height: 12, borderRadius: radius.full, overflow: 'hidden', backgroundColor: colors.surfaceHigh },
+  rangeSeg: { height: '100%' },
+  rangeMarker: { position: 'absolute', top: 0, width: 10, height: 10, borderRadius: 5, marginLeft: -5, borderWidth: 2, borderColor: colors.surface },
+  rangeLabels: { flexDirection: 'row', marginTop: space[2] },
+  rangeLabel: { textAlign: 'center', fontSize: 9, color: colors.muted },
+  rangeNote: { marginTop: space[1], fontSize: 10, color: colors.muted, lineHeight: 14 },
   srcToggle: { flexDirection: 'row', gap: space[1], marginTop: space[3] },
   srcToggleBtn: { flex: 1, paddingVertical: 8, paddingHorizontal: 8, borderRadius: radius.sm, alignItems: 'center', backgroundColor: colors.surfaceHigh },
   srcToggleActive: { backgroundColor: colors.primary },
