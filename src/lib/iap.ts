@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { router } from 'expo-router';
-import { useIAP, ErrorCode } from 'expo-iap';
+import { useIAP, ErrorCode, initConnection, getAvailablePurchases, finishTransaction } from 'expo-iap';
 
 import { openSupport } from './support';
 import { useDonationStore } from '@/stores/donationStore';
@@ -70,6 +70,26 @@ export function openSupportFlow() {
     // open (matches the original external-link behavior).
     useDonationStore.getState().markDonated();
     openSupport();
+  }
+}
+
+/**
+ * Launch-time cleanup: finish any tip transaction StoreKit still has queued (e.g. the app was
+ * killed mid-purchase, or `finishTransaction` hiccuped). Without this, a leftover only clears the
+ * next time the user happens to open the tip screen. Silent, best-effort, iOS full builds only.
+ * The connection is deliberately left open — `useIAP` on the tip screen reuses / manages it.
+ */
+export async function drainUnfinishedTips(): Promise<void> {
+  if (!tipJarSupported) return;
+  try {
+    await initConnection();
+    const pending = await getAvailablePurchases();
+    for (const p of pending ?? []) {
+      if (!TIP_SKU_LIST.includes(p.productId)) continue;
+      try { await finishTransaction({ purchase: p, isConsumable: true }); } catch {}
+    }
+  } catch {
+    // No Paid Apps Agreement / sandbox not configured / offline — nothing to drain.
   }
 }
 

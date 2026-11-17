@@ -4,6 +4,7 @@ import { describeImageJson } from './gemma';
 import { getModel } from './models';
 import { isModelReady, modelPaths } from './modelManager';
 import type { AiProvider, AiEndpoint } from '@/stores/settingsStore';
+import { ensureRemoteAiConsent } from './remoteConsent';
 
 /**
  * One entry point for "describe this image as JSON", across every AI backend:
@@ -143,6 +144,9 @@ export async function describeImageJsonAny(cfg: AiVisionConfig, args: VisionArgs
   if (cfg.provider === 'device') return deviceJson(cfg, args);
   if (cfg.provider === 'remote') {
     if (!cfg.endpoint) throw new Error('No AI endpoint selected.');
+    if (!(await ensureRemoteAiConsent())) {
+      throw new Error('Photo not sent — sending photos to your AI endpoint isn’t allowed yet.');
+    }
     return cfg.endpoint.kind === 'gemini' ? geminiJson(cfg.endpoint, args) : openaiJson(cfg.endpoint, args);
   }
   throw new Error('No AI provider is selected.');

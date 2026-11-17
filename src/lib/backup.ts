@@ -1,7 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { db } from '@/lib/db';
-import { useSettingsStore } from '@/stores/settingsStore';
+import { useSettingsStore, stripEndpointKeys, type Profile } from '@/stores/settingsStore';
 import { useRoutineStore } from '@/stores/routineStore';
 import { useRemindersStore, REMINDER_KEYS } from '@/stores/remindersStore';
 import { useThemeStore } from '@/stores/themeStore';
@@ -58,7 +58,9 @@ export function exportData(): string {
     app: 'Hale', schema: SCHEMA, exportedAt: new Date().toISOString(),
     db: dump,
     stores: {
-      settings: { profile: settings.profile, onboarded: settings.onboarded },
+      // API keys are stripped — a backup file gets shared around / synced to the hub, and
+      // a key is a credential, not user data. Restores keep whatever keys this phone already has.
+      settings: { profile: stripEndpointKeys(settings.profile), onboarded: settings.onboarded },
       routines: { routines: routines.routines, defaultRoutineId: routines.defaultRoutineId },
       reminders: { reminders: reminders.reminders },
       theme: { preset: theme.preset, accent: theme.accent },
@@ -112,7 +114,16 @@ export function importData(json: unknown, mode: 'replace' | 'merge'): void {
   const s = b.stores;
   if (mode === 'replace' && s) {
     // Full restore of every persisted store.
-    if (s.settings?.profile) useSettingsStore.getState().setProfile(s.settings.profile as never);
+    if (s.settings?.profile) {
+      // Backups carry no API keys: re-attach this phone's existing key for any endpoint id that
+      // survives the restore, so restoring doesn't silently log the user out of their AI endpoint.
+      const restored = s.settings.profile as Partial<Profile>;
+      const curKeys = new Map((useSettingsStore.getState().profile.aiEndpoints ?? []).map((e) => [e.id, e.apiKey]));
+      const aiEndpoints = Array.isArray(restored.aiEndpoints)
+        ? restored.aiEndpoints.map((e) => ({ ...e, apiKey: e.apiKey || curKeys.get(e.id) || '' }))
+        : restored.aiEndpoints;
+      useSettingsStore.getState().setProfile({ ...restored, ...(aiEndpoints ? { aiEndpoints } : {}) } as never);
+    }
     if (s.settings?.onboarded) useSettingsStore.getState().completeOnboarding();
     if (s.routines) useRoutineStore.setState({ routines: (s.routines.routines as never) ?? [], defaultRoutineId: s.routines.defaultRoutineId ?? null });
     if (s.reminders?.reminders) {

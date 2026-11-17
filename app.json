@@ -104,6 +104,7 @@
       ],
       "llama.rn",
       "expo-iap",
+      "expo-secure-store",
       "@bacons/apple-targets",
       [
         "expo-alternate-app-icons",

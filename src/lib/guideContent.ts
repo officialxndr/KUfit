@@ -485,7 +485,7 @@ export const GUIDE: GuideSection[] = [
       {
         title: 'Supporting Hale',
         body: 'Hale is free, with no ads and nothing behind a paywall. If it helps you, you can buy the developer a coffee (never required, and it unlocks nothing) — find it at the bottom of Settings.',
-        keywords: 'coffee buy me a coffee support tip donate contribute free',
+        keywords: 'coffee buy me a coffee support tip contribute free',
       },
       {
         title: 'Credits & data sources',

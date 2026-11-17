@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { View, StyleSheet, Pressable, PanResponder } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { TrendingDown, TrendingUp, Maximize2, Minimize2, ImageIcon } from 'lucide-react-native';
+import { TrendingDown, TrendingUp, Maximize2, Minimize2, ImageIcon, Share2 } from 'lucide-react-native';
 import Svg, { Path, Line, Circle, Text as SvgText } from 'react-native-svg';
 
 import { Card, FsText, Button, SectionHeader, Badge } from '@/components/ui';
@@ -108,7 +108,12 @@ export function HealthWeight() {
       <Card style={{ marginBottom: space[3] }}>
         <View style={styles.rowBetween}>
           <FsText variant="cardTitle">Weight Trend</FsText>
-          <ChangeIcon color={changeColor} size={16} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
+            <ChangeIcon color={changeColor} size={16} />
+            <Pressable onPress={() => router.push('/share-progress')} hitSlop={10} accessibilityLabel="Share progress">
+              <Share2 color={colors.muted} size={18} />
+            </Pressable>
+          </View>
         </View>
         {currentTrend != null && (
           <View style={styles.trendStats}>

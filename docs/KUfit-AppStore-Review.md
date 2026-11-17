@@ -13,6 +13,20 @@ _Reviewed: June 3, 2026 · Re-checked & partially fixed: June 4, 2026 · Expo / 
   Connect); the manual App Store Connect IAP setup (see `docs/IAP-TipJar.md`) — the three consumables
   must ship **with the next binary** (a first IAP can't be approved standalone).
 
+## Nov 16, 2026 — launch-prep pass
+- **AI API keys → Keychain.** Remote-endpoint keys are now kept in `expo-secure-store` (iOS Keychain),
+  stripped from AsyncStorage, backup exports and Hale Hub sync snapshots (`stripEndpointKeys` in
+  `settingsStore.ts`). Legacy plain-text keys migrate on first launch. A "Replace" restore keeps the
+  phone's existing keys for matching endpoint ids. Older Hub snapshots may still contain a key until
+  the next sync overwrites them.
+- **Guideline 5.1.2(i) consent.** Explicit "Send photos to your AI endpoint?" permission
+  (`lib/llm/remoteConsent.ts`), asked when picking API / cloud and as a gate before any remote request.
+- **Unfinished tips drained at launch** (`drainUnfinishedTips` in `lib/iap.ts`, called from `_layout.tsx`).
+- **Share progress card** (`app/share-progress.tsx`, share icon on the Weight Trend card). Built on-device
+  with `react-native-view-shot`; absolute weights hidden by default.
+- ⚠️ Unverified: the claim that Google Play *bars* Play Billing for tips (§1). Confirm against the
+  current Play Payments policy before the Android launch.
+
 ## Overall
 
 The app is in good shape for App Store review. It's local-first with no accounts, no tracking, and a clear privacy policy — which removes most of the things that get fitness apps rejected. The architecture decisions (native StoreKit tipping on iOS, external link on Android, push entitlement stripped, HealthKit usage strings present) show the rules were already considered. A few must-fix items and a few worth tightening remain before submission.

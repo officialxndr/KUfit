@@ -121,6 +121,8 @@ export interface Profile {
   /** Saved remote AI endpoints (used when aiProvider === 'remote') + which is active. */
   aiEndpoints: AiEndpoint[];
   aiActiveEndpointId: string | null;
+  /** User explicitly allowed photos to be sent to their remote AI endpoint (Apple 5.1.2(i)). */
+  aiRemoteConsent: boolean;
   // Training goals (Workout section)
   weeklySessionTarget: number | null;
   // Custom secondary nutrient goals (Nutrition section)
@@ -199,6 +201,7 @@ const DEFAULT_PROFILE: Profile = {
   aiThinking: true,
   aiEndpoints: [],
   aiActiveEndpointId: null,
+  aiRemoteConsent: false,
   weeklySessionTarget: null,
   nutrientGoals: [],
   trackWater: false,
@@ -239,7 +242,9 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: 'fitself-settings',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (s) => ({ profile: s.profile, onboarded: s.onboarded }),
+      // API keys never go into AsyncStorage (plain text) — they live in the Keychain via
+      // SecureStore (see `loadEndpointKeys` / the subscriber below) and are re-attached in memory.
+      partialize: (s) => ({ profile: stripEndpointKeys(s.profile), onboarded: s.onboarded }),
       // Backfill any profile fields added after a user's data was persisted.
       merge: (persisted, current) => {
         const p = (persisted as { profile?: Partial<Profile>; onboarded?: boolean }) ?? {};
@@ -277,7 +282,91 @@ export const useSettingsStore = create<SettingsState>()(
       },
       onRehydrateStorage: () => (state) => {
         if (state) state.hydrated = true;
+        // After hydration, pull the keys back out of the Keychain (and migrate any legacy
+        // plain-text keys into it). Deferred so the store is fully assigned first.
+        setTimeout(() => { loadEndpointKeys().catch(() => {}); }, 0);
       },
     }
   )
 );
+
+// ── AI endpoint API keys → Keychain (expo-secure-store) ─────────────────────────────────
+// The profile keeps `apiKey` in memory so every consumer works unchanged, but the persisted
+// copy (AsyncStorage), backup exports and Hale Hub sync snapshots all get it stripped.
+
+const KEY_PREFIX = 'hale.aiKey.';
+const keyName = (id: string) => KEY_PREFIX + id.replace(/[^A-Za-z0-9._-]/g, '_');
+
+/** Lazily load SecureStore so a build/platform without it (web, Expo Go quirks) degrades to
+ *  "keys don't persist" rather than crashing. */
+async function secureStore(): Promise<typeof import('expo-secure-store') | null> {
+  try {
+    const m = await import('expo-secure-store');
+    return (await m.isAvailableAsync()) ? m : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A copy of the profile with every endpoint's API key blanked — safe to persist, export or sync. */
+export function stripEndpointKeys(profile: Profile): Profile {
+  if (!profile.aiEndpoints?.some((e) => e.apiKey)) return profile;
+  return { ...profile, aiEndpoints: profile.aiEndpoints.map((e) => ({ ...e, apiKey: '' })) };
+}
+
+// Ids whose keys we last wrote, so removed endpoints get their Keychain item deleted.
+let knownKeyIds = new Set<string>();
+// Don't mirror state → Keychain until the keys have been loaded once; otherwise the stripped
+// (blank) keys from AsyncStorage would overwrite the real ones on startup.
+let keysLoaded = false;
+
+async function writeEndpointKeys(endpoints: AiEndpoint[]): Promise<void> {
+  const ss = await secureStore();
+  if (!ss) return;
+  const next = new Set<string>();
+  for (const e of endpoints) {
+    next.add(e.id);
+    try {
+      if (e.apiKey) await ss.setItemAsync(keyName(e.id), e.apiKey);
+      else await ss.deleteItemAsync(keyName(e.id));
+    } catch {}
+  }
+  for (const id of knownKeyIds) {
+    if (!next.has(id)) { try { await ss.deleteItemAsync(keyName(id)); } catch {} }
+  }
+  knownKeyIds = next;
+}
+
+/** Re-attach Keychain keys to the in-memory endpoints; migrate any legacy plain-text keys in. */
+async function loadEndpointKeys(): Promise<void> {
+  const ss = await secureStore();
+  const endpoints = useSettingsStore.getState().profile.aiEndpoints ?? [];
+  if (!ss) { keysLoaded = true; return; }
+  let legacy = false;
+  const withKeys: AiEndpoint[] = [];
+  for (const e of endpoints) {
+    if (e.apiKey) {
+      // Pre-Keychain install: the key was persisted in AsyncStorage. Move it.
+      legacy = true;
+      withKeys.push(e);
+      continue;
+    }
+    let apiKey = '';
+    try { apiKey = (await ss.getItemAsync(keyName(e.id))) ?? ''; } catch {}
+    withKeys.push(apiKey ? { ...e, apiKey } : e);
+  }
+  knownKeyIds = new Set(endpoints.map((e) => e.id));
+  keysLoaded = true;
+  if (legacy) await writeEndpointKeys(withKeys);
+  // Endpoints may have been edited while we were reading — only patch keys onto ids still present.
+  const current = useSettingsStore.getState().profile.aiEndpoints ?? [];
+  const byId = new Map(withKeys.map((e) => [e.id, e.apiKey]));
+  const merged = current.map((e) => (e.apiKey ? e : { ...e, apiKey: byId.get(e.id) ?? '' }));
+  useSettingsStore.setState((s) => ({ profile: { ...s.profile, aiEndpoints: merged } }));
+  // ^ also re-persists the store, which strips the migrated legacy keys out of AsyncStorage.
+}
+
+useSettingsStore.subscribe((s, prev) => {
+  if (!keysLoaded || s.profile.aiEndpoints === prev.profile.aiEndpoints) return;
+  writeEndpointKeys(s.profile.aiEndpoints ?? []).catch(() => {});
+});

@@ -13,6 +13,7 @@ import { syncWidget } from '@/lib/widget';
 import { endLiveActivity } from '@/lib/liveActivity';
 import { initWatchBridge, syncWatch } from '@/lib/watch';
 import { syncHealthWeights, ensureHealthWeightObserver } from '@/lib/healthSync';
+import { drainUnfinishedTips } from '@/lib/iap';
 import { recomputeAdaptiveMaintenance } from '@/lib/adaptiveMaintenance';
 import { repairOffFoodItems } from '@/lib/offRepair';
 import { lockPortrait } from '@/lib/orientation';
@@ -65,6 +66,8 @@ export default function RootLayout() {
     // Wire the Apple Watch bridge (watch → phone commands) and push the current state so a
     // freshly opened watch app is populated (active workout, or the start menu when idle).
     initWatchBridge();
+    // Finish any tip purchase StoreKit still has queued from a previous session (iOS only).
+    drainUnfinishedTips().catch(() => {});
     // Import any weigh-ins added to Apple Health / Health Connect since we last looked, and
     // start a live observer so new ones land automatically while the app is open.
     // Recompute the adaptive-maintenance cache, but only once the persisted profile has
@@ -143,6 +146,7 @@ export default function RootLayout() {
           <Stack.Screen name="reminders" options={{ presentation: 'modal' }} />
           <Stack.Screen name="feedback" options={{ presentation: 'modal' }} />
           <Stack.Screen name="tip" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="share-progress" options={{ presentation: 'modal' }} />
           <Stack.Screen name="guide" options={{ presentation: 'modal' }} />
         </Stack>
       </SafeAreaProvider>

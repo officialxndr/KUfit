@@ -36,6 +36,7 @@ import {
 } from '@/lib/llm/modelManager';
 import { AI_ENABLED, DEVICE_AI_SUPPORT } from '@/lib/aiConfig';
 import { openSupportFlow } from '@/lib/iap';
+import { ensureRemoteAiConsent } from '@/lib/llm/remoteConsent';
 import { colors, radius, space, themedStyles, SURFACE_PRESETS, ACCENT_PRESETS } from '@/theme/tokens';
 import { useThemeStore } from '@/stores/themeStore';
 import type { ActiveCalorieSource, Sex, UnitSystem } from '@/types';
@@ -50,7 +51,7 @@ const T = {
   goals: 'goals goal weight target calorie calories macro macros protein carbs fat phase tdee maintenance calculator body fat activity level sedentary light moderate active very',
   help: 'help tour guide guided walkthrough onboarding tutorial intro feature guide docs documentation reference manual search how to explain features',
   feedback: 'feedback bug report issue problem crash feature request idea suggestion contact developer',
-  support: 'support hale coffee buy me a coffee tip donate contribute sponsor give back',
+  support: 'support hale coffee buy me a coffee tip contribute sponsor give back',
   data: 'data backup export import restore merge replace wipe delete erase reset',
   offline: 'offline download demos gifs exercise media cache',
   health: 'health apple healthkit health connect steps active calories watch import weight body fat navy estimate',
@@ -942,7 +943,7 @@ function AiScanCard({ hidden }: { hidden?: boolean }) {
       <View style={styles.sourceRow}>
         <Chip label="Off" selected={provider === 'off'} onPress={() => setProfile({ aiProvider: 'off' })} />
         <Chip label="On-device" selected={provider === 'device'} onPress={() => setProfile({ aiProvider: 'device' })} />
-        <Chip label="API / cloud" selected={provider === 'remote'} onPress={() => setProfile({ aiProvider: 'remote' })} />
+        <Chip label="API / cloud" selected={provider === 'remote'} onPress={() => { ensureRemoteAiConsent().then((ok) => { if (ok) setProfile({ aiProvider: 'remote' }); }); }} />
       </View>
 
       {provider === 'device' && (
