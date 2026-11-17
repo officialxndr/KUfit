@@ -1,3 +1,5 @@
+import { getCalendars } from 'expo-localization';
+
 /**
  * Local calendar-day helpers. Stored dates are `YYYY-MM-DD` strings (a *calendar day*, not
  * an instant), so both "what day is it" and "parse a stored day for display" must use the
@@ -36,10 +38,34 @@ const DEFAULT_OPTS: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric
 
 /** Format a `YYYY-MM-DD` day for display (default "Jul 9"), parsed as local. */
 export function shortDate(d: string, opts: Intl.DateTimeFormatOptions = DEFAULT_OPTS): string {
-  return parseLocalDay(d).toLocaleDateString('en-US', opts);
+  return parseLocalDay(d).toLocaleDateString(undefined, opts);
 }
 
 /** Format a `YYYY-MM-DD` day with the year ("Jul 9, 2026"), parsed as local. */
 export function longDate(d: string): string {
-  return parseLocalDay(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return parseLocalDay(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// ── Week start (locale-aware calendars) ───────────────────────────────────────────────────
+const WEEKDAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+/** First day of the week from the device's region settings, as a JS `getDay()` index
+ *  (0 = Sunday, 1 = Monday…). US → 0; most of Europe / Australia → 1. Falls back to Sunday. */
+export function weekStartsOn(): number {
+  try {
+    const f = getCalendars()[0]?.firstWeekday; // expo-localization: 1 = Sunday … 7 = Saturday
+    return f ? (f - 1) % 7 : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Two-letter weekday headers rotated to start on `start` (see `weekStartsOn`). */
+export function weekdayLabels(start: number = weekStartsOn()): string[] {
+  return Array.from({ length: 7 }, (_, i) => WEEKDAY_SHORT[(start + i) % 7]);
+}
+
+/** How many empty cells precede day 1 in a month grid whose weeks start on `start`. */
+export function leadingBlanks(year: number, month: number, start: number = weekStartsOn()): number {
+  return (new Date(year, month, 1).getDay() - start + 7) % 7;
 }

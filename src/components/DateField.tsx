@@ -4,14 +4,14 @@ import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, ChevronDown } from
 
 import { FsText, Button } from '@/components/ui';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
+import { isoLocalDay, leadingBlanks, weekdayLabels } from '@/lib/date';
 
-const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const pad = (n: number) => String(n).padStart(2, '0');
 const isoOf = (y: number, m: number, d: number) => `${y}-${pad(m + 1)}-${pad(d)}`;
 const addMonths = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth() + n, 1);
 const parse = (iso: string) => new Date(iso + 'T00:00:00');
-const fmt = (iso: string) => parse(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+const fmt = (iso: string) => parse(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 
 /**
  * Tappable date input. Two layouts via `mode`:
@@ -48,9 +48,10 @@ export function DateField({
 
   const y = viewMonth.getFullYear();
   const m = viewMonth.getMonth();
-  const firstWeekday = new Date(y, m, 1).getDay();
+  const firstWeekday = leadingBlanks(y, m); // Monday-first where the region says so
+  const WEEKDAYS = weekdayLabels();
   const daysInMonth = new Date(y, m + 1, 0).getDate();
-  const todayIso = now.toISOString().slice(0, 10);
+  const todayIso = isoLocalDay(now);
   const cells: (number | null)[] = [];
   for (let i = 0; i < firstWeekday; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
@@ -121,7 +122,7 @@ export function DateField({
         </Pressable>
       ) : <View style={styles.arrow} />}
       <FsText variant="cardTitle">
-        {cstep === 'year' ? 'Select year' : cstep === 'month' ? String(y) : viewMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+        {cstep === 'year' ? 'Select year' : cstep === 'month' ? String(y) : viewMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
       </FsText>
       <View style={styles.arrow} />
     </View>
@@ -133,7 +134,7 @@ export function DateField({
         <ChevronLeft color={colors.muted} size={20} />
       </Pressable>
       <Pressable onPress={() => setYearOpen((o) => !o)} style={styles.titleBtn} hitSlop={6}>
-        <FsText variant="cardTitle">{viewMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</FsText>
+        <FsText variant="cardTitle">{viewMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</FsText>
         <ChevronDown color={colors.muted} size={16} />
       </Pressable>
       <Pressable onPress={() => setViewMonth(addMonths(viewMonth, 1))} hitSlop={8} style={styles.arrow}>

@@ -80,7 +80,7 @@ export function WorkoutSummarySheet({ session, unit, onClose, onEdited }: {
             <View style={{ flex: 1 }}>
               <FsText variant="h2" numberOfLines={1}>{s.name}</FsText>
               <FsText variant="caption">
-                {new Date(s.startedAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                {new Date(s.startedAt).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
               </FsText>
             </View>
             <Pressable onPress={() => setEditing((v) => !v)} hitSlop={10} style={{ marginRight: space[3] }}>

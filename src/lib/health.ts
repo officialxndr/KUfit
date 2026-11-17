@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { isoLocalDay } from '@/lib/date';
 
 /**
  * Cross-platform health integration: **Apple HealthKit** (iOS) and **Android
@@ -53,7 +54,8 @@ export interface HealthService {
   getLatestHeartRate(): Promise<number | null>;
 }
 
-const isoDay = (d: string | number | Date) => new Date(d).toISOString().slice(0, 10);
+// The sample's LOCAL calendar day (a 7am weigh-in in Sydney is that day, not yesterday's UTC date).
+const isoDay = (d: string | number | Date) => isoLocalDay(new Date(d));
 
 const unavailable: HealthService = {
   isAvailable: () => false,

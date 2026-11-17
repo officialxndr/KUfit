@@ -12,6 +12,7 @@ import { MAX_SAFE_RATE_KG } from '@/lib/tdee';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { toDisplay, toKg, formatWeight, UNIT_LABELS } from '@/lib/units';
 import { colors, radius, space, tintBg, themedStyles } from '@/theme/tokens';
+import { isoLocalDay } from '@/lib/date';
 
 const DAY_MS = 86_400_000;
 
@@ -38,7 +39,7 @@ export function HealthGoals() {
   const toLose = currentDisplay != null ? Math.max(currentDisplay - goalDisplay, 0) : 0;
   const weeksNeeded = rate > 0 ? toLose / rate : 0;
   const eta = new Date(Date.now() + Math.round(weeksNeeded * 7) * DAY_MS);
-  const etaStr = eta.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const etaStr = eta.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   const calPerDay = Math.round(rate * (unit === 'IMPERIAL' ? 500 : 1100));
 
   const weightLabel = UNIT_LABELS[unit].weight;
@@ -50,7 +51,7 @@ export function HealthGoals() {
     if (currentDisplay != null && profile.goalWeightKg != null) {
       const weeks = r > 0 ? Math.max(currentDisplay - goalDisplay, 0) / r : 0;
       const d = new Date(Date.now() + Math.round(weeks * 7) * DAY_MS);
-      setProfile({ goalDate: d.toISOString().slice(0, 10) });
+      setProfile({ goalDate: isoLocalDay(d) });
     }
   };
 

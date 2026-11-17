@@ -13,7 +13,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { UNIT_LABELS, inchesToCm } from '@/lib/units';
 import { idealProportions } from '@/lib/proportions';
 import { smoothPath } from '@/lib/svgPath';
-import { shortDate } from '@/lib/date';
+import { shortDate, isoLocalDay } from '@/lib/date';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { BodyMeasurement } from '@/types';
 
@@ -203,7 +203,7 @@ function SiteDetail({ visible, siteKey, entries, unit, toLen, fromLen, lengthLab
   // Value at (or just before) N months ago → delta vs now.
   const valueMonthsAgo = (months: number): number | null => {
     const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - months);
-    const iso = cutoff.toISOString().slice(0, 10);
+    const iso = isoLocalDay(cutoff);
     const e = entries.find((m) => m.date <= iso && m[siteKey] != null); // entries are DESC
     return e ? (e[siteKey] as number) : null;
   };
@@ -216,7 +216,7 @@ function SiteDetail({ visible, siteKey, entries, unit, toLen, fromLen, lengthLab
   // Windowed series for the chart — all measurements of this site in the selected period (ascending).
   const [periodMonths, setPeriodMonths] = useState(3);
   const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - periodMonths);
-  const cutoffIso = cutoff.toISOString().slice(0, 10);
+  const cutoffIso = isoLocalDay(cutoff);
   const chartPoints = entries
     .filter((m) => m.date >= cutoffIso && m[siteKey] != null)
     .map((m) => ({ date: m.date, v: toLen(m[siteKey] as number) }))

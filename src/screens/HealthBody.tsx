@@ -29,7 +29,7 @@ function computeWaistTrend(measurements: BodyMeasurement[], scanDate: string | n
 }
 
 const shortDate = (d: string) =>
-  new Date(`${d}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  new Date(`${d}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 const today = todayLocal;
 
 /** "a", "a and b", "a, b and c" — for listing what's missing in a sentence. */

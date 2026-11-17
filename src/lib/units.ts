@@ -26,10 +26,15 @@ export const toMl = (value: number, system: UnitSystem): number =>
 export const formatWater = (ml: number, system: UnitSystem): string =>
   `${mlToDisplay(ml, system)} ${UNIT_LABELS[system].volume}`;
 
+// Feet/inches come from one rounded total-inches value (via cmToFeetInches) — rounding the
+// inches separately could produce 5'12" for e.g. 182.5 cm.
+const feetInchesLabel = (cm: number): string => {
+  const { feet, inches } = cmToFeetInches(cm);
+  return `${feet}'${inches}"`;
+};
+
 export const cmToDisplay = (cm: number, system: UnitSystem): string =>
-  system === 'IMPERIAL'
-    ? `${Math.floor(cm / 30.48)}'${Math.round((cm % 30.48) / 2.54)}"`
-    : `${cm} cm`;
+  system === 'IMPERIAL' ? feetInchesLabel(cm) : `${cm} cm`;
 
 export const inchesToCm = (inches: number): number => inches * 2.54;
 
@@ -57,9 +62,7 @@ export const formatVolume = (kg: number, system: UnitSystem): string => {
 };
 
 export const formatHeight = (cm: number, system: UnitSystem): string =>
-  system === 'IMPERIAL'
-    ? `${Math.floor(cm / 30.48)}'${Math.round((cm % 30.48) / 2.54)}"`
-    : `${cm} cm`;
+  system === 'IMPERIAL' ? feetInchesLabel(cm) : `${cm} cm`;
 
 // Check if a serving unit is gram-based (affects editing UX)
 export const isGramUnit = (unit: string): boolean =>

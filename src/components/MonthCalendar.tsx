@@ -3,9 +3,10 @@ import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 
 import { FsText } from '@/components/ui';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
+import { isoLocalDay, leadingBlanks, weekdayLabels } from '@/lib/date';
 
-const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-const iso = (d: Date) => d.toISOString().slice(0, 10);
+// Local calendar day — toISOString() is UTC, which shifts every cell back a day east of UTC.
+const iso = isoLocalDay;
 
 /**
  * Month grid. `marked` is a set of YYYY-MM-DD strings to dot; `selected` is the
@@ -28,7 +29,8 @@ export function MonthCalendar({
 }) {
   const year = month.getFullYear();
   const m = month.getMonth();
-  const firstWeekday = new Date(year, m, 1).getDay();
+  const firstWeekday = leadingBlanks(year, m); // Monday-first where the region says so
+  const WEEKDAYS = weekdayLabels();
   const daysInMonth = new Date(year, m + 1, 0).getDate();
   const todayIso = iso(new Date());
 
@@ -43,7 +45,7 @@ export function MonthCalendar({
           <ChevronLeft color={colors.muted} size={20} />
         </Pressable>
         <FsText variant="cardTitle">
-          {month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          {month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
         </FsText>
         <Pressable onPress={() => onMonthChange(1)} hitSlop={8} style={styles.arrow}>
           <ChevronRight color={colors.muted} size={20} />

@@ -295,8 +295,8 @@ export function FoodToday() {
   const dayLabel = date === todayIso ? 'Today'
     : date === isoDate(new Date(Date.now() - DAY_MS)) ? 'Yesterday'
       : date === isoDate(new Date(Date.now() + DAY_MS)) ? 'Tomorrow'
-        : d.toLocaleDateString('en-US', { weekday: 'long' });
-  const dateSub = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        : d.toLocaleDateString(undefined, { weekday: 'long' });
+  const dateSub = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
   const onPageScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) =>
     setPage(Math.round(e.nativeEvent.contentOffset.x / PAGE_W));

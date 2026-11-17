@@ -1,7 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import { db } from '@/lib/db';
 import type { BodyMeasurement, GoalPhase, GoalType, HealthStats, WeightEntry } from '@/types';
-import { todayLocal, longDate } from '@/lib/date';
+import { todayLocal, longDate, isoLocalDay } from '@/lib/date';
 import { KCAL_PER_KG } from '@/lib/tdee';
 
 // ── Mappers ───────────────────────────────────────────────────────────────────
@@ -307,7 +307,7 @@ export class HealthRepo {
   // ── Local health stats calculation ──────────────────────────────────────────
 
   computeStats(goalWeightKg?: number | null, goalDate?: string | null): HealthStats {
-    const ninety = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
+    const ninety = isoLocalDay(new Date(Date.now() - 90 * 86400000));
     const today = todayLocal();
     const entries = this.getWeightEntries(ninety, today);
     const current = entries.length > 0 ? entries[entries.length - 1] : null;
@@ -328,7 +328,7 @@ export class HealthRepo {
     if (goalWeightKg != null && current && weeklyChange !== null && weeklyChange !== 0) {
       const weeksNeeded = (current.weightKg - goalWeightKg) / Math.abs(weeklyChange);
       const etaDate = new Date(Date.now() + weeksNeeded * 7 * 86400000);
-      goalEta = etaDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      goalEta = etaDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
     }
 
     if (goalWeightKg != null && goalDate != null && current) {
@@ -346,7 +346,7 @@ export class HealthRepo {
     }
 
     // 7-day calorie average from food_logs
-    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+    const sevenDaysAgo = isoLocalDay(new Date(Date.now() - 7 * 86400000));
     const calRow = db.getFirstSync(
       `SELECT AVG(day_cal) AS avg FROM (
          SELECT fl.date, SUM(fi.calories * fl.servingQty) AS day_cal

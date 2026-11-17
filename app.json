@@ -13,7 +13,9 @@
       "appleTeamId": "356EHZDF23",
       "supportsTablet": false,
       "entitlements": {
-        "com.apple.security.application-groups": ["group.com.zanderhalverson.hale"]
+        "com.apple.security.application-groups": [
+          "group.com.zanderhalverson.hale"
+        ]
       },
       "infoPlist": {
         "NSCameraUsageDescription": "Hale uses the camera to scan food barcodes, read nutrition labels, and estimate a meal from a photo.",
@@ -23,7 +25,44 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSSupportsLiveActivities": true,
         "NSLocalNetworkUsageDescription": "Hale connects to a local AI server (e.g. Ollama or LM Studio) on your network when you set one as your AI endpoint.",
-        "NSAppTransportSecurity": { "NSAllowsLocalNetworking": true }
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
+      },
+      "privacyManifests": {
+        "NSPrivacyTracking": false,
+        "NSPrivacyTrackingDomains": [],
+        "NSPrivacyCollectedDataTypes": [],
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1",
+              "1C8F.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "C617.1",
+              "0A2A.1",
+              "3B52.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategorySystemBootTime",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "35F9.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryDiskSpace",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "E174.1",
+              "85F4.1"
+            ]
+          }
+        ]
       }
     },
     "android": {
@@ -109,11 +148,46 @@
       [
         "expo-alternate-app-icons",
         [
-          { "name": "Violet", "ios": "./assets/icons/accent-violet.png", "android": { "foregroundImage": "./assets/images/android-icon-foreground.png", "backgroundColor": "#8b5cf6" } },
-          { "name": "Sky", "ios": "./assets/icons/accent-sky.png", "android": { "foregroundImage": "./assets/images/android-icon-foreground.png", "backgroundColor": "#0ea5e9" } },
-          { "name": "Emerald", "ios": "./assets/icons/accent-emerald.png", "android": { "foregroundImage": "./assets/images/android-icon-foreground.png", "backgroundColor": "#10b981" } },
-          { "name": "Amber", "ios": "./assets/icons/accent-amber.png", "android": { "foregroundImage": "./assets/images/android-icon-foreground.png", "backgroundColor": "#f59e0b" } },
-          { "name": "Rose", "ios": "./assets/icons/accent-rose.png", "android": { "foregroundImage": "./assets/images/android-icon-foreground.png", "backgroundColor": "#f43f5e" } }
+          {
+            "name": "Violet",
+            "ios": "./assets/icons/accent-violet.png",
+            "android": {
+              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "backgroundColor": "#8b5cf6"
+            }
+          },
+          {
+            "name": "Sky",
+            "ios": "./assets/icons/accent-sky.png",
+            "android": {
+              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "backgroundColor": "#0ea5e9"
+            }
+          },
+          {
+            "name": "Emerald",
+            "ios": "./assets/icons/accent-emerald.png",
+            "android": {
+              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "backgroundColor": "#10b981"
+            }
+          },
+          {
+            "name": "Amber",
+            "ios": "./assets/icons/accent-amber.png",
+            "android": {
+              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "backgroundColor": "#f59e0b"
+            }
+          },
+          {
+            "name": "Rose",
+            "ios": "./assets/icons/accent-rose.png",
+            "android": {
+              "foregroundImage": "./assets/images/android-icon-foreground.png",
+              "backgroundColor": "#f43f5e"
+            }
+          }
         ]
       ]
     ],

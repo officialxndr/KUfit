@@ -153,7 +153,7 @@ export function DashboardOverview() {
   const goal = targets.calorieTarget ?? 0;
   const maxV = Math.max(goal, ...week.map((b) => b.calories), 1) * 1.1;
 
-  const dateLabel = new Date().toLocaleDateString('en-US', {
+  const dateLabel = new Date().toLocaleDateString(undefined, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',

@@ -23,7 +23,7 @@ import { todayLocal } from '@/lib/date';
 
 const LB_PER_KG = 2.20462;
 const today = todayLocal;
-const fmtDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+const fmtDate = (d: Date) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 const fmtVal = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1));
 
 /**
@@ -191,7 +191,7 @@ export function MilestoneProgressCard({ compact = false }: { compact?: boolean }
   const spanD = startD - goalD;
   const posOf = (wDisp: number) => (spanD === 0 ? 1 : clampFrac((startD - wDisp) / spanD));
   const showW = (wDisp: number) => `${fmtVal(Math.round(wDisp * 10) / 10)} ${label}`;
-  const shortDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const shortDate = (d: Date) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
   const todayStr = today();
   const customs = (profile.customMilestones ?? []).map((c) => {

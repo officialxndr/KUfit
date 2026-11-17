@@ -18,7 +18,7 @@ import { colors, radius, space, themedStyles } from '@/theme/tokens';
 
 const today = todayLocal;
 const shortDate = (d: string) =>
-  new Date(`${d}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  new Date(`${d}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 const round1 = (n: number) => String(Math.round(n * 10) / 10);
 
 export default function LogWeight() {

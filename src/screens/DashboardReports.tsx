@@ -116,7 +116,7 @@ export function DashboardReports() {
             if (recentPRs.length < 5) recentPRs.push({
               name: e.exercise.name,
               detail: `${formatWeight(st.weightKg, unit)} × ${st.reps}`,
-              date: new Date(s.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+              date: new Date(s.startedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
             });
           }
         }

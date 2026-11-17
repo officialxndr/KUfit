@@ -13,8 +13,10 @@ import { usePullRefresh } from '@/stores/refreshStore';
 import { formatVolume } from '@/lib/units';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { WorkoutSession } from '@/types';
+import { isoLocalDay } from '@/lib/date';
 
-const isoDay = (s: string) => new Date(s).toISOString().slice(0, 10);
+// Local day, so an evening workout isn't filed under tomorrow (or a morning one under yesterday).
+const isoDay = (s: string) => isoLocalDay(new Date(s));
 const ymKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 const firstOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
 
@@ -76,7 +78,7 @@ export function WorkoutHistory() {
                   {prs > 0 && <Badge label={`${prs} PR${prs > 1 ? 's' : ''}`} tone="warning" />}
                 </View>
                 <FsText variant="caption" style={{ marginTop: 2 }}>
-                  {new Date(s.startedAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                  {new Date(s.startedAt).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
                 </FsText>
               </View>
               {duration && (
@@ -109,7 +111,7 @@ export function WorkoutHistory() {
           <ChevronLeft color={colors.text} size={22} />
         </Pressable>
         <Pressable style={styles.monthLabel} onPress={() => setCalOpen(true)}>
-          <FsText variant="cardTitle">{viewMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</FsText>
+          <FsText variant="cardTitle">{viewMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</FsText>
           <ChevronDown color={colors.muted} size={16} />
         </Pressable>
         <Pressable onPress={() => changeMonth(1)} hitSlop={6} style={styles.navArrow}>
@@ -127,7 +129,7 @@ export function WorkoutHistory() {
       {selectedDate && (
         <Pressable style={styles.filterBanner} onPress={() => setSelectedDate(null)}>
           <FsText variant="bodyMedium" style={{ flex: 1 }}>
-            {new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+            {new Date(selectedDate).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
           </FsText>
           <X color={colors.muted} size={16} />
         </Pressable>

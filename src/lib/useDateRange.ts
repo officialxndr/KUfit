@@ -71,7 +71,7 @@ export function useDateRange(initial: PeriodKey = 'month'): DateRange {
   };
 
   const sameYear = fromIso.slice(0, 4) === endIso.slice(0, 4);
-  const fmt = (iso: string) => parse(iso).toLocaleDateString('en-US', sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: '2-digit' });
+  const fmt = (iso: string) => parse(iso).toLocaleDateString(undefined, sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: '2-digit' });
   const rangeLabel = `${fmt(fromIso)} – ${fmt(endIso)}`;
 
   return { periodKey, fromIso, endIso, days, isCurrent, todayIso, rangeLabel, fmt, selectPeriod, jumpToday, goBack, goFwd, jumpEnd, setCustom };
