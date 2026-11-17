@@ -27,6 +27,9 @@ import { colors, SURFACE_PRESETS } from '@/theme/tokens';
 
 configureNotifications();
 
+// Any render error below the root shows a recoverable crash screen instead of a blank app.
+export { CrashScreen as ErrorBoundary } from '@/components/CrashScreen';
+
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
   // Status-bar content must contrast the theme: light icons on dark themes,

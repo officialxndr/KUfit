@@ -1,11 +1,10 @@
-import { Linking, Platform } from 'react-native';
-import Constants from 'expo-constants';
-import * as Device from 'expo-device';
+import { Linking } from 'react-native';
 
 import { feedbackRepo, type FeedbackType } from '@/lib/repositories/FeedbackRepo';
+import { FEEDBACK_EMAIL, gatherDiagnostics, type Diagnostics } from '@/lib/diagnostics';
 
-/** Where bug reports / feature requests are emailed (no server — the user sends from their mail app). */
-export const FEEDBACK_EMAIL = 'haledevteam@protonmail.com';
+// Re-exported so existing imports from '@/lib/feedback' keep working.
+export { FEEDBACK_EMAIL, gatherDiagnostics, type Diagnostics };
 
 /**
  * Bump this whenever there's something new for testers to see. The What's-New sheet
@@ -22,26 +21,6 @@ export const WHATS_NEW = {
     'Training Volume chart now has numbers (a scale + date range), and food-search foods with grams no longer show wild calorie totals (a bad OpenFoodFacts serving-size bug). Measurement goal input no longer hides behind the keyboard.',
   ],
 };
-
-export interface Diagnostics {
-  app: string;
-  version: string | undefined;
-  variant: string;
-  platform: string;
-  osVersion: string | number;
-  device: string | null;
-}
-
-export function gatherDiagnostics(): Diagnostics {
-  return {
-    app: 'Hale',
-    version: Constants.expoConfig?.version,
-    variant: ((Constants.expoConfig?.extra as Record<string, unknown>)?.appVariant as string) ?? 'unknown',
-    platform: Platform.OS,
-    osVersion: Platform.Version,
-    device: Device.modelName ?? null,
-  };
-}
 
 function diagnosticsText(d: Diagnostics): string {
   return [
