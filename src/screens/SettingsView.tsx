@@ -17,6 +17,7 @@ import { sendTestNotification } from '@/lib/reminders';
 import { writeAndShareBackup, importFromUri, wipeAllData } from '@/lib/backup';
 import { pickAvatar, resolveAvatarUri } from '@/lib/avatar';
 import { syncHealthWeights, ensureHealthWeightObserver } from '@/lib/healthSync';
+import { authenticateForPhotos, canUsePhotoLock, markPhotosUnlocked } from '@/lib/photoLock';
 import { syncBodyFatGoalWeight } from '@/lib/goalWeight';
 import { UNIT_LABELS, mlToDisplay, toMl } from '@/lib/units';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -48,6 +49,7 @@ const T = {
   appearance: 'appearance theme dark light mode colour color accent scheme display',
   profile: 'profile name height birth date birthday age sex gender avatar photo picture',
   body: 'body composition fat navy estimate dexa lean mass percentage tape measurement',
+  photos: 'progress photos pictures face id lock privacy passcode before after timelapse',
   goals: 'goals goal weight target calorie calories macro macros protein carbs fat phase tdee maintenance calculator body fat activity level sedentary light moderate active very',
   help: 'help tour guide guided walkthrough onboarding tutorial intro feature guide docs documentation reference manual search how to explain features',
   feedback: 'feedback bug report issue problem crash feature request idea suggestion contact developer',
@@ -357,6 +359,19 @@ export function SettingsView() {
     }
   };
 
+  // Turning the photo lock on/off requires authenticating first, so it can't be enabled on a device
+  // that can't unlock it again — or switched off by someone else holding the phone.
+  const togglePhotoLock = async (v: boolean) => {
+    if (v && !(await canUsePhotoLock())) {
+      Alert.alert('Not available', 'Set up Face ID or a device passcode to lock your progress photos.');
+      return;
+    }
+    const ok = await authenticateForPhotos(v ? 'Turn on the photo lock' : 'Turn off the photo lock');
+    if (!ok) return;
+    setProfile({ photoLock: v });
+    if (v) markPhotosUnlocked(); // you just authenticated — don't make you do it again right away
+  };
+
   const selectActiveCalSource = (key: ActiveCalorieSource) => {
     setProfile({ activeCalorieSource: key });
     if ((key === 'auto' || key === 'watch') && !health.isAvailable()) {
@@ -522,6 +537,22 @@ export function SettingsView() {
             trackColor={{ true: colors.primary, false: colors.border }}
           />
         </View>
+      </Card>
+
+      <Card hidden={!show(T.photos)} style={{ marginBottom: space[3] }}>
+        <SectionHeader title="Progress photos" />
+        <View style={styles.toggleRow}>
+          <View style={{ flex: 1, marginRight: space[3] }}>
+            <FsText variant="bodyMedium">Lock with Face ID</FsText>
+            <FsText variant="caption">Require Face ID or your passcode to view progress photos. They re-lock whenever you leave the app. Photos never leave this device either way.</FsText>
+          </View>
+          <Switch
+            value={profile.photoLock}
+            onValueChange={togglePhotoLock}
+            trackColor={{ true: colors.primary, false: colors.border }}
+          />
+        </View>
+        <Button title="Open progress photos" variant="ghost" onPress={() => router.push('/photos')} />
       </Card>
 
       <Card hidden={!show(T.goals)} style={{ marginBottom: space[3] }}>

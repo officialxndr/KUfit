@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { View, StyleSheet, Pressable, PanResponder } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { TrendingDown, TrendingUp, Maximize2, Minimize2, ImageIcon, Share2 } from 'lucide-react-native';
+import { TrendingDown, TrendingUp, Maximize2, Minimize2, ImageIcon, Share2, Camera } from 'lucide-react-native';
 import Svg, { Path, Line, Circle, Text as SvgText } from 'react-native-svg';
 
 import { Card, FsText, Button, SectionHeader, Badge } from '@/components/ui';
@@ -10,7 +10,7 @@ import { SwipeToDelete } from '@/components/SwipeToDelete';
 import { ActivitySuggestions } from '@/components/ActivitySuggestions';
 import { GoalWarning } from '@/components/GoalWarning';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
-import { deleteProgressPhoto } from '@/lib/progressPhoto';
+import { photoRepo } from '@/lib/repositories/PhotoRepo';
 import { goalSafetyWarning, describePace, goalDateStat } from '@/lib/targets';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { usePullRefresh } from '@/stores/refreshStore';
@@ -42,12 +42,15 @@ export function HealthWeight() {
   // the 6M/1Y ranges or to seed the trend's momentum at a window's left edge.
   const [allEntries, setAllEntries] = useState<WeightEntry[]>([]);
   const [period, setPeriod] = useState('30');
+  // Days with a progress photo — a small icon on those weigh-in rows.
+  const [photoDays, setPhotoDays] = useState<Set<string>>(new Set());
 
   const refresh = useCallback(() => {
     // Phase endDate overrides the profile goal date when a goal phase is active.
     const effectiveGoalDate = healthRepo.getActiveGoalPhase()?.endDate ?? profile.goalDate;
     setStats(healthRepo.computeStats(profile.goalWeightKg, effectiveGoalDate));
     setAllEntries(healthRepo.getWeightEntries('2000-01-01', todayLocal()));
+    setPhotoDays(new Set(photoRepo.list().map((p) => p.date)));
   }, [profile.goalWeightKg, profile.goalDate]);
 
   const toggleGoalDateMode = () =>
@@ -57,7 +60,7 @@ export function HealthWeight() {
   usePullRefresh(refresh);
 
   const remove = (e: WeightEntry) => {
-    deleteProgressPhoto(e.photoUri); // reclaim the attached photo file (swipe-delete path)
+    // Progress photos are independent of weigh-ins, so deleting the weight keeps that day's photos.
     healthRepo.deleteWeightEntry(e.id);
     refresh();
   };
@@ -110,6 +113,9 @@ export function HealthWeight() {
           <FsText variant="cardTitle">Weight Trend</FsText>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[3] }}>
             <ChangeIcon color={changeColor} size={16} />
+            <Pressable onPress={() => router.push('/photos')} hitSlop={10} accessibilityLabel="Progress photos">
+              <Camera color={colors.muted} size={18} />
+            </Pressable>
             <Pressable onPress={() => router.push('/share-progress')} hitSlop={10} accessibilityLabel="Share progress">
               <Share2 color={colors.muted} size={18} />
             </Pressable>
@@ -196,7 +202,7 @@ export function HealthWeight() {
               <Card style={{ marginBottom: space[2], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <FsText variant="bodyMedium">{formatWeight(e.weightKg, unit)}</FsText>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
-                  {e.photoUri ? <ImageIcon color={colors.muted} size={14} /> : null}
+                  {photoDays.has(e.date) ? <ImageIcon color={colors.muted} size={14} /> : null}
                   <FsText variant="caption">{e.date}{e.bodyFat ? ` · ${e.bodyFat}% BF${e.source === 'CALIPER' ? ' · calipers' : ''}` : ''}</FsText>
                 </View>
               </Card>

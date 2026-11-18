@@ -136,6 +136,9 @@ export default function RootLayout() {
           <Stack.Screen name="measurements" options={{ presentation: 'modal' }} />
           <Stack.Screen name="log-weight" options={{ presentation: 'modal' }} />
           <Stack.Screen name="photo-compare" options={{ presentation: 'fullScreenModal' }} />
+          <Stack.Screen name="photos" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="photo-capture" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
+          <Stack.Screen name="photo-timelapse" options={{ presentation: 'fullScreenModal' }} />
           <Stack.Screen name="log-dexa" options={{ presentation: 'modal' }} />
           <Stack.Screen name="log-skinfold" options={{ presentation: 'modal' }} />
           <Stack.Screen name="custom-milestone" options={{ presentation: 'modal' }} />

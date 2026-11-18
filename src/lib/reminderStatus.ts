@@ -19,11 +19,12 @@ export interface ReminderContext {
   lastWeightDate: string | null;
   lastMeasurementDate: string | null;
   lastWorkoutDate: string | null;
+  lastPhotoDate: string | null;
   caloriesToday: number;
 }
 
 /** Banner display priority (first = most prominent). */
-const PRIORITY: ReminderKey[] = ['measurements', 'weight', 'food', 'workout'];
+const PRIORITY: ReminderKey[] = ['measurements', 'weight', 'food', 'workout', 'photos'];
 
 const UNIT_DAYS: Record<IntervalUnit, number> = { days: 1, weeks: 7, months: 30.4375, years: 365.25 };
 const intervalDays = (every: number, unit: IntervalUnit) => Math.max(1, every) * UNIT_DAYS[unit];
@@ -43,7 +44,7 @@ export function isReminderDue(cfg: ReminderConfig | undefined, key: ReminderKey,
     case 'schedule': {
       const days = cfg.weekdays.length ? cfg.weekdays : EVERY_DAY;
       if (!days.includes(ctx.todayWeekday)) return false;
-      const last = key === 'workout' ? ctx.lastWorkoutDate : ctx.lastWeightDate;
+      const last = key === 'workout' ? ctx.lastWorkoutDate : key === 'photos' ? ctx.lastPhotoDate : ctx.lastWeightDate;
       return last !== ctx.today;
     }
     case 'interval': {

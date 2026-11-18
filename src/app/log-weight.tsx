@@ -1,15 +1,18 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { View, TextInput, StyleSheet, Pressable, Alert, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
-import { X, Camera } from 'lucide-react-native';
+import { Camera, Lock } from 'lucide-react-native';
 
 import { FsText, Button } from '@/components/ui';
 import { ModalHeader } from '@/components/ModalHeader';
 import { todayLocal } from '@/lib/date';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
-import { pickProgressPhoto, resolveProgressPhotoUri, deleteProgressPhoto } from '@/lib/progressPhoto';
+import { resolveProgressPhotoUri } from '@/lib/progressPhoto';
+import { photoRepo } from '@/lib/repositories/PhotoRepo';
+import { POSES, POSE_LABEL, type ProgressPhoto } from '@/lib/photoTimeline';
+import { usePhotoLock } from '@/lib/photoLock';
 import { syncBodyFatGoalWeight } from '@/lib/goalWeight';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { toKg, toDisplay, formatWeight, UNIT_LABELS } from '@/lib/units';
@@ -35,37 +38,16 @@ export default function LogWeight() {
   const prefillWeight = entry ? round1(toDisplay(entry.weightKg, unit)) : '';
   const [weight, setWeight] = useState(prefillWeight);
   const [bodyFat, setBodyFat] = useState(() => (entry?.bodyFat != null ? String(entry.bodyFat) : ''));
-  const [photoName, setPhotoName] = useState<string | null>(entry?.photoUri ?? null);
-  const photoUri = resolveProgressPhotoUri(photoName);
+  // Progress photos for this day (independent of the weigh-in — they survive deleting it).
+  const day = entry?.date ?? today();
+  const [dayPhotos, setDayPhotos] = useState<ProgressPhoto[]>([]);
+  useFocusEffect(useCallback(() => { setDayPhotos(photoRepo.forDate(day)); }, [day]));
+  const { locked: photosLocked, unlock: unlockPhotos } = usePhotoLock();
 
   const latest = healthRepo.getLatestWeightEntry();
 
-  const attachPhoto = async (source: 'camera' | 'library') => {
-    if (!entry) return;
-    const name = await pickProgressPhoto(source);
-    if (!name) return;
-    if (photoName) deleteProgressPhoto(photoName); // replace any previous photo
-    healthRepo.setWeightPhoto(entry.id, name);
-    setPhotoName(name);
-    haptic.success();
-  };
-  const addPhoto = () =>
-    Alert.alert('Add progress photo', undefined, [
-      { text: 'Take photo', onPress: () => attachPhoto('camera') },
-      { text: 'Choose from library', onPress: () => attachPhoto('library') },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  const removePhoto = () =>
-    Alert.alert('Remove photo?', 'This deletes the progress photo for this weigh-in.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => {
-        if (!entry) return;
-        deleteProgressPhoto(photoName);
-        healthRepo.setWeightPhoto(entry.id, null);
-        setPhotoName(null);
-      } },
-    ]);
-  const openPhoto = () => { if (entry) router.push({ pathname: '/photo-compare', params: { date: entry.date } }); };
+  const takePhotos = () => router.push({ pathname: '/photo-capture', params: { date: day } });
+  const openPhoto = (p: ProgressPhoto) => router.push({ pathname: '/photo-compare', params: { id: p.id } });
 
   const save = () => {
     const val = Number(weight);
@@ -95,7 +77,6 @@ export default function LogWeight() {
         text: 'Delete',
         style: 'destructive',
         onPress: () => {
-          deleteProgressPhoto(photoName); // remove the attached photo file too (live state, not the stale memoized entry)
           healthRepo.deleteWeightEntry(entry.id);
           syncBodyFatGoalWeight();
           haptic.success();
@@ -147,28 +128,39 @@ export default function LogWeight() {
         </View>
         <Button title="Save" onPress={save} style={{ marginTop: space[6] }} />
 
-        {/* Progress photo (existing weigh-ins only) — attach, view/compare, or remove. */}
-        {editing && (
-          <View style={{ marginTop: space[6] }}>
-            <FsText variant="caption" style={{ marginBottom: space[2] }}>Progress photo</FsText>
-            {photoUri ? (
-              <View style={{ gap: space[3] }}>
-                <Pressable onPress={openPhoto}>
-                  <Image source={{ uri: photoUri }} style={styles.photo} contentFit="cover" />
-                </Pressable>
-                <Button title="View & compare" variant="ghost" onPress={openPhoto} />
-                <Pressable onPress={removePhoto} hitSlop={8} style={{ alignSelf: 'center', padding: space[1] }}>
-                  <FsText variant="bodyMedium" style={{ color: colors.danger }}>Remove photo</FsText>
-                </Pressable>
-              </View>
-            ) : (
-              <Pressable onPress={addPhoto} style={styles.addPhoto}>
-                <Camera color={colors.primary} size={18} />
-                <FsText variant="bodyMedium" style={{ color: colors.primary }}>Add progress photo</FsText>
-              </Pressable>
-            )}
-          </View>
-        )}
+        {/* Progress photos for this day — taken with the guided camera, kept separately from the weigh-in. */}
+        <View style={{ marginTop: space[6] }}>
+          <FsText variant="caption" style={{ marginBottom: space[2] }}>Progress photos</FsText>
+          {photosLocked && dayPhotos.length > 0 ? (
+            <Pressable onPress={unlockPhotos} style={styles.addPhoto}>
+              <Lock color={colors.muted} size={16} />
+              <FsText variant="bodyMedium" style={{ color: colors.muted }}>{dayPhotos.length} photo{dayPhotos.length === 1 ? '' : 's'} · tap to unlock</FsText>
+            </Pressable>
+          ) : dayPhotos.length > 0 ? (
+            <View style={{ flexDirection: 'row', gap: space[2] }}>
+              {POSES.map((pose) => {
+                const p = dayPhotos.find((x) => x.pose === pose);
+                const uri = p ? resolveProgressPhotoUri(p.fileName) : null;
+                return p && uri ? (
+                  <Pressable key={pose} style={{ flex: 1 }} onPress={() => openPhoto(p)}>
+                    <Image source={{ uri }} style={styles.photo} contentFit="cover" />
+                    <FsText variant="caption" style={{ textAlign: 'center', marginTop: 4 }}>{POSE_LABEL[pose]}</FsText>
+                  </Pressable>
+                ) : (
+                  <Pressable key={pose} style={{ flex: 1 }} onPress={takePhotos}>
+                    <View style={[styles.photo, styles.emptySlot]}><Camera color={colors.primary} size={18} /></View>
+                    <FsText variant="caption" style={{ textAlign: 'center', marginTop: 4, color: colors.primary }}>{POSE_LABEL[pose]}</FsText>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : (
+            <Pressable onPress={takePhotos} style={styles.addPhoto}>
+              <Camera color={colors.primary} size={18} />
+              <FsText variant="bodyMedium" style={{ color: colors.primary }}>Take progress photos</FsText>
+            </Pressable>
+          )}
+        </View>
 
         {editing && (
           <Pressable onPress={remove} hitSlop={8} style={{ alignSelf: 'center', marginTop: space[6], padding: space[2] }}>
@@ -193,6 +185,7 @@ const styles = themedStyles(() => StyleSheet.create({
   },
   input: { flex: 1, color: colors.text, paddingVertical: 14, fontSize: 18 },
   photo: { width: '100%', aspectRatio: 3 / 4, borderRadius: radius.md, backgroundColor: colors.surfaceHigh },
+  emptySlot: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderStyle: 'dashed', borderColor: colors.primary, backgroundColor: 'transparent' },
   addPhoto: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space[2],
     backgroundColor: colors.surfaceHigh, borderRadius: radius.md, paddingVertical: 14,

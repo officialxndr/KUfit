@@ -1,5 +1,5 @@
 /**
- * Progress photos attached to weigh-ins. Same device-local model as the avatar (`lib/avatar.ts`):
+ * Progress-photo FILES (rows live in `progress_photos` via `PhotoRepo`). Same device-local model as the avatar (`lib/avatar.ts`):
  * copy the picked image into a dedicated `Documents/progress-photos/` dir and store only the
  * FILENAME on the weigh-in — the absolute URI is re-derived at display time, because iOS's app
  * container path changes on update/reinstall (a stored absolute path would dangle). Photos are
@@ -20,44 +20,72 @@ function photoDir(): any {
   return dir;
 }
 
+/** Longest useful edge for a stored progress photo — sharp full-screen on any iPhone, ~300–500 KB. */
+const MAX_WIDTH = 1440;
+
 /**
- * Take a photo (camera) or pick one (library), copy it into progress-photos, and return the stored
- * filename. Null if cancelled / permission denied / the native module isn't in this build.
+ * Copy a captured/picked image into progress-photos (downscaled to MAX_WIDTH, JPEG) and return the
+ * stored FILENAME. A full-res camera shot is 3–5 MB; three poses a week would bloat the phone fast.
+ * Falls back to a straight copy if the manipulator is unavailable. Null on failure.
  */
-export async function pickProgressPhoto(source: 'camera' | 'library'): Promise<string | null> {
+export async function saveProgressPhoto(srcUri: string, width?: number): Promise<string | null> {
   try {
-    const ImagePicker = require('expo-image-picker');
     const { File } = require('expo-file-system');
-
-    const perm = source === 'camera'
-      ? await ImagePicker.requestCameraPermissionsAsync()
-      : await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      // iOS won't re-prompt once permanently denied — point the user at Settings so the tap isn't a
-      // silent dead-end. `canAskAgain === false` distinguishes a hard denial from an in-prompt "Don't allow".
-      if (perm.canAskAgain === false) {
-        const what = source === 'camera' ? 'Camera' : 'Photos';
-        Alert.alert(`${what} access needed`, `Enable ${what} access for Hale in Settings to add a progress photo.`, [
-          { text: 'Not now', style: 'cancel' },
-          { text: 'Open Settings', onPress: () => Linking.openSettings() },
-        ]);
-      }
-      return null;
-    }
-
-    const res = source === 'camera'
-      ? await ImagePicker.launchCameraAsync({ quality: 0.8 })
-      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
-    if (res.canceled || !res.assets?.[0]?.uri) return null;
-
-    const name = `weigh-${Date.now()}.jpg`;
+    let source = srcUri;
+    try {
+      const { ImageManipulator, SaveFormat } = require('expo-image-manipulator');
+      let ctx = ImageManipulator.manipulate(srcUri);
+      if (!width || width > MAX_WIDTH) ctx = ctx.resize({ width: MAX_WIDTH });
+      const ref = await ctx.renderAsync();
+      const out = await ref.saveAsync({ compress: 0.82, format: SaveFormat.JPEG });
+      source = out.uri;
+    } catch { /* manipulator missing in this build → keep the original */ }
+    const name = `photo-${Date.now()}.jpg`;
     const dest = new File(photoDir(), name);
     if (dest.exists) dest.delete();
-    await new File(res.assets[0].uri).copy(dest); // async in expo-file-system 56 — await so the file exists before we return
+    await new File(source).copy(dest); // async in expo-file-system 56 — await so the file exists before we return
     return name; // store the filename; resolve to an absolute URI at display time
+  } catch {
+    return null;
+  }
+}
+
+/** Ask for photo-library access (pointing at Settings after a hard denial). */
+async function ensurePermission(source: 'camera' | 'library'): Promise<boolean> {
+  const ImagePicker = require('expo-image-picker');
+  const perm = source === 'camera'
+    ? await ImagePicker.requestCameraPermissionsAsync()
+    : await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (perm.granted) return true;
+  // iOS won't re-prompt once permanently denied — point the user at Settings so the tap isn't a
+  // silent dead-end. `canAskAgain === false` distinguishes a hard denial from an in-prompt "Don't allow".
+  if (perm.canAskAgain === false) {
+    const what = source === 'camera' ? 'Camera' : 'Photos';
+    Alert.alert(`${what} access needed`, `Enable ${what} access for Hale in Settings to add a progress photo.`, [
+      { text: 'Not now', style: 'cancel' },
+      { text: 'Open Settings', onPress: () => Linking.openSettings() },
+    ]);
+  }
+  return false;
+}
+
+/** Pick an existing image from the library and save it as a progress photo. Null if cancelled. */
+export async function pickProgressPhotoFromLibrary(): Promise<string | null> {
+  try {
+    if (!(await ensurePermission('library'))) return null;
+    const ImagePicker = require('expo-image-picker');
+    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 });
+    const asset = res.canceled ? null : res.assets?.[0];
+    if (!asset?.uri) return null;
+    return saveProgressPhoto(asset.uri, asset.width);
   } catch {
     return null; // native module unavailable in this build, or picker error
   }
+}
+
+/** Camera permission for the in-app progress-photo camera (expo-camera shares the OS permission). */
+export async function ensureCameraPermission(): Promise<boolean> {
+  try { return await ensurePermission('camera'); } catch { return false; }
 }
 
 /**

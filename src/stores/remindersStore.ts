@@ -15,7 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * (`lib/reminderStatus.ts` + `ReminderBanner`).
  */
 
-export type ReminderKey = 'measurements' | 'weight' | 'workout' | 'food';
+export type ReminderKey = 'measurements' | 'weight' | 'workout' | 'food' | 'photos';
 export type IntervalUnit = 'days' | 'weeks' | 'months' | 'years';
 export type ReminderMode = 'interval' | 'schedule' | 'food';
 
@@ -57,7 +57,7 @@ export type ReminderPatch = Partial<Omit<IntervalReminder, 'mode'>> &
   Partial<Omit<ScheduleReminder, 'mode'>> &
   Partial<Omit<FoodReminder, 'mode'>>;
 
-export const REMINDER_KEYS: ReminderKey[] = ['measurements', 'weight', 'workout', 'food'];
+export const REMINDER_KEYS: ReminderKey[] = ['measurements', 'weight', 'workout', 'food', 'photos'];
 
 /** Which interface/schedule shape each reminder uses. */
 export const REMINDER_MODE: Record<ReminderKey, ReminderMode> = {
@@ -65,6 +65,7 @@ export const REMINDER_MODE: Record<ReminderKey, ReminderMode> = {
   weight: 'schedule',
   workout: 'schedule',
   food: 'food',
+  photos: 'schedule',
 };
 
 /** Static per-reminder copy + the in-app destination its banner/notification points at. */
@@ -73,6 +74,7 @@ export const REMINDER_META: Record<ReminderKey, { title: string; body: string; c
   weight: { title: 'Log your weight', body: "Don't forget to log today's weigh-in.", cta: 'Log weight' },
   workout: { title: 'Time to train', body: 'Keep your streak going — log a workout.', cta: 'Start workout' },
   food: { title: 'Log your food', body: "You haven't logged any food yet today.", cta: 'Log food' },
+  photos: { title: 'Progress photo day', body: 'Take your front, side and back photos to track your change.', cta: 'Take photos' },
 };
 
 export const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
@@ -83,11 +85,14 @@ const DEFAULTS: {
   weight: ScheduleReminder;
   workout: ScheduleReminder;
   food: FoodReminder;
+  photos: ScheduleReminder;
 } = {
   measurements: { mode: 'interval', enabled: false, every: 4, unit: 'weeks', hour: 9, minute: 0, anchorDate: '', bannerDismissedFor: null },
   weight: { mode: 'schedule', enabled: false, weekdays: [...EVERY_DAY], hour: 8, minute: 0, bannerDismissedFor: null },
   workout: { mode: 'schedule', enabled: false, weekdays: [1, 3, 5], hour: 17, minute: 0, bannerDismissedFor: null },
   food: { mode: 'food', enabled: false, times: [{ hour: 19, minute: 0 }], bannerDismissedFor: null },
+  // Weekly by default (Sunday morning) — photos are most useful every 1–2 weeks, not daily.
+  photos: { mode: 'schedule', enabled: false, weekdays: [0], hour: 9, minute: 0, bannerDismissedFor: null },
 };
 
 const cloneDefaults = (): Record<ReminderKey, ReminderConfig> => ({
@@ -95,6 +100,7 @@ const cloneDefaults = (): Record<ReminderKey, ReminderConfig> => ({
   weight: { ...DEFAULTS.weight, weekdays: [...EVERY_DAY] },
   workout: { ...DEFAULTS.workout, weekdays: [1, 3, 5] },
   food: { ...DEFAULTS.food, times: [{ hour: 19, minute: 0 }] },
+  photos: { ...DEFAULTS.photos, weekdays: [0] },
 });
 
 /** Old (v0/v1) shape: a single uniform `{ enabled, frequency, weekdays, hour, minute }` per key. */

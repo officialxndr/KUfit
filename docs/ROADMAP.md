@@ -3,6 +3,14 @@
 Honest status of the rebuild. **Update this when features land or plans change.**
 
 ## Done
+- [x] **Progress photos overhaul** — front/side/back poses (one per day each, independent of weigh-ins; old
+      weigh-in photos migrate as front), a **Photos** gallery (first-vs-latest, pose filter, day grid), a **guided
+      camera** (ghost overlay of the last photo, 3/5/10 s self-timer, auto-advance through poses, library import with
+      date), **timelapse** scrubber, an opt-in **weekly photo reminder**, and an optional **Face ID lock**. Photos are
+      downsized to 1440 px on save. Entry points: Health → Body card, Weight header, Health "+", log-weight.
+- [x] **UI fixes** — accent tints follow the chosen accent (`primaryAlpha`), all modals use `ModalHeader`, forms keep
+      fields above the keyboard, workout-history calendar month jump, DST-safe Yesterday/Tomorrow, food list serving
+      spacing, unit dropdown layering, Reduce Motion for sheets, and the Dashboard workout reminder's UTC-day bug.
 - [x] **Sturdier food logging: units, household servings, entered amounts** — the serving/unit math moved into a
       pure, tested `lib/servingUnits.ts` (230 tests over all base foods, OFF records and label lines).
       **Household units**: a serving description like "3 cookies" / "1 bar" / "2 slices" becomes a loggable unit

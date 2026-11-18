@@ -106,22 +106,6 @@ export class HealthRepo {
     );
   }
 
-  /** Attach (or clear, with null) a progress-photo filename on a weigh-in. Doesn't re-own a
-   *  HEALTH-sourced entry (a photo isn't a weight edit), so re-imports keep the photo. */
-  setWeightPhoto(localId: string, photoUri: string | null): void {
-    db.runSync(
-      `UPDATE weight_entries SET photoUri = ?, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
-      [photoUri, new Date().toISOString(), localId]
-    );
-  }
-
-  /** Weigh-ins that have a progress photo, newest first — for the compare picker. */
-  getWeighInsWithPhotos(): WeightEntry[] {
-    return (db.getAllSync(
-      `SELECT * FROM weight_entries WHERE photoUri IS NOT NULL AND deleted = 0 ORDER BY date DESC`
-    ) as any[]).map(mapWeightEntry);
-  }
-
   /** Most recent entry that has a *measured* body-fat % — the baseline for estimates. */
   getLatestBodyFatBaseline(): WeightEntry | null {
     const row = db.getFirstSync(
@@ -269,8 +253,8 @@ export class HealthRepo {
   }
 
   deleteWeightEntry(localId: string): void {
-    // Also clear photoUri: the file is deleted at the call site, and re-logging this date revives the
-    // row (upsertWeightEntry deleted=0) — a lingering filename would resurface as a dangling photo ref.
+    // Also clear the legacy photoUri column (pre-progress_photos rows): re-logging this date revives the
+    // row (upsertWeightEntry deleted=0), and a lingering filename must not resurface.
     db.runSync(
       `UPDATE weight_entries SET deleted = 1, photoUri = NULL, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
       [new Date().toISOString(), localId]

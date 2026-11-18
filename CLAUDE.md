@@ -208,6 +208,11 @@ for backup + Home Assistant / **MCP** access (`serverStore` is null by default).
   past it; the snapshot carries `currentSet.done` so re-confirming an already-logged set saves edits without
   re-firing rest. The watch's live HR-based
   calories also show in the **phone** session header (`watchLiveCalories()`).
+- **Progress photos**: `progress_photos` (one per date+pose, independent of weigh-ins) via `PhotoRepo`; pure logic in
+  `lib/photoTimeline.ts`; files via `lib/progressPhoto.ts` (store the **basename**, never an absolute path); screens
+  `photos` / `photo-capture` (ghost + timer camera) / `photo-compare` / `photo-timelapse`. Optional Face ID lock
+  (`lib/photoLock.ts`, `profile.photoLock`) — gate any new photo-displaying UI with `usePhotoLock()`. Don't read
+  `weight_entries.photoUri` (legacy, migrated at DB init).
 - **Per-accent app icon** (`lib/appIcon.ts` + `expo-alternate-app-icons` config plugin): the iOS app icon
   background follows the chosen accent. Preset accents (violet/sky/emerald/amber/rose) have pre-generated icons
   (white logo on the accent — `scripts/gen-accent-icons.mjs`, output `assets/icons/accent-*.png`, registered as

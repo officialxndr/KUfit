@@ -18,6 +18,7 @@ import { useMotion } from '@/lib/useMotion';
 import { resolveAvatarUri } from '@/lib/avatar';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
+import { photoRepo } from '@/lib/repositories/PhotoRepo';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { resolveTargets, goalSafetyWarning, describePace, activeCaloriesForDisplay, goalDateStat } from '@/lib/targets';
 import { topDueReminder } from '@/lib/reminderStatus';
@@ -91,7 +92,10 @@ export function DashboardOverview() {
       nowMinutes: today.getHours() * 60 + today.getMinutes(),
       lastWeightDate: healthRepo.getLatestWeightEntry()?.date ?? null,
       lastMeasurementDate: healthRepo.getMeasurements()[0]?.date ?? null,
-      lastWorkoutDate: sessions[0]?.startedAt?.slice(0, 10) ?? null,
+      // startedAt is an ISO timestamp — take its LOCAL day (slice(0,10) is the UTC day, so an evening
+      // workout read as tomorrow and the "time to train" banner stayed up after training).
+      lastWorkoutDate: sessions[0]?.startedAt ? isoDate(new Date(sessions[0].startedAt)) : null,
+      lastPhotoDate: photoRepo.latestDate(),
       caloriesToday: dayTotals.calories,
     }));
     // Reconcile scheduled reminders against today's state (e.g. a "smart" food reminder
@@ -172,6 +176,7 @@ export function DashboardOverview() {
       case 'weight': router.push('/log-weight'); break;
       case 'food': setSection('food', 'today'); break;
       case 'workout': session.startEmpty(); router.push('/session'); break;
+      case 'photos': router.push({ pathname: '/photo-capture', params: { date: isoDate(new Date()) } }); break;
     }
   };
   const onReminderDismiss = () => {

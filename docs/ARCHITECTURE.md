@@ -338,27 +338,29 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
   `log-weight?date=` (edit mode) — `HealthRepo.updateWeightEntryValues` changes weight/body-fat **in place**,
   preserving `source` + DEXA columns (a blank body-fat field clears just that reading); the row still swipes to delete. The Goals editor shows the derived weight read-only; weight mode is
   unchanged. No downstream rewiring — by design only the *input method* differs.
-- **Progress photos** (`lib/progressPhoto.ts` + `weight_entries.photoUri` + `app/photo-compare.tsx`) — attach a
-  body photo to a weigh-in. Storage mirrors the **avatar** (`lib/avatar.ts`): store only a **filename** on the
-  row and re-derive the absolute URI at display (iOS container UUID changes on update), but in a dedicated
-  `Documents/progress-photos/` dir. `pickProgressPhoto('camera'|'library')` requests the matching permission
-  (Alert → Open Settings when permanently denied), `launchCamera/ImageLibraryAsync` then **`await File.copy`**
-  (copy is async in expo-file-system 56) into the dir; `resolveProgressPhotoUri` resolves by basename (null if
-  the file is gone); `deleteProgressPhoto` / `clearProgressPhotos` reclaim files. `HealthRepo`: `setWeightPhoto`,
-  `getWeighInsWithPhotos`, and `deleteWeightEntry` now also **nulls `photoUri`** so a re-logged date can't revive
-  a dangling ref. The edit screen (`log-weight.tsx`, edit mode only) adds/views/removes the photo; `HealthWeight`
-  rows show a photo icon; `photo-compare.tsx` (a `fullScreenModal`) is a full-screen, edge-to-edge viewer +
-  **Compare with…** picker (only weigh-ins that have photos). Photos are **pinch-to-zoom / pan / double-tap**
-  (`components/ZoomableImage.tsx` — gesture-handler + reanimated, pan clamped to the image edges), and the two
-  compare either **side by side** (each zoomable) or as a draggable **before/after slider** (a mode toggle;
-  the divider is stored as a 0–1 fraction so rotation keeps its position), ordered oldest→newest with the
-  weight change over the span. **Gotcha:** a native-stack modal renders outside the app-root
-  `GestureHandlerRootView`, so this screen wraps its own — without it the gestures silently no-op (same fix as
-  `session.tsx`/`measurements.tsx`). Photos are **device-local**: not synced, not in the JSON backup (only the
-  filename is, so a cross-device restore resolves to null — the file is absent), and purged on the full data wipe
-  (`backup.ts`). **Rotation**: the app is portrait-locked at the root (`lib/orientation.ts` `lockPortrait`, called
-  in `_layout.tsx`), but the compare view **unlocks landscape while two photos are shown** (`allowRotation` when a
-  second photo is picked; re-locks portrait for the single view + on exit) so side-by-side fills a wide screen.
+- **Progress photos** (`progress_photos` table + `lib/repositories/PhotoRepo.ts` + pure `lib/photoTimeline.ts`
+  + `lib/progressPhoto.ts` files + `lib/photoLock.ts`) — **one photo per (date, pose)**, poses `front|side|back`,
+  **independent of weigh-ins** (a photo day needn't have a weight; deleting a weigh-in keeps its photos; the weight
+  shown with a photo is `weightNear` — same day, else nearest within 3 days). Rows store only a **file basename**;
+  `resolveProgressPhotoUri` re-derives the absolute URI under `Documents/progress-photos/` at display (iOS container
+  UUID changes on update). `saveProgressPhoto` downsizes to 1440 px JPEG (`expo-image-manipulator`) before copying.
+  The legacy `weight_entries.photoUri` is migrated once at DB init (`migrateWeighInPhotos` → front pose, then nulled).
+  Screens: **`app/photos.tsx`** gallery (pose filter, first-vs-latest hero, timelapse entry, day grid, long-press
+  delete), **`app/photo-capture.tsx`** guided camera (`expo-camera`; pose picker, **ghost overlay** of the last photo
+  of that pose (`ghostFor`) at 32%, 3/5/10 s **self-timer** with haptic ticks, front camera saves `mirror`ed so the
+  stored photo + ghost match the preview, auto-advances to the next untaken pose, library import with a date picker),
+  **`app/photo-compare.tsx`** viewer (`?id=`, `&with=` opens straight into compare; legacy `?date=` → that day's front;
+  same-pose candidates first; side-by-side or slider; delete), **`app/photo-timelapse.tsx`** (one pose oldest→newest,
+  PanResponder scrubber with a tick per photo + play). Entry points: Health → Body `ProgressPhotosCard`, Health → Weight
+  header camera icon, Health FAB "Progress photos", `log-weight` (that day's poses), the `photos` reminder (schedule
+  mode, default Sundays 9:00; due unless a photo was taken today). **Optional lock** (`profile.photoLock`): Face ID /
+  passcode via lazily-required `expo-local-authentication`; unlock lasts the session and re-locks on
+  AppState `background` (not `inactive` — the Face ID sheet itself goes inactive); toggling requires authenticating;
+  a build without the module degrades to unlocked. Photos are pinch-to-zoom / pan / double-tap
+  (`components/ZoomableImage.tsx`). **Gotcha:** a native-stack modal renders outside the app-root
+  `GestureHandlerRootView`, so `photo-compare` wraps its own. Photos are **device-local**: not synced; the JSON backup
+  carries the `progress_photos` rows only (a cross-device restore resolves to "Missing"); purged on the full wipe.
+  **Rotation**: portrait-locked at the root, but `photo-compare` **unlocks landscape while two photos are shown**.
   Needs `orientation: "default"` in `app.json` (iOS Info.plist must allow the orientations) + the
   `expo-screen-orientation` native module → **a new build**; the helper lazy-requires + guards it, so a JS-only
   OTA onto an older binary simply no-ops (no rotation, no crash) until that build ships.

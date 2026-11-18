@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   FadeInUp, useSharedValue, useAnimatedStyle, withDelay, withSequence, withTiming,
 } from 'react-native-reanimated';
-import { Ruler, Scale, Dumbbell, Utensils, X, ChevronRight } from 'lucide-react-native';
+import { Ruler, Scale, Dumbbell, Utensils, Camera, X, ChevronRight } from 'lucide-react-native';
 
 import { FsText } from '@/components/ui';
 import { PressableScale } from '@/components/anim/PressableScale';
@@ -17,6 +17,7 @@ const ICONS: Record<ReminderKey, typeof Ruler> = {
   weight: Scale,
   workout: Dumbbell,
   food: Utensils,
+  photos: Camera,
 };
 
 /**

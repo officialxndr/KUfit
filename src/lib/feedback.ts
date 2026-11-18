@@ -10,13 +10,13 @@ export { FEEDBACK_EMAIL, gatherDiagnostics, type Diagnostics };
  * Bump this whenever there's something new for testers to see. The What's-New sheet
  * shows once per version (tracked in `app_meta`). Keep the list short + tester-focused.
  */
-export const WHATS_NEW_VERSION = '1.0.0-b18';
+export const WHATS_NEW_VERSION = '1.0.0-b19';
 export const WHATS_NEW = {
   title: "What's new to test",
   items: [
-    'Log by the piece: foods with a serving like "3 cookies" or "1 bar" now offer that as a unit — log 1 cookie instead of 0.33 servings. Cereal-style "2/3 cup (55 g)" labels let you log in cups.',
-    'Amounts accept 1,5 · 1/2 · 1 1/2 · ½. Edited entries reopen in the unit you used (150 g, not 1.5 servings), and the Today list shows what you entered.',
-    'Custom foods understand units like "Grams" or "Tbsp", and the label scanner reads "2/3 cup" correctly.',
+    'Progress photos, rebuilt: take front, side and back photos with a guided camera — a faint "ghost" of your last photo helps you line up, and a 3/5/10s self-timer handles mirror shots. Find it in Health → Body, the Weight tab, or the + button.',
+    'New Photos gallery with first-vs-latest, side-by-side / slider compare, and a timelapse you can scrub through. Optional Face ID lock in Settings → Progress photos, plus a weekly photo reminder.',
+    'Polish: your accent color now shows everywhere, modal headers match, form fields stay above the keyboard, and the workout calendar no longer jumps a month.',
   ],
 };
 

@@ -18,7 +18,7 @@
         ]
       },
       "infoPlist": {
-        "NSCameraUsageDescription": "Hale uses the camera to scan food barcodes, read nutrition labels, and estimate a meal from a photo.",
+        "NSCameraUsageDescription": "Hale uses the camera to take progress photos, scan food barcodes, read nutrition labels, and estimate a meal from a photo.",
         "NSPhotoLibraryUsageDescription": "Hale uses your photos to set a profile picture and to estimate a meal from a photo you choose.",
         "NSHealthShareUsageDescription": "Hale reads weight, activity, and heart rate from Apple Health to keep your stats in sync.",
         "NSHealthUpdateUsageDescription": "Hale can write workouts and weight to Apple Health.",
@@ -90,6 +90,10 @@
       "expo-router",
       "expo-sqlite",
       [
+        "expo-local-authentication",
+        { "faceIDPermission": "Hale uses Face ID to keep your progress photos private." }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {
@@ -103,7 +107,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Hale uses the camera to scan food barcodes and nutrition labels.",
+          "cameraPermission": "Hale uses the camera to take progress photos and scan food barcodes and nutrition labels.",
           "recordAudioAndroid": false
         }
       ],
@@ -120,7 +124,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Hale uses your photos to set a profile picture."
+          "photosPermission": "Hale uses your photos to set a profile picture and add progress photos."
         }
       ],
       [

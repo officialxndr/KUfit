@@ -141,6 +141,9 @@ export function AppShell() {
       case 'log-measurement':
         router.push('/measurements');
         break;
+      case 'progress-photo':
+        router.push({ pathname: '/photo-capture', params: { date: today() } });
+        break;
       case 'log-skinfold':
         router.push('/log-skinfold');
         break;

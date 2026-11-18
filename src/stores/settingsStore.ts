@@ -110,6 +110,8 @@ export interface Profile {
   /** When true, import body-fat % from Apple Health / Health Connect alongside weight
    *  (off by default — many body scales write inaccurate values). See `lib/healthSync.ts`. */
   healthBodyFatImport: boolean;
+  /** Require Face ID / passcode to view progress photos (off by default). See `lib/photoLock.ts`. */
+  photoLock: boolean;
   /** Chosen on-device AI label-scanning model id (a `lib/llm/models` id), or null = none.
    *  The model *files* live on disk (see `lib/llm/modelManager`); this only records the pick. */
   aiModelId: string | null;
@@ -196,6 +198,7 @@ const DEFAULT_PROFILE: Profile = {
   bodyFatSource: 'dexa',
   bodyFatEstimateBasis: 'anyMeasured',
   healthBodyFatImport: false,
+  photoLock: false,
   aiModelId: null,
   aiProvider: 'off',
   aiThinking: true,

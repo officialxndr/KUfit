@@ -262,6 +262,22 @@ export function initDb() {
       customFat REAL
     );
 
+    -- Progress photos: one per (date, pose), independent of weigh-ins (a photo day needn't have a
+    -- weight, and deleting a weigh-in keeps its photos). fileName is a basename under
+    -- Documents/progress-photos/ (absolute paths change on iOS updates — lib/progressPhoto.ts).
+    CREATE TABLE IF NOT EXISTS progress_photos (
+      localId TEXT PRIMARY KEY,
+      serverId TEXT,
+      syncStatus TEXT DEFAULT 'local',
+      updatedAt TEXT,
+      deleted INTEGER DEFAULT 0,
+      date TEXT NOT NULL,
+      pose TEXT NOT NULL DEFAULT 'front',
+      fileName TEXT NOT NULL,
+      createdAt TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_progress_photos_date ON progress_photos(date);
+
     CREATE INDEX IF NOT EXISTS idx_food_logs_date ON food_logs(date);
     CREATE INDEX IF NOT EXISTS idx_water_logs_date ON water_logs(date);
     CREATE INDEX IF NOT EXISTS idx_saved_meal_items ON saved_meal_items(savedMealLocalId);
@@ -352,6 +368,38 @@ function runMigrations() {
   // the edit sheet show/reopen it as entered. servingQty stays the source of truth for nutrition.
   ensureColumn('food_logs', 'entryAmount', 'REAL');
   ensureColumn('food_logs', 'entryUnit', 'TEXT');
+  migrateWeighInPhotos();
+}
+
+/**
+ * One-time move of the old one-photo-per-weigh-in model (`weight_entries.photoUri`) into
+ * `progress_photos` as the **front** pose, then clear the old column so it can't be read twice.
+ * Idempotent: rows already migrated have photoUri NULL; a (date, front) photo that already exists wins.
+ */
+function migrateWeighInPhotos() {
+  try {
+    const rows = db.getAllSync(
+      `SELECT localId, date, photoUri, updatedAt FROM weight_entries WHERE photoUri IS NOT NULL AND deleted = 0`
+    ) as { localId: string; date: string; photoUri: string; updatedAt: string | null }[];
+    if (!rows.length) return;
+    db.withTransactionSync(() => {
+      for (const r of rows) {
+        const exists = db.getFirstSync(
+          `SELECT 1 FROM progress_photos WHERE date = ? AND pose = 'front' AND deleted = 0`, [r.date]
+        );
+        if (!exists) {
+          const id = `mig-${r.localId}`;
+          const fileName = r.photoUri.split('/').pop() || r.photoUri;
+          db.runSync(
+            `INSERT OR IGNORE INTO progress_photos (localId, date, pose, fileName, createdAt, updatedAt, syncStatus)
+             VALUES (?, ?, 'front', ?, ?, ?, 'pending')`,
+            [id, r.date, fileName, r.updatedAt ?? new Date().toISOString(), new Date().toISOString()]
+          );
+        }
+        db.runSync(`UPDATE weight_entries SET photoUri = NULL WHERE localId = ?`, [r.localId]);
+      }
+    });
+  } catch { /* photoUri column missing on a very old DB → nothing to migrate */ }
 }
 
 function ensureColumn(table: string, column: string, decl: string) {

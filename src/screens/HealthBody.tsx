@@ -5,6 +5,7 @@ import { Scale, TrendingDown, TrendingUp, Minus, Target } from 'lucide-react-nat
 
 import { Card, FsText, Badge, Button } from '@/components/ui';
 import { AnimatedNumber } from '@/components/anim/AnimatedNumber';
+import { ProgressPhotosCard } from '@/components/ProgressPhotosCard';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useNavStore } from '@/stores/navStore';
@@ -172,6 +173,7 @@ export function HealthBody() {
 
   return (
     <>
+      <ProgressPhotosCard />
       <Card style={{ marginBottom: space[3] }}>
         <View style={styles.rowBetween}>
           <View style={{ flex: 1 }}>

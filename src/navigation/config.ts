@@ -30,6 +30,7 @@ import {
   TrendingUp,
   Sparkles,
   Percent,
+  Camera,
   type LucideIcon,
 } from 'lucide-react-native';
 
@@ -119,6 +120,7 @@ export const FAB_ACTIONS: Partial<Record<SectionKey, FabAction[]>> = {
   ],
   health: [
     { key: 'log-weight', label: 'Log weight', icon: Activity },
+    { key: 'progress-photo', label: 'Progress photos', icon: Camera },
     { key: 'log-measurement', label: 'Log measurement', icon: Ruler },
     { key: 'log-skinfold', label: 'Log calipers', icon: Percent },
     { key: 'proportions', label: 'Ideal proportions', icon: Sparkles },
