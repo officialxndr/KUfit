@@ -29,7 +29,7 @@ _Reviewed: June 3, 2026 · Re-checked & partially fixed: June 4, 2026 · Expo / 
 
 ## ⏭️ To do on the next build (TestFlight)
 - [ ] **Take the IAP review screenshot.** After the next `eas build` is on TestFlight, open
-  Settings → Support Hale (the tip screen) and capture it with all three prices loaded. Upload it as
+  Settings → "Buy the dev a coffee" → **Buy me a coffee** (the tip screen) and capture it with all three prices loaded. Upload it as
   the **Review screenshot** on each consumable (`…tip.small` / `.medium` / `.large`) in App Store
   Connect. The same image can be used for all three. Prices only appear once the Paid Apps Agreement
   is Active.
