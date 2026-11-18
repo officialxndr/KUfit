@@ -69,7 +69,7 @@ export default function CustomMilestoneEditor() {
         onClose={() => router.back()}
         right={<Pressable onPress={save} hitSlop={10}><FsText variant="bodyMedium" style={{ color: colors.success }}>Save</FsText></Pressable>}
       />
-      <ScrollView contentContainerStyle={{ padding: space[4], gap: space[4], paddingBottom: space[8] }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={{ padding: space[4], gap: space[4], paddingBottom: space[8] }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets keyboardDismissMode="interactive">
         <View style={{ gap: 6 }}>
           <FsText variant="caption">Label (optional)</FsText>
           <TextInput

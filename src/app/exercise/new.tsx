@@ -40,7 +40,7 @@ export default function NewExercise() {
         right={<Pressable onPress={save} hitSlop={10}><FsText variant="bodyMedium" style={{ color: colors.success }}>Save</FsText></Pressable>}
       />
 
-      <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: 120 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets keyboardDismissMode="interactive">
         <Field label="Name">
           <TextInput value={name} onChangeText={setName} placeholder="e.g. Incline DB Press" placeholderTextColor={colors.muted} style={styles.input} />
         </Field>

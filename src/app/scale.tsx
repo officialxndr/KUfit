@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { View, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { X } from 'lucide-react-native';
+
 
 import { FsText, Card, Button, SectionHeader } from '@/components/ui';
+import { ModalHeader } from '@/components/ModalHeader';
 import { useScale } from '@/lib/scales/useScale';
 import { SUPPORTED_SCALE_MODELS } from '@/lib/scales/registry';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
@@ -28,11 +29,8 @@ export default function ScaleScreen() {
   const connLabel = scale.status === 'connected' ? 'Connected' : scale.status === 'error' ? 'Not connected' : 'Searching…';
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
-      <View style={styles.header}>
-        <FsText variant="h2">Bluetooth scale</FsText>
-        <Pressable onPress={() => router.back()} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
-      </View>
+    <SafeAreaView style={styles.screen} edges={[]}>
+      <ModalHeader title="Bluetooth scale" onClose={() => router.back()} />
 
       <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: space[8] }}>
         {/* Live readout */}
@@ -101,7 +99,6 @@ export default function ScaleScreen() {
 
 const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space[4], paddingVertical: space[3] },
   conn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: space[2] },
   dot: { width: 8, height: 8, borderRadius: 4 },
   modelRow: { flexDirection: 'row', alignItems: 'center', gap: space[2], paddingVertical: 4 },

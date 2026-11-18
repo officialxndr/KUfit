@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { View, TextInput, StyleSheet, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { X } from 'lucide-react-native';
+
 
 import { FsText, Button } from '@/components/ui';
+import { ModalHeader } from '@/components/ModalHeader';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { useNavStore } from '@/stores/navStore';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
@@ -47,11 +48,8 @@ export default function QuickAdd() {
   };
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
-      <View style={styles.header}>
-        <FsText variant="h2">Quick add</FsText>
-        <Pressable onPress={() => router.back()} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
-      </View>
+    <SafeAreaView style={styles.screen} edges={[]}>
+      <ModalHeader title="Quick add" onClose={() => router.back()} />
       <FsText variant="caption" style={{ paddingHorizontal: space[4], marginBottom: space[3] }}>
         Log calories without picking a food — to {MEAL_LABEL[meal]}.
       </FsText>
@@ -105,7 +103,6 @@ function Macro({ label, value, onChange }: { label: string; value: string; onCha
 
 const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space[4], paddingVertical: space[3] },
   fieldRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceHigh, borderRadius: radius.md, paddingHorizontal: 14 },
   input: { flex: 1, color: colors.text, paddingVertical: 12, fontSize: 15 },
   suffix: { color: colors.muted },

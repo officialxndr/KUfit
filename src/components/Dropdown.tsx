@@ -4,7 +4,7 @@ import { ChevronDown, Check, type LucideIcon } from 'lucide-react-native';
 
 import { FsText } from '@/components/ui';
 import { haptic } from '@/lib/haptics';
-import { colors, radius, space, themedStyles } from '@/theme/tokens';
+import { colors, radius, space, themedStyles, primaryAlpha } from '@/theme/tokens';
 
 export interface DropdownItem { key: string; label: string }
 
@@ -91,7 +91,7 @@ const styles = themedStyles(() => StyleSheet.create({
     backgroundColor: colors.surfaceHigh, borderRadius: radius.sm,
     paddingHorizontal: 10, paddingVertical: 5,
   },
-  triggerActive: { backgroundColor: 'rgba(99,102,241,0.10)' },
+  triggerActive: { backgroundColor: primaryAlpha(0.10) },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)' },
   menu: {
     position: 'absolute',

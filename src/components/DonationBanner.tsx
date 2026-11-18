@@ -5,7 +5,7 @@ import { Card, FsText, Button } from '@/components/ui';
 import { useDonationStore, shouldShowDonationPrompt } from '@/stores/donationStore';
 import { openSupportFlow } from '@/lib/iap';
 import { haptic } from '@/lib/haptics';
-import { colors, space, themedStyles } from '@/theme/tokens';
+import { colors, space, themedStyles, primaryAlpha } from '@/theme/tokens';
 
 /**
  * Gentle, dismissible "buy the dev a coffee" nudge on the Dashboard. Renders nothing unless
@@ -44,6 +44,6 @@ const styles = themedStyles(() => StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
   iconWrap: {
     width: 34, height: 34, borderRadius: 17,
-    backgroundColor: 'rgba(99,102,241,0.12)', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: primaryAlpha(0.12), alignItems: 'center', justifyContent: 'center',
   },
 }));

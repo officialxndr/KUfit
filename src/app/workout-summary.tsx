@@ -14,7 +14,7 @@ import { useMotion } from '@/lib/useMotion';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useNavStore } from '@/stores/navStore';
-import { colors, radius, space, themedStyles } from '@/theme/tokens';
+import { colors, radius, space, themedStyles, primaryAlpha } from '@/theme/tokens';
 
 const { height: SCREEN_H, width: SCREEN_W } = Dimensions.get('window');
 const DAY_MS = 86_400_000;
@@ -101,9 +101,9 @@ export default function WorkoutSummary() {
   return (
     <View style={styles.root}>
       <Animated.View style={[styles.liquidBlock, { transform: [{ translateY: rise }] }]} pointerEvents="none">
-        <WaveLayer color="rgba(99,102,241,0.10)" amp={12} baseline={52} dur={3000} delay={0} />
-        <WaveLayer color="rgba(99,102,241,0.16)" amp={20} baseline={32} dur={2200} delay={140} />
-        <WaveLayer color="rgba(99,102,241,0.26)" amp={9} baseline={64} dur={3600} delay={300} />
+        <WaveLayer color={primaryAlpha(0.10)} amp={12} baseline={52} dur={3000} delay={0} />
+        <WaveLayer color={primaryAlpha(0.16)} amp={20} baseline={32} dur={2200} delay={140} />
+        <WaveLayer color={primaryAlpha(0.26)} amp={9} baseline={64} dur={3600} delay={300} />
       </Animated.View>
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <Animated.View style={[styles.content, contentStyle]}>

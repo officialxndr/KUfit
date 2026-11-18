@@ -3,7 +3,7 @@ import { Droplet, Plus, Undo2 } from 'lucide-react-native';
 
 import { Card, FsText } from '@/components/ui';
 import { UNIT_LABELS, mlToDisplay, FL_OZ_ML } from '@/lib/units';
-import { colors, radius, space, themedStyles } from '@/theme/tokens';
+import { colors, radius, space, themedStyles, primaryAlpha } from '@/theme/tokens';
 import type { UnitSystem } from '@/types';
 
 /** Quick-add increments per unit system (a glass/cup and a bottle), stored in ml. */
@@ -79,7 +79,7 @@ const styles = themedStyles(() => StyleSheet.create({
   pill: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingVertical: 7, paddingHorizontal: 12, borderRadius: radius.full,
-    backgroundColor: 'rgba(99,102,241,0.12)', borderWidth: 1, borderColor: 'rgba(99,102,241,0.30)',
+    backgroundColor: primaryAlpha(0.12), borderWidth: 1, borderColor: primaryAlpha(0.30),
   },
   undo: {
     marginLeft: 'auto', width: 32, height: 32, borderRadius: radius.full,

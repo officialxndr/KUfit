@@ -10,7 +10,7 @@ import { scrollMainTo } from '@/lib/appScroll';
 import { useMotion } from '@/lib/useMotion';
 import { DURATION, EASE } from '@/theme/motion';
 import { haptic } from '@/lib/haptics';
-import { colors, radius, space, shadow, themedStyles } from '@/theme/tokens';
+import { colors, radius, space, shadow, themedStyles, primaryAlpha } from '@/theme/tokens';
 
 /**
  * The guided feature tour overlay. Rendered once at the top of `AppShell`; shows
@@ -102,7 +102,7 @@ const styles = themedStyles(() => StyleSheet.create({
   },
   iconWrap: {
     width: 44, height: 44, borderRadius: radius.full,
-    backgroundColor: 'rgba(99,102,241,0.12)', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: primaryAlpha(0.12), alignItems: 'center', justifyContent: 'center',
   },
   progress: { marginTop: space[4], marginBottom: space[4] },
   progressHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },

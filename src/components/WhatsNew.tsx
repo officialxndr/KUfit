@@ -7,7 +7,7 @@ import { Sparkles, Bug, Check } from 'lucide-react-native';
 import { FsText, Button, Card } from '@/components/ui';
 import { getMeta, setMeta } from '@/lib/db';
 import { WHATS_NEW, WHATS_NEW_VERSION } from '@/lib/feedback';
-import { colors, radius, space, themedStyles } from '@/theme/tokens';
+import { colors, radius, space, themedStyles, primaryAlpha } from '@/theme/tokens';
 
 const SEEN_KEY = 'whatsNewSeen';
 
@@ -69,7 +69,7 @@ const styles = themedStyles(() => StyleSheet.create({
   card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: space[4] },
   iconWrap: {
     alignSelf: 'center', width: 56, height: 56, borderRadius: radius.full,
-    backgroundColor: 'rgba(99,102,241,0.12)', alignItems: 'center', justifyContent: 'center', marginBottom: space[3],
+    backgroundColor: primaryAlpha(0.12), alignItems: 'center', justifyContent: 'center', marginBottom: space[3],
   },
   item: { flexDirection: 'row', gap: space[2], alignItems: 'flex-start', marginBottom: space[2] },
   tip: { flexDirection: 'row', gap: space[2], alignItems: 'center' },

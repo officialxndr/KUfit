@@ -2,16 +2,17 @@ import { useEffect, useState } from 'react';
 import { View, StyleSheet, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { X, Coffee } from 'lucide-react-native';
+import { Coffee } from 'lucide-react-native';
 
 import { FsText, Button } from '@/components/ui';
+import { ModalHeader } from '@/components/ModalHeader';
 import { Confetti } from '@/components/anim/Confetti';
 import { useTipJar, tipJarSupported, type TipTier } from '@/lib/iap';
 import { useDonationStore } from '@/stores/donationStore';
 import { openSupport } from '@/lib/support';
 import { useMotion } from '@/lib/useMotion';
 import { haptic } from '@/lib/haptics';
-import { colors, radius, space, themedStyles } from '@/theme/tokens';
+import { colors, radius, space, themedStyles, primaryAlpha } from '@/theme/tokens';
 
 /**
  * "Buy the dev a coffee" — the native StoreKit tip jar (iOS). Reached from the Dashboard
@@ -22,12 +23,7 @@ export default function TipScreen() {
   const router = useRouter();
   return (
     <SafeAreaView style={styles.screen} edges={[]}>
-      <View style={styles.header}>
-        <FsText variant="h2">Buy the dev a coffee</FsText>
-        <Pressable onPress={() => router.back()} hitSlop={10}>
-          <X color={colors.text} size={24} />
-        </Pressable>
-      </View>
+      <ModalHeader title="Buy the dev a coffee" onClose={() => router.back()} />
       {tipJarSupported ? <TipJarBody /> : <UnsupportedBody />}
     </SafeAreaView>
   );
@@ -209,20 +205,12 @@ function UnsupportedBody() {
 const styles = themedStyles(() =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.bg },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: space[4],
-      paddingTop: space[4],
-      paddingBottom: space[2],
-    },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: space[6] },
     brand: {
       width: 64,
       height: 64,
       borderRadius: 32,
-      backgroundColor: 'rgba(99,102,241,0.12)',
+      backgroundColor: primaryAlpha(0.12),
       alignItems: 'center',
       justifyContent: 'center',
       alignSelf: 'center',

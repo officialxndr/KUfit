@@ -6,6 +6,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { X, ScanText, Circle, Scale as ScaleIcon } from 'lucide-react-native';
 
 import { FsText, Card, Button, SectionHeader } from '@/components/ui';
+import { ModalHeader } from '@/components/ModalHeader';
 import { ScaleWeighBar } from '@/components/ScaleWeighBar';
 import { useScale } from '@/lib/scales/useScale';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
@@ -204,12 +205,9 @@ export default function CustomFood() {
 
   return (
     <SafeAreaView style={styles.screen} edges={[]}>
-      <View style={styles.header}>
-        <FsText variant="h2">Custom Food</FsText>
-        <Pressable onPress={() => router.back()} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
-      </View>
+      <ModalHeader title="Custom Food" onClose={() => router.back()} />
 
-      <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: 120 }}>
+      <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: 120 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets keyboardDismissMode="interactive">
         <Pressable onPress={openScanner} style={styles.scanLabelBtn}>
           <ScanText color={colors.primary} size={20} />
           <View style={{ flex: 1 }}>
@@ -331,10 +329,6 @@ function Field({
 
 const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: space[4], paddingVertical: space[3],
-  },
   input: {
     backgroundColor: colors.surfaceHigh, borderRadius: radius.md,
     paddingHorizontal: 14, paddingVertical: 12, color: colors.text, fontSize: 14,

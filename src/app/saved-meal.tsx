@@ -2,9 +2,10 @@ import { useCallback, useState } from 'react';
 import { View, TextInput, StyleSheet, Pressable, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
-import { X, Minus, Plus, Trash2 } from 'lucide-react-native';
+import { Minus, Plus, Trash2 } from 'lucide-react-native';
 
 import { FsText, Button } from '@/components/ui';
+import { ModalHeader } from '@/components/ModalHeader';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { SavedMealItem } from '@/types';
@@ -55,22 +56,16 @@ export default function SavedMealEditor() {
 
   if (missing) {
     return (
-      <SafeAreaView style={styles.screen} edges={['top']}>
-        <View style={styles.header}>
-          <FsText variant="h2">Saved meal</FsText>
-          <Pressable onPress={() => router.back()} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
-        </View>
+      <SafeAreaView style={styles.screen} edges={[]}>
+        <ModalHeader title="Saved meal" onClose={() => router.back()} />
         <FsText variant="caption" style={{ paddingHorizontal: space[4] }}>This saved meal no longer exists.</FsText>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
-      <View style={styles.header}>
-        <FsText variant="h2">Edit meal</FsText>
-        <Pressable onPress={() => { commitName(); router.back(); }} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
-      </View>
+    <SafeAreaView style={styles.screen} edges={[]}>
+      <ModalHeader title="Saved meal" onClose={() => router.back()} />
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: space[4], paddingBottom: space[8] }} keyboardShouldPersistTaps="handled">
         <FsText variant="caption" style={{ marginBottom: 6 }}>Name</FsText>
@@ -125,7 +120,6 @@ export default function SavedMealEditor() {
 
 const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space[4], paddingVertical: space[3] },
   nameInput: { backgroundColor: colors.surfaceHigh, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12, color: colors.text, fontSize: 15 },
   totalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: space[4], marginBottom: space[2] },
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: space[2], paddingVertical: space[2], borderTopWidth: 1, borderTopColor: colors.border },

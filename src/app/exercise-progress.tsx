@@ -2,9 +2,10 @@ import { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { X, GitCompare } from 'lucide-react-native';
+import { GitCompare } from 'lucide-react-native';
 
 import { FsText, Card } from '@/components/ui';
+import { ModalHeader } from '@/components/ModalHeader';
 import { BottomSheet } from '@/components/BottomSheet';
 import { LineChart, type Series } from '@/components/LineChart';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
@@ -56,13 +57,7 @@ export default function ExerciseProgress() {
 
   return (
     <SafeAreaView style={styles.screen} edges={[]}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
-        <FsText variant="cardTitle" numberOfLines={1} style={{ flex: 1, textAlign: 'center' }}>{primaryName}</FsText>
-        <Pressable onPress={() => (compareId ? clearCompare() : setPicking(true))} hitSlop={10}>
-          <GitCompare color={compareId ? colors.primary : colors.muted} size={22} />
-        </Pressable>
-      </View>
+      <ModalHeader title={primaryName} onClose={() => router.back()} right={<Pressable onPress={() => (compareId ? clearCompare() : setPicking(true))} hitSlop={10}><GitCompare color={compareId ? colors.primary : colors.muted} size={22} /></Pressable>} />
 
       <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: 60 }}>
         {history.length === 0 ? (
@@ -152,11 +147,6 @@ function Legend({ color, label }: { color: string; label: string }) {
 
 const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: space[2],
-    paddingHorizontal: space[4], paddingVertical: space[3],
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
   statRow: { flexDirection: 'row', gap: space[2], marginBottom: space[3] },
   statCard: { flex: 1, alignItems: 'center' },
   legendRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: space[2] },

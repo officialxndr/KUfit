@@ -2,9 +2,10 @@ import { useCallback, useState, type ComponentProps } from 'react';
 import { View, TextInput, StyleSheet, Pressable, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { X, Bug, Lightbulb, Camera, Trash2 } from 'lucide-react-native';
+import { Bug, Lightbulb, Camera, Trash2 } from 'lucide-react-native';
 
 import { FsText, Card, Button, Chip } from '@/components/ui';
+import { ModalHeader } from '@/components/ModalHeader';
 import { feedbackRepo, type FeedbackEntry, type FeedbackType } from '@/lib/repositories/FeedbackRepo';
 import { submitFeedback, FEEDBACK_EMAIL } from '@/lib/feedback';
 import { haptic } from '@/lib/haptics';
@@ -45,10 +46,7 @@ export default function FeedbackScreen() {
 
   return (
     <SafeAreaView style={styles.screen} edges={[]}>
-      <View style={styles.header}>
-        <FsText variant="h2">Send feedback</FsText>
-        <Pressable onPress={() => router.back()} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
-      </View>
+      <ModalHeader title="Send feedback" onClose={() => router.back()} />
 
       <View style={styles.tabs}>
         <Chip label="Report a bug" selected={tab === 'bug'} onPress={() => setTab('bug')} />
@@ -56,7 +54,7 @@ export default function FeedbackScreen() {
         <Chip label="Mine" selected={tab === 'mine'} onPress={() => setTab('mine')} />
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: 60 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets keyboardDismissMode="interactive">
         {tab === 'bug' && (
           <>
             <Card style={styles.tipCard}>
@@ -133,7 +131,6 @@ function Field({ label, multiline, ...props }: { label: string; multiline?: bool
 
 const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space[4], paddingVertical: space[3] },
   tabs: { flexDirection: 'row', gap: space[2], paddingHorizontal: space[4], paddingBottom: space[2] },
   tipCard: { marginBottom: space[3], flexDirection: 'row', gap: space[3], alignItems: 'flex-start' },
   historyRow: { marginBottom: space[2], flexDirection: 'row', alignItems: 'center', gap: space[3] },

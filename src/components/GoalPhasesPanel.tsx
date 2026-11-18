@@ -9,7 +9,7 @@ import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { safeRateWarning, MIN_SAFE_CALORIES } from '@/lib/tdee';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { toKg, formatWeight, UNIT_LABELS } from '@/lib/units';
-import { colors, radius, space, themedStyles } from '@/theme/tokens';
+import { colors, radius, space, themedStyles, primaryAlpha } from '@/theme/tokens';
 import type { GoalPhase, GoalType } from '@/types';
 import { todayLocal } from '@/lib/date';
 
@@ -227,7 +227,7 @@ const styles = themedStyles(() => StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 10, color: colors.text, fontSize: 14,
   },
   iconWrap: {
-    width: 56, height: 56, borderRadius: radius.lg, backgroundColor: 'rgba(99,102,241,0.12)',
+    width: 56, height: 56, borderRadius: radius.lg, backgroundColor: primaryAlpha(0.12),
     alignItems: 'center', justifyContent: 'center',
   },
 }));

@@ -25,7 +25,8 @@ import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { health } from '@/lib/health';
 import { caloriesBurnedFromDuration } from '@/lib/activities';
 import { nextSetCell, restAfterSet, supersetRuns, supersetLabels } from '@/lib/supersets';
-import { colors, radius, space, tintBg, themedStyles } from '@/theme/tokens';
+import { colors, radius, space, tintBg, themedStyles, primaryAlpha } from '@/theme/tokens';
+import { useMotion } from '@/lib/useMotion';
 import type { LocalExercise, LocalSet } from '@/types';
 
 type Field = 'w' | 'r';
@@ -38,6 +39,7 @@ function elapsed(startedAt: string | null): string {
 }
 
 export default function SessionScreen() {
+  const { animate } = useMotion();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const unit = useSettingsStore((s) => s.profile.unitSystem);
@@ -411,7 +413,7 @@ export default function SessionScreen() {
                     hitSlop={6}
                   >
                     {st.done && (
-                      <Animated.View entering={ZoomIn.springify().damping(11).stiffness(180)}>
+                      <Animated.View entering={animate ? ZoomIn.springify().damping(11).stiffness(180) : undefined}>
                         <Check color={colors.white} size={15} strokeWidth={3} />
                       </Animated.View>
                     )}
@@ -746,7 +748,7 @@ const styles = themedStyles(() => StyleSheet.create({
   exHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: space[2], gap: space[1] },
   supersetWrap: {
     borderLeftWidth: 3, borderLeftColor: colors.primary,
-    borderRadius: radius.md, backgroundColor: 'rgba(99,102,241,0.05)',
+    borderRadius: radius.md, backgroundColor: primaryAlpha(0.05),
     paddingLeft: space[2], paddingTop: space[2], marginBottom: space[3],
   },
   supersetTag: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: space[2], paddingBottom: space[1] },

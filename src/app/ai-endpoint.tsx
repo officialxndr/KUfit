@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { View, TextInput, StyleSheet, Pressable, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { X } from 'lucide-react-native';
+
 
 import { FsText, Button, Chip } from '@/components/ui';
+import { ModalHeader } from '@/components/ModalHeader';
 import { useSettingsStore, type AiEndpoint } from '@/stores/settingsStore';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 
@@ -57,11 +58,8 @@ export default function AiEndpointEditor() {
   };
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
-      <View style={styles.header}>
-        <FsText variant="h2">{existing ? 'Edit endpoint' : 'Add endpoint'}</FsText>
-        <Pressable onPress={() => router.back()} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
-      </View>
+    <SafeAreaView style={styles.screen} edges={[]}>
+      <ModalHeader title={existing ? 'Edit endpoint' : 'Add endpoint'} onClose={() => router.back()} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: space[8], gap: space[3] }} keyboardShouldPersistTaps="handled">
           <Field label="Nickname"><TextInput value={name} onChangeText={setName} placeholder="My Ollama" placeholderTextColor={colors.muted} style={styles.input} /></Field>
@@ -113,6 +111,5 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space[4], paddingVertical: space[3] },
   input: { backgroundColor: colors.surfaceHigh, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12, color: colors.text, fontSize: 14 },
 }));

@@ -21,7 +21,7 @@ import { syncBodyFatGoalWeight, currentLeanMassKg } from '@/lib/goalWeight';
 import { useSettingsStore, type NutrientGoal, type Profile } from '@/stores/settingsStore';
 import { NUTRIENT_DEFS } from '@/lib/offNutrients';
 import { toDisplay, toKg, formatWeight, UNIT_LABELS } from '@/lib/units';
-import { colors, space, radius, themedStyles } from '@/theme/tokens';
+import { colors, space, radius, themedStyles, primaryAlpha } from '@/theme/tokens';
 import type { ActivityLevel, GoalMode, GoalPhase, GoalType } from '@/types';
 
 const GOAL_TYPES: { key: GoalType; label: string }[] = [
@@ -503,7 +503,7 @@ function TdeeCard({ currentKg, profile, setProfile }: {
               <Pressable
                 key={r.label}
                 onPress={() => setProfile({ calorieGoal: r.value })}
-                style={[styles.tdeeRow, i > 0 && styles.rowDivider, active && { backgroundColor: 'rgba(99,102,241,0.12)' }]}
+                style={[styles.tdeeRow, i > 0 && styles.rowDivider, active && { backgroundColor: primaryAlpha(0.12) }]}
               >
                 <FsText variant="body">{r.label}</FsText>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }}>

@@ -16,6 +16,7 @@ import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { resolveTargets } from '@/lib/targets';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { colors, radius, space, shadow, themedStyles } from '@/theme/tokens';
+import { useMotion } from '@/lib/useMotion';
 import {
   amountToServings, convertAmount, describeServing, formatAmount, initialSheetEntry,
   parseAmount, servingsToAmount, unitLabel, unitsForFood,
@@ -132,6 +133,11 @@ export function FoodQuantitySheet({
   const scrollRef = useRef<ScrollView>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  // Reduce Motion / in-app animations toggle: open + close snap instead of sliding. A ref so the
+  // open effect (keyed on `food`) reads the current value without re-running on toggle.
+  const { animate } = useMotion();
+  const animateRef = useRef(animate);
+  animateRef.current = animate;
   // Full-screen dim fades in as the sheet slides up (and lightens as you drag down).
   const backdropOpacity = translateY.interpolate({
     inputRange: [0, SCREEN_H],
@@ -148,8 +154,11 @@ export function FoodQuantitySheet({
       setAmount(start.amount);
       setUnit(start.unit);
       setUnitMenuOpen(false);
-      translateY.setValue(SCREEN_H);
-      Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 3, speed: 14 }).start();
+      if (!animateRef.current) translateY.setValue(0);
+      else {
+        translateY.setValue(SCREEN_H);
+        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 3, speed: 14 }).start();
+      }
     }
     // initialEntry is read only when a new food opens (keyed on `food`), not on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -193,6 +202,7 @@ export function FoodQuantitySheet({
   }, [weighing, scale.reading, unit]);
 
   const animateClose = () => {
+    if (!animateRef.current) { closeRef.current(); return; }
     Animated.timing(translateY, { toValue: SCREEN_H, duration: 220, useNativeDriver: true })
       .start(() => closeRef.current());
   };
@@ -511,7 +521,9 @@ const styles = themedStyles(() => StyleSheet.create({
     width: 44, height: 5, borderRadius: radius.full, backgroundColor: colors.border,
   },
   actions: { paddingTop: space[2] },
-  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], marginBottom: space[3] },
+  // zIndex lifts the whole row (not just the menu) so the open unit dropdown draws over the
+  // summary card below — a child's zIndex only orders it among its own siblings.
+  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], marginBottom: space[3], zIndex: 10, elevation: 10 },
   portionWrap: { marginBottom: space[3] },
   portionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
   portionChip: {

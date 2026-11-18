@@ -13,7 +13,7 @@ import { composition, targetWeightForBodyFat } from '@/lib/bodyComposition';
 import { computeBodyFatView } from '@/lib/bodyFatResolve';
 import { syncBodyFatGoalWeight } from '@/lib/goalWeight';
 import { haptic } from '@/lib/haptics';
-import { colors, radius, space, themedStyles } from '@/theme/tokens';
+import { colors, radius, space, themedStyles, primaryAlpha } from '@/theme/tokens';
 import type { WeightEntry, BodyMeasurement, UnitSystem, Sex } from '@/types';
 import { todayLocal } from '@/lib/date';
 
@@ -493,7 +493,7 @@ function Mini({ label, value }: { label: string; value: string }) {
 
 const styles = themedStyles(() => StyleSheet.create({
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  srcPill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, backgroundColor: 'rgba(99,102,241,0.15)' },
+  srcPill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, backgroundColor: primaryAlpha(0.15) },
   rangeBar: { flexDirection: 'row', height: 12, borderRadius: radius.full, overflow: 'hidden', backgroundColor: colors.surfaceHigh },
   rangeSeg: { height: '100%' },
   rangeArrow: { position: 'absolute', top: 0, width: 0, height: 0, borderLeftWidth: 6, borderRightWidth: 6, borderTopWidth: 10, borderLeftColor: 'transparent', borderRightColor: 'transparent', marginLeft: -6 },

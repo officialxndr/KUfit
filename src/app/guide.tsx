@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { Search, X } from 'lucide-react-native';
 
 import { FsText, Card } from '@/components/ui';
+import { ModalHeader } from '@/components/ModalHeader';
 import { GUIDE, type GuideEntry } from '@/lib/guideContent';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 
@@ -30,11 +31,8 @@ export default function GuideScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
-      <View style={styles.header}>
-        <FsText variant="h2">Feature guide</FsText>
-        <Pressable onPress={() => router.back()} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
-      </View>
+    <SafeAreaView style={styles.screen} edges={[]}>
+      <ModalHeader title="Feature guide" onClose={() => router.back()} />
 
       <View style={styles.searchField}>
         <Search color={colors.muted} size={18} />
@@ -84,10 +82,6 @@ export default function GuideScreen() {
 
 const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: space[4], paddingVertical: space[3],
-  },
   searchField: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: colors.surfaceHigh, borderRadius: radius.md,

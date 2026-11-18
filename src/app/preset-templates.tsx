@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react';
 import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { X, Dumbbell } from 'lucide-react-native';
+import { Dumbbell } from 'lucide-react-native';
 
 import { Card, FsText, Button, Badge } from '@/components/ui';
+import { ModalHeader } from '@/components/ModalHeader';
 import { PRESET_TEMPLATES, resolvePresetExercises, addPresetTemplate, type PresetTemplate } from '@/lib/presetTemplates';
 import { haptic } from '@/lib/haptics';
 import { colors, radius, space, tintBg, themedStyles } from '@/theme/tokens';
@@ -43,15 +44,8 @@ export default function PresetTemplatesScreen() {
 
   return (
     <SafeAreaView style={styles.screen} edges={[]}>
-      <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <FsText variant="h2">Pre-set templates</FsText>
-          <FsText variant="caption">Ready-made workouts — add one and tweak it however you like.</FsText>
-        </View>
-        <Pressable onPress={() => router.back()} hitSlop={10}>
-          <X color={colors.text} size={24} />
-        </Pressable>
-      </View>
+      <ModalHeader title="Pre-set templates" onClose={() => router.back()} />
+      <FsText variant="caption" style={{ paddingHorizontal: space[4], paddingTop: space[3] }}>Ready-made workouts — add one and tweak it however you like.</FsText>
 
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: space[4], paddingBottom: space[6] }}
@@ -120,10 +114,6 @@ export default function PresetTemplatesScreen() {
 
 const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  header: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: space[2],
-    paddingHorizontal: space[4], paddingVertical: space[3],
-  },
   cardHead: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
   iconWrap: {
     width: 36, height: 36, borderRadius: radius.sm,

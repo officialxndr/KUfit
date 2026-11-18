@@ -3,9 +3,10 @@ import { View, TextInput, StyleSheet, Pressable, ScrollView, ActivityIndicator, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { X, Sparkles } from 'lucide-react-native';
+import { Sparkles } from 'lucide-react-native';
 
 import { FsText, Button, Card } from '@/components/ui';
+import { ModalHeader } from '@/components/ModalHeader';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { estimateMeal } from '@/lib/mealVision';
 import { isVisionConfigured, resolveAiConfig } from '@/lib/llm/visionProviders';
@@ -97,14 +98,8 @@ export default function EstimateMeal() {
   };
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
-      <View style={styles.header}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space[2] }}>
-          <Sparkles color={colors.primary} size={20} />
-          <FsText variant="h2">Estimate a meal</FsText>
-        </View>
-        <Pressable onPress={() => router.back()} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
-      </View>
+    <SafeAreaView style={styles.screen} edges={[]}>
+      <ModalHeader title="Estimate a meal" onClose={() => router.back()} right={<Sparkles color={colors.primary} size={20} />} />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: space[8], gap: space[3] }} keyboardShouldPersistTaps="handled">
@@ -173,7 +168,6 @@ function Field({ label, ...props }: { label: string } & React.ComponentProps<typ
 
 const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space[4], paddingVertical: space[3] },
   photo: { width: '100%', height: 200, borderRadius: radius.md, backgroundColor: colors.surfaceHigh },
   input: { backgroundColor: colors.surfaceHigh, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12, color: colors.text, fontSize: 14 },
   mealRow: { flexDirection: 'row', gap: space[2] },

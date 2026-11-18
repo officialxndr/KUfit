@@ -2,9 +2,10 @@ import { useCallback, useMemo, useState } from 'react';
 import { View, TextInput, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { X, Search, ChevronRight, BarChart2 } from 'lucide-react-native';
+import { Search, ChevronRight, BarChart2 } from 'lucide-react-native';
 
 import { FsText, Card } from '@/components/ui';
+import { ModalHeader } from '@/components/ModalHeader';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 
@@ -21,11 +22,7 @@ export default function ExerciseReports() {
 
   return (
     <SafeAreaView style={styles.screen} edges={[]}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
-        <FsText variant="cardTitle">Exercise Reports</FsText>
-        <View style={{ width: 24 }} />
-      </View>
+      <ModalHeader title="Exercise Reports" onClose={() => router.back()} />
 
       <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
         {items.length === 0 ? (
@@ -71,11 +68,6 @@ export default function ExerciseReports() {
 
 const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: space[4], paddingVertical: space[3],
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
   searchRow: {
     flexDirection: 'row', alignItems: 'center', gap: space[2],
     backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,

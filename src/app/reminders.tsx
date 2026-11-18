@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { X, Plus } from 'lucide-react-native';
 
 import { FsText, Card, Chip } from '@/components/ui';
+import { ModalHeader } from '@/components/ModalHeader';
 import { TimeField, formatTime } from '@/components/TimeField';
 import { StepperField } from '@/components/StepperField';
 import {
@@ -55,10 +56,7 @@ export default function RemindersScreen() {
 
   return (
     <SafeAreaView style={styles.screen} edges={[]}>
-      <View style={styles.header}>
-        <FsText variant="h2">Reminders</FsText>
-        <Pressable onPress={() => router.back()} hitSlop={10}><X color={colors.text} size={24} /></Pressable>
-      </View>
+      <ModalHeader title="Reminders" onClose={() => router.back()} />
 
       <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: 60 }}>
         <FsText variant="caption" style={{ marginBottom: space[3] }}>
@@ -212,10 +210,6 @@ function summarize(cfg: IntervalReminder | ScheduleReminder | FoodReminder): str
 
 const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: space[4], paddingVertical: space[3],
-  },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[3] },
   labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },

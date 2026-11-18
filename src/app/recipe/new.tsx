@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { View, TextInput, StyleSheet, Pressable, ScrollView, FlatList, ActivityIndicator, Alert, Keyboard, BackHandler } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { X, Search, Plus, Minus, Trash2 } from 'lucide-react-native';
+import { Search, Plus, Minus, Trash2 } from 'lucide-react-native';
 
 import { FsText, Button, Card } from '@/components/ui';
+import { ModalHeader } from '@/components/ModalHeader';
 import { FoodQuantitySheet, type SheetFood } from '@/components/FoodQuantitySheet';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
+import { describeServing } from '@/lib/servingUnits';
 import { searchFood, ensureFoodItem, type FoodCandidate } from '@/lib/foodSearch';
 import { todayLocal } from '@/lib/date';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
@@ -160,15 +162,7 @@ export default function NewRecipe() {
 
   return (
     <SafeAreaView style={styles.screen} edges={[]}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={10}>
-          <X color={colors.text} size={24} />
-        </Pressable>
-        <FsText variant="cardTitle">{editing ? 'Edit Recipe' : 'New Recipe'}</FsText>
-        <Pressable onPress={save} hitSlop={10}>
-          <FsText variant="bodyMedium" style={{ color: colors.success }}>Save</FsText>
-        </Pressable>
-      </View>
+      <ModalHeader title={editing ? 'Edit Recipe' : 'New Recipe'} onClose={() => router.back()} right={<Pressable onPress={save} hitSlop={10}><FsText variant="bodyMedium" style={{ color: colors.success }}>Save</FsText></Pressable>} />
 
       <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
         <TextInput
@@ -296,7 +290,7 @@ export default function NewRecipe() {
                       <View style={{ flex: 1 }}>
                         <FsText variant="body" numberOfLines={1}>{c.name}</FsText>
                         <FsText variant="caption" numberOfLines={1}>
-                          {c.brand ? `${c.brand} · ` : ''}{Math.round(c.calories)} kcal · {c.servingSize}{c.servingUnit}{inRecipe ? ' · in recipe' : ''}
+                          {c.brand ? `${c.brand} · ` : ''}{Math.round(c.calories)} kcal · {describeServing(c)}{inRecipe ? ' · in recipe' : ''}
                         </FsText>
                       </View>
                       <Plus color={inRecipe ? colors.muted : colors.primary} size={18} />
@@ -345,15 +339,6 @@ export default function NewRecipe() {
 
 const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: space[4],
-    paddingVertical: space[3],
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
   input: {
     backgroundColor: colors.surfaceHigh,
     borderRadius: radius.md,

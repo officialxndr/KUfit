@@ -3,6 +3,7 @@ import { View, StyleSheet, Pressable, Modal, Animated, PanResponder, Dimensions,
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
+import { useMotion } from '@/lib/useMotion';
 
 const SCREEN_H = Dimensions.get('window').height;
 
@@ -34,6 +35,7 @@ export function BottomSheet({
   contentStyle?: object;
 }) {
   const insets = useSafeAreaInsets();
+  const { animate } = useMotion();
   const [kbHeight, setKbHeight] = useState(0);
   const sheetMaxHeight = SCREEN_H - insets.top - 24 - kbHeight;
   const [mounted, setMounted] = useState(visible);
@@ -54,13 +56,15 @@ export function BottomSheet({
   useEffect(() => {
     if (visible) {
       setMounted(true);
+      if (!animate) { translateY.setValue(0); return; }
       translateY.setValue(SCREEN_H);
       Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 3, speed: 14 }).start();
     } else {
+      if (!animate) { translateY.setValue(SCREEN_H); setMounted(false); return; }
       Animated.timing(translateY, { toValue: SCREEN_H, duration: 200, useNativeDriver: true })
         .start(({ finished }) => { if (finished) setMounted(false); });
     }
-  }, [visible, translateY]);
+  }, [visible, translateY, animate]);
 
   const handlePan = useRef(
     PanResponder.create({

@@ -120,6 +120,13 @@ const saved = readSavedTheme();
 /** ACTIVE theme — mutated in place by `applyTheme`. Never reassign the binding. */
 export const colors: ThemeColors = buildColors(saved.preset, saved.accent);
 
+/**
+ * The current accent at `alpha` opacity — for tinted chips/icon circles/highlights. Reads the
+ * live accent at call time, so use it inside `themedStyles` or render (never hard-code the
+ * default indigo `rgba(99,102,241,…)`, which ignores a user's chosen accent).
+ */
+export function primaryAlpha(alpha: number): string { return rgba(colors.primary, alpha); }
+
 /** Tinted status-badge backgrounds (10% wash). Rebuilt with the theme. */
 export const tintBg = {
   success: rgba(colors.success, 0.1),

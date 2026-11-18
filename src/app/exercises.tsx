@@ -3,9 +3,10 @@ import { View, TextInput, StyleSheet, Pressable, FlatList, ScrollView, Alert } f
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { Search, ChevronRight, X } from 'lucide-react-native';
+import { Search, ChevronRight } from 'lucide-react-native';
 
 import { FsText, Chip, Button } from '@/components/ui';
+import { ModalHeader } from '@/components/ModalHeader';
 import { ExerciseInfoSheet } from '@/components/ExerciseInfoSheet';
 import { workoutRepo } from '@/lib/repositories/WorkoutRepo';
 import { useSessionStore } from '@/stores/sessionStore';
@@ -73,12 +74,7 @@ export default function ExercisesScreen() {
 
   return (
     <SafeAreaView style={styles.screen} edges={[]}>
-      <View style={styles.header}>
-        <FsText variant="h2">{isPicking ? 'Add exercises' : 'Exercise Library'}</FsText>
-        <Pressable onPress={onExit} hitSlop={10}>
-          <X color={colors.text} size={24} />
-        </Pressable>
-      </View>
+      <ModalHeader title={isPicking ? 'Add exercises' : 'Exercise Library'} onClose={onExit} />
 
       <View style={styles.searchField}>
         <Search color={colors.muted} size={18} />
@@ -198,10 +194,6 @@ export default function ExercisesScreen() {
 
 const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: space[4], paddingVertical: space[3],
-  },
   searchField: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: colors.surfaceHigh, borderRadius: radius.md,

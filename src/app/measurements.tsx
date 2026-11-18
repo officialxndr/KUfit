@@ -12,7 +12,7 @@ import { FsText, Card, Button, SectionHeader } from '@/components/ui';
 import { healthRepo } from '@/lib/repositories/HealthRepo';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { inchesToCm } from '@/lib/units';
-import { colors, radius, space, themedStyles } from '@/theme/tokens';
+import { colors, radius, space, themedStyles, primaryAlpha } from '@/theme/tokens';
 import type { BodyMeasurement } from '@/types';
 import { todayLocal } from '@/lib/date';
 
@@ -82,7 +82,7 @@ export default function MeasurementsScreen() {
     <SafeAreaView style={styles.screen} edges={[]}>
       <ModalHeader title="Measurements" onClose={() => router.back()} />
 
-      <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: 120 }}>
+      <ScrollView contentContainerStyle={{ padding: space[4], paddingBottom: 120 }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets keyboardDismissMode="interactive">
         <Pressable style={styles.tapeBtn} onPress={() => setMode('tape')}>
           <Bluetooth color={colors.primary} size={18} />
           <FsText variant="bodyMedium" style={{ color: colors.primary }}>Measure with Renpho tape</FsText>
@@ -147,7 +147,7 @@ const styles = themedStyles(() => StyleSheet.create({
   tapeBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space[2],
     paddingVertical: space[3], marginBottom: space[3], borderRadius: radius.md,
-    borderWidth: 1, borderColor: colors.primary, backgroundColor: 'rgba(99,102,241,0.08)',
+    borderWidth: 1, borderColor: colors.primary, backgroundColor: primaryAlpha(0.08),
   },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
   cell: { width: '31%' },

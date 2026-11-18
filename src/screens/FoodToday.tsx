@@ -39,7 +39,7 @@ import { resolveBaseTargets, activeCaloriesForDisplay } from '@/lib/targets';
 import { computeActiveCaloriesForRange } from '@/lib/activeCalories';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useActiveCaloriesStore } from '@/stores/activeCaloriesStore';
-import { colors, radius, space, PAGE_PADDING, themedStyles } from '@/theme/tokens';
+import { colors, radius, space, PAGE_PADDING, themedStyles, primaryAlpha } from '@/theme/tokens';
 import type { FoodLog, MealType } from '@/types';
 
 /** Normalize a logged item (food, recipe, or quick-add) into the shared quantity sheet's shape. */
@@ -72,7 +72,6 @@ function logToSheetFood(l: FoodLog): SheetFood | null {
   return null;
 }
 
-const DAY_MS = 86_400_000;
 const isoDate = isoLocalDay;
 const firstOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
 const PAGE_W = Dimensions.get('window').width - PAGE_PADDING * 2;
@@ -298,8 +297,8 @@ export function FoodToday() {
   const d = parseLocalDay(date);
   const todayIso = isoDate(new Date());
   const dayLabel = date === todayIso ? 'Today'
-    : date === isoDate(new Date(Date.now() - DAY_MS)) ? 'Yesterday'
-      : date === isoDate(new Date(Date.now() + DAY_MS)) ? 'Tomorrow'
+    : date === addDays(todayIso, -1) ? 'Yesterday'
+      : date === addDays(todayIso, 1) ? 'Tomorrow'
         : d.toLocaleDateString(undefined, { weekday: 'long' });
   const dateSub = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
@@ -575,7 +574,7 @@ const styles = themedStyles(() => StyleSheet.create({
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.border },
   dotOn: { backgroundColor: colors.primary, width: 16 },
   mealHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: space[3], paddingHorizontal: space[4] },
-  addBtn: { width: 28, height: 28, borderRadius: radius.full, backgroundColor: 'rgba(99,102,241,0.20)', alignItems: 'center', justifyContent: 'center' },
+  addBtn: { width: 28, height: 28, borderRadius: radius.full, backgroundColor: primaryAlpha(0.20), alignItems: 'center', justifyContent: 'center' },
   itemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: space[2], paddingHorizontal: space[4], borderTopWidth: 1, borderTopColor: colors.border, gap: space[3] },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: space[4] },
   calCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: space[4] },

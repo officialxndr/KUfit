@@ -10,7 +10,7 @@ import { PressableScale } from '@/components/anim/PressableScale';
 import { useMotion } from '@/lib/useMotion';
 import { DURATION } from '@/theme/motion';
 import { REMINDER_META, type ReminderKey } from '@/stores/remindersStore';
-import { colors, radius, space, themedStyles } from '@/theme/tokens';
+import { colors, radius, space, themedStyles, primaryAlpha } from '@/theme/tokens';
 
 const ICONS: Record<ReminderKey, typeof Ruler> = {
   measurements: Ruler,
@@ -74,7 +74,7 @@ const styles = themedStyles(() => StyleSheet.create({
   },
   iconWrap: {
     width: 38, height: 38, borderRadius: radius.full,
-    backgroundColor: 'rgba(99,102,241,0.12)', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: primaryAlpha(0.12), alignItems: 'center', justifyContent: 'center',
   },
   dismiss: { padding: 2 },
 }));

@@ -9,11 +9,13 @@ import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'ex
 import { X, ScanLine, Search, Plus, Star, Utensils, BookmarkPlus, Pencil, Trash2 } from 'lucide-react-native';
 
 import { FsText, Button } from '@/components/ui';
+import { ModalHeader } from '@/components/ModalHeader';
 import { KebabMenu } from '@/components/KebabMenu';
 import { Skeleton } from '@/components/anim/Skeleton';
 import { FoodQuantitySheet, type SheetFood } from '@/components/FoodQuantitySheet';
 import { searchFood, barcodeLookup, ensureFoodItem, type FoodCandidate } from '@/lib/foodSearch';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
+import { describeServing } from '@/lib/servingUnits';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { FoodItem, MealType, Recipe, SavedMeal } from '@/types';
 import { todayLocal } from '@/lib/date';
@@ -224,12 +226,7 @@ export default function AddFoodModal() {
 
   return (
     <SafeAreaView style={styles.screen} edges={[]}>
-      <View style={styles.header}>
-        <FsText variant="h2">Add to {meal[0] + meal.slice(1).toLowerCase()}</FsText>
-        <Pressable onPress={() => router.back()} hitSlop={10}>
-          <X color={colors.text} size={24} />
-        </Pressable>
-      </View>
+      <ModalHeader title={`Add to ${meal[0] + meal.slice(1).toLowerCase()}`} onClose={() => router.back()} />
 
       <View style={styles.searchRow}>
         <View style={styles.searchField}>
@@ -337,7 +334,7 @@ export default function AddFoodModal() {
             <View style={{ flex: 1 }}>
               <FsText variant="bodyMedium" numberOfLines={1}>{item.food.name}</FsText>
               <FsText variant="caption" numberOfLines={1}>
-                {item.food.brand ? `${item.food.brand} · ` : ''}{Math.round(item.food.calories)} kcal / {item.food.servingSize}{item.food.servingUnit}
+                {item.food.brand ? `${item.food.brand} · ` : ''}{Math.round(item.food.calories)} kcal / {describeServing(item.food)}
                 {item.food.isCustom ? ' · custom' : ''}
               </FsText>
             </View>
@@ -365,10 +362,6 @@ export default function AddFoodModal() {
 
 const styles = themedStyles(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: space[4], paddingVertical: space[3],
-  },
   searchRow: { flexDirection: 'row', gap: space[2], paddingHorizontal: space[4], marginBottom: space[3] },
   searchField: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,

@@ -5,7 +5,7 @@ import { FsText } from '@/components/ui';
 import { useTourStore } from '@/stores/tourStore';
 import { TOUR_PAGES, tourStepsFor, BASIC_STEP_COUNT, ADVANCED_STEP_COUNT } from '@/lib/tourSteps';
 import { haptic } from '@/lib/haptics';
-import { colors, radius, space, themedStyles } from '@/theme/tokens';
+import { colors, radius, space, themedStyles, primaryAlpha } from '@/theme/tokens';
 
 /**
  * The tour chooser. Lets the user pick a **Basic** (essentials) or **Advanced** (every
@@ -87,7 +87,7 @@ const styles = themedStyles(() => StyleSheet.create({
   },
   tierIcon: {
     width: 40, height: 40, borderRadius: radius.full,
-    backgroundColor: 'rgba(99,102,241,0.12)', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: primaryAlpha(0.12), alignItems: 'center', justifyContent: 'center',
   },
   pageRow: {
     flexDirection: 'row', alignItems: 'center', gap: space[3],

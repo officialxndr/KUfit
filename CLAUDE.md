@@ -326,6 +326,8 @@ for backup + Home Assistant / **MCP** access (`serverStore` is null by default).
   screen → a double "wipe" transition. (Onboarding is the exception: it was *reached* via replace.)
 - **Custom exercises only** are deletable (`WorkoutRepo.deleteCustomExercise` refuses seeded rows); never
   let the bundled catalog be edited/deleted.
+- **Accent tints**: use `primaryAlpha(a)` from `theme/tokens` for tinted chips/icon circles/highlights —
+  never hard-code the default indigo `rgba(99,102,241,…)` (it ignores the user's chosen accent).
 - **Motion**: reuse the shared layer — `theme/motion.ts` tokens + `components/anim/*` primitives
   (`AnimatedNumber`, `PressableScale`, `ScreenTransition`, `GrowBar`, `Confetti`, `Skeleton`). **Always
   gate animation on `useMotion()`** (`{ animate, confetti }`) so the OS Reduce-Motion setting + the

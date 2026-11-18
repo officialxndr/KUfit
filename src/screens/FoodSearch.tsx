@@ -9,6 +9,7 @@ import { searchFood, ensureFoodItem, type FoodCandidate } from '@/lib/foodSearch
 import { useMealSelection } from '@/lib/mealSelection';
 import { onMainScrollNearEnd } from '@/lib/appScroll';
 import { foodRepo } from '@/lib/repositories/FoodRepo';
+import { describeServing } from '@/lib/servingUnits';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { MealType } from '@/types';
 import { todayLocal } from '@/lib/date';
@@ -168,7 +169,7 @@ export function FoodSearch() {
             <View style={{ flex: 1 }}>
               <FsText variant="bodyMedium" numberOfLines={1}>{item.name}</FsText>
               <FsText variant="caption" numberOfLines={1}>
-                {item.brand ? `${item.brand} · ` : ''}{Math.round(item.calories)} kcal / {item.servingSize}{item.servingUnit}
+                {item.brand ? `${item.brand} · ` : ''}{Math.round(item.calories)} kcal / {describeServing(item)}
                 {item.isCustom ? ' · custom' : ''}
               </FsText>
             </View>

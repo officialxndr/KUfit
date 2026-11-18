@@ -23,7 +23,7 @@ import { haptic } from '@/lib/haptics';
 import { pickAvatar, resolveAvatarUri } from '@/lib/avatar';
 import { openSupportFlow } from '@/lib/iap';
 import { useDonationStore } from '@/stores/donationStore';
-import { colors, radius, space, themedStyles } from '@/theme/tokens';
+import { colors, radius, space, themedStyles, primaryAlpha } from '@/theme/tokens';
 import type { ActiveCalorieSource, ActivityLevel, GoalType, Sex, UnitSystem } from '@/types';
 
 const SEXES: Sex[] = ['MALE', 'FEMALE', 'OTHER'];
@@ -462,7 +462,7 @@ const styles = themedStyles(() => StyleSheet.create({
   dotActive: { backgroundColor: colors.primary, width: 18 },
   brand: {
     alignSelf: 'center', width: 80, height: 80, borderRadius: radius.full,
-    backgroundColor: 'rgba(99,102,241,0.12)', alignItems: 'center', justifyContent: 'center', marginBottom: space[4], marginTop: space[3],
+    backgroundColor: primaryAlpha(0.12), alignItems: 'center', justifyContent: 'center', marginBottom: space[4], marginTop: space[3],
   },
   input: { backgroundColor: colors.surfaceHigh, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12, color: colors.text, fontSize: 16 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },

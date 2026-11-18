@@ -13,7 +13,7 @@ import { usePullRefresh } from '@/stores/refreshStore';
 import { formatVolume } from '@/lib/units';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { WorkoutSession } from '@/types';
-import { isoLocalDay } from '@/lib/date';
+import { isoLocalDay, parseLocalDay } from '@/lib/date';
 
 // Local day, so an evening workout isn't filed under tomorrow (or a morning one under yesterday).
 const isoDay = (s: string) => isoLocalDay(new Date(s));
@@ -148,7 +148,7 @@ export function WorkoutHistory() {
               month={viewMonth}
               marked={marked}
               selected={selectedDate}
-              onSelectDay={(d) => { setSelectedDate(d); setViewMonth(firstOfMonth(new Date(d))); setCalOpen(false); }}
+              onSelectDay={(d) => { setSelectedDate(d); setViewMonth(firstOfMonth(parseLocalDay(d))); setCalOpen(false); }}
               onMonthChange={changeMonth}
             />
             <FsText variant="caption" style={{ textAlign: 'center', marginTop: space[3] }}>
