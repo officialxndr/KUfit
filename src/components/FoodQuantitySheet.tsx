@@ -16,6 +16,10 @@ import { foodRepo } from '@/lib/repositories/FoodRepo';
 import { resolveTargets } from '@/lib/targets';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { colors, radius, space, shadow, themedStyles } from '@/theme/tokens';
+import {
+  amountToServings, convertAmount, describeServing, formatAmount, initialSheetEntry,
+  parseAmount, servingsToAmount, unitLabel, unitsForFood,
+} from '@/lib/servingUnits';
 import type { FoodDetails } from '@/types';
 
 const SCREEN_H = Dimensions.get('window').height;
@@ -42,14 +46,6 @@ export interface SheetFood {
   lastUnit?: string | null;
 }
 
-// Conversions to a canonical base (grams for mass, ml for volume).
-const UNIT_TO_CANONICAL: Record<string, number> = {
-  g: 1, kg: 1000, oz: 28.3495, lb: 453.592,
-  ml: 1, l: 1000, tsp: 4.92892, tbsp: 14.7868, cup: 236.588, 'fl oz': 29.5735,
-};
-const MASS_UNITS = ['g', 'kg', 'oz', 'lb'];
-const VOLUME_UNITS = ['ml', 'l', 'tsp', 'tbsp', 'cup', 'fl oz'];
-
 // Selected food unit → the scale's display unit, so its LCD follows the picker (g→g, oz→oz).
 // Units the scale can't show (serving/tsp/tbsp/cup/kg/lb/l) fall back to grams.
 const SCALE_DISPLAY_UNIT: Record<string, ScaleDisplayUnit> = { g: 'g', oz: 'oz', ml: 'ml', 'fl oz': 'floz' };
@@ -57,28 +53,6 @@ const SCALE_DISPLAY_UNIT: Record<string, ScaleDisplayUnit> = { g: 'g', oz: 'oz',
 // scale updates the picker). lb:oz / unknown have no clean app unit and are ignored.
 const APP_UNIT_FROM_SCALE: Record<string, string> = { g: 'g', oz: 'oz', ml: 'ml', 'ml (milk)': 'ml', 'fl oz': 'fl oz' };
 
-/** Units offered for a food, based on whether its serving is a mass or volume. */
-function unitsFor(servingUnit: string | undefined): string[] {
-  const u = (servingUnit ?? '').toLowerCase();
-  if (MASS_UNITS.includes(u)) return ['serving', 'g', 'oz'];
-  if (VOLUME_UNITS.includes(u)) return ['serving', 'ml', 'tsp', 'tbsp', 'cup', 'fl oz'];
-  return ['serving'];
-}
-const unitLabel = (u: string) => (u === 'serving' ? 'serving' : u);
-
-/** Convert an amount (in `unit`) to a servings multiplier for the given food. */
-function amountToServings(food: SheetFood, amt: number, unit: string): number {
-  if (unit === 'serving') return amt;
-  const baseCanon = food.servingSize * (UNIT_TO_CANONICAL[(food.servingUnit ?? '').toLowerCase()] ?? 1);
-  const unitCanon = UNIT_TO_CANONICAL[unit] ?? 1;
-  return baseCanon > 0 ? (amt * unitCanon) / baseCanon : amt;
-}
-function servingsToAmount(food: SheetFood, servings: number, unit: string): number {
-  if (unit === 'serving') return servings;
-  const baseCanon = food.servingSize * (UNIT_TO_CANONICAL[(food.servingUnit ?? '').toLowerCase()] ?? 1);
-  const unitCanon = UNIT_TO_CANONICAL[unit] ?? 1;
-  return unitCanon > 0 ? (servings * baseCanon) / unitCanon : servings;
-}
 
 interface Props {
   /** The food to log/edit; `null` keeps the sheet closed. */
@@ -90,6 +64,8 @@ interface Props {
   /** Servings of this item already counted in the day's totals (edit mode) so the
    *  projection replaces rather than stacks on the existing entry. */
   baselineQty?: number;
+  /** Edit mode: the amount + unit the entry was logged in, so it reopens in that unit. */
+  initialEntry?: { amount?: number | null; unit?: string | null } | null;
   /** Primary action label (e.g. "Add to Log" / "Save"). */
   submitLabel?: string;
   /** `servings` is the canonical multiplier; `entry` is the raw amount + unit the
@@ -110,7 +86,7 @@ interface Props {
  * via `baselineQty` + `onDelete`).
  */
 export function FoodQuantitySheet({
-  food, date, initialServings = 1, baselineQty = 0, submitLabel = 'Add to Log', onSubmit, onClose, onDelete, favorite,
+  food, date, initialServings = 1, baselineQty = 0, initialEntry, submitLabel = 'Add to Log', onSubmit, onClose, onDelete, favorite,
   hideDayContext = false,
 }: Props) {
   const profile = useSettingsStore((s) => s.profile);
@@ -168,19 +144,15 @@ export function FoodQuantitySheet({
   // valid for this food; otherwise fall back to the default serving entry.
   useEffect(() => {
     if (food) {
-      const validUnits = unitsFor(food.servingUnit);
-      const remembered = baselineQty === 0 && food.lastAmount != null && food.lastUnit && validUnits.includes(food.lastUnit);
-      if (remembered) {
-        setAmount(String(food.lastAmount));
-        setUnit(food.lastUnit!);
-      } else {
-        setAmount(String(initialServings));
-        setUnit('serving');
-      }
+      const start = initialSheetEntry(food, initialServings, baselineQty, initialEntry);
+      setAmount(start.amount);
+      setUnit(start.unit);
       setUnitMenuOpen(false);
       translateY.setValue(SCREEN_H);
       Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 3, speed: 14 }).start();
     }
+    // initialEntry is read only when a new food opens (keyed on `food`), not on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [food, initialServings, baselineQty, translateY]);
 
   // Don't carry weigh mode across foods (or into a closed sheet).
@@ -205,7 +177,7 @@ export function FoodQuantitySheet({
   useEffect(() => {
     if (!weighing || !food) return;
     const mapped = APP_UNIT_FROM_SCALE[scale.reading?.displayUnit ?? ''];
-    if (mapped && mapped !== unit && unitsFor(food.servingUnit).includes(mapped)) setUnit(mapped);
+    if (mapped && mapped !== unit && unitsForFood(food).includes(mapped)) setUnit(mapped);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weighing, scale.reading?.displayUnit]);
 
@@ -213,10 +185,10 @@ export function FoodQuantitySheet({
   // amount back to grams (the unit factor cancels), so they stay correct regardless of display unit.
   useEffect(() => {
     if (!weighing || !scale.reading || !food) return;
+    // Grams → servings → the selected unit (works for g/oz/lb, servings, and household units
+    // like "cookie"; the scale button only appears for gram-based foods).
     const g = scale.reading.grams;
-    if (unit === 'serving') { setAmount(String(Math.round(amountToServings(food, g, 'g') * 100) / 100)); return; }
-    const canon = UNIT_TO_CANONICAL[unit];
-    setAmount(String(canon ? Math.round((g / canon) * 100) / 100 : g));
+    setAmount(formatAmount(servingsToAmount(food, amountToServings(food, g, 'g'), unit), unit));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weighing, scale.reading, unit]);
 
@@ -250,9 +222,9 @@ export function FoodQuantitySheet({
   const selectUnit = (u: string) => {
     setUnitMenuOpen(false);
     if (!food || u === unit) return;
-    // Keep the same physical quantity when switching units.
-    const servings = amountToServings(food, Number(amount) || 0, unit);
-    setAmount(String(Math.round(servingsToAmount(food, servings, u) * 100) / 100));
+    // Keep the same physical quantity when switching units (an empty/invalid field stays empty).
+    const typed = parseAmount(amount);
+    if (typed != null) setAmount(String(convertAmount(food, typed, unit, u)));
     setUnit(u);
     // Other direction of the sync: pushing the picker's choice onto the scale's display (g↔oz).
     if (weighing && scale.status === 'connected' && SCALE_DISPLAY_UNIT[u]) scale.setUnit(SCALE_DISPLAY_UNIT[u]);
@@ -260,9 +232,10 @@ export function FoodQuantitySheet({
 
   const submit = () => {
     if (!food) return;
-    const amt = Number(amount) || 0;
+    const amt = parseAmount(amount);
+    if (amt == null) return;
     const qty = amountToServings(food, amt, unit);
-    if (!qty || qty <= 0) return;
+    if (!(qty > 0)) return;
     onSubmit(qty, { amount: amt, unit });
   };
 
@@ -275,8 +248,9 @@ export function FoodQuantitySheet({
         <View style={[styles.sheetWrap, { paddingBottom: kbHeight }]} pointerEvents="box-none">
             <Animated.View style={[styles.sheet, { maxHeight: sheetMaxHeight, paddingBottom: (kbHeight > 0 ? space[4] : insets.bottom + space[4]), transform: [{ translateY }] }]}>
               {food && (() => {
-              const availableUnits = unitsFor(food.servingUnit);
-              const qty = amountToServings(food, Number(amount) || 0, unit);
+              const availableUnits = unitsForFood(food);
+              const typedAmount = parseAmount(amount);
+              const qty = typedAmount != null ? amountToServings(food, typedAmount, unit) : 0;
               const add = {
                 cal: food.calories * qty,
                 p: food.protein * qty,
@@ -319,7 +293,7 @@ export function FoodQuantitySheet({
                       )}
                     </View>
                     <FsText variant="caption" style={{ marginTop: 2 }}>
-                      {food.brand ? `${food.brand} · ` : ''}{Math.round(food.calories)} kcal per {food.servingSize}{food.servingUnit}{food.servingText ? ` · ${food.servingText}` : ''}
+                      {food.brand ? `${food.brand} · ` : ''}{Math.round(food.calories)} kcal per {describeServing(food)}{food.servingText ? ` · ${food.servingText}` : ''}
                     </FsText>
                   </View>
 
@@ -346,7 +320,7 @@ export function FoodQuantitySheet({
                     {availableUnits.length > 1 ? (
                       <View style={{ flex: 1 }}>
                         <Pressable style={styles.unitSelect} onPress={() => setUnitMenuOpen((o) => !o)}>
-                          <FsText variant="bodyMedium">{unitLabel(unit)}{unit === 'serving' && qty !== 1 ? 's' : ''}</FsText>
+                          <FsText variant="bodyMedium">{unitLabel(unit, typedAmount ?? 0, food)}</FsText>
                           <ChevronDown color={colors.muted} size={16} />
                         </Pressable>
                         {unitMenuOpen && (
@@ -354,7 +328,7 @@ export function FoodQuantitySheet({
                             {availableUnits.map((u) => (
                               <Pressable key={u} style={styles.unitMenuItem} onPress={() => selectUnit(u)}>
                                 <FsText variant="bodyMedium" style={{ color: u === unit ? colors.primary : colors.text }}>
-                                  {unitLabel(u)}
+                                  {unitLabel(u, 1, food)}
                                 </FsText>
                               </Pressable>
                             ))}
@@ -362,7 +336,7 @@ export function FoodQuantitySheet({
                         )}
                       </View>
                     ) : (
-                      <FsText variant="caption" style={{ flex: 1 }}>serving{qty !== 1 ? 's' : ''}</FsText>
+                      <FsText variant="caption" style={{ flex: 1 }}>{unitLabel('serving', typedAmount ?? 0)}</FsText>
                     )}
                     {availableUnits.includes('g') && (
                       <Pressable
@@ -388,7 +362,7 @@ export function FoodQuantitySheet({
                       <FsText variant="overline" style={{ marginBottom: space[2] }}>Quick portions</FsText>
                       <View style={styles.portionRow}>
                         {food.details.portions.map((p) => {
-                          const active = unit === 'g' && Number(amount) === p.grams;
+                          const active = unit === 'g' && typedAmount === p.grams;
                           return (
                             <Pressable
                               key={p.label}
@@ -481,7 +455,7 @@ export function FoodQuantitySheet({
                       </View>
                     )}
                     <View style={{ flex: 2 }}>
-                      <Button title={submitLabel} onPress={submit} />
+                      <Button title={submitLabel} onPress={submit} disabled={!(qty > 0)} />
                     </View>
                   </View>
                 </>

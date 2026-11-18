@@ -169,6 +169,9 @@ export interface FoodLog {
   /** Set when this is a quick-add row (no food item / recipe). */
   custom?: CustomLog | null
   servingQty: number
+  /** Amount + unit as the user typed it ("150", "g"); null for older rows. Display/edit only. */
+  entryAmount?: number | null
+  entryUnit?: string | null
   createdAt: string
 }
 

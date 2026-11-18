@@ -526,6 +526,13 @@ and is guarded by an acknowledge `Switch` **plus** a `SwipeToConfirm` drag bar s
   `WorkoutSummarySheet`, `HealthMeasure` (the SiteDetail + MeasurementDetail pop-ups), and the
   `exercise-progress` "Compare" picker. Content scrolls via a child `ScrollView` with its own
   `maxHeight`, independent of the drag gesture.
+- `lib/servingUnits.ts` — **all** serving/unit math (pure, unit-tested): `normalizeUnit` (free-text aliases →
+  canonical), `unitsForFood` (mass units for g foods, volume for ml foods — never crossed, no density data — plus a
+  **household unit** parsed from `servingText` by `householdUnit`: "3 cookies" → `cookie`, perServing 3),
+  `amountToServings`/`servingsToAmount`/`convertAmount`, `parseAmount` (decimal comma, fractions, `½`),
+  `initialSheetEntry` (what the sheet opens at) and `describeLoggedAmount` (Today subtitle). Logs still store one
+  `servingQty` multiplier as the nutrition source of truth; `food_logs.entryAmount/entryUnit` record what the user
+  typed for display/edit only, and the display recomputes from `servingQty` so a repair rescale can't go stale.
 - `components/FoodQuantitySheet.tsx` — shared quantity editor (unit conversion + live nutrition +
   day-progress projection), used by `add-food` (logging), `FoodToday` (editing a logged item), and the
   **recipe editor** (`recipe/new` — adding/editing an ingredient opens the same sheet so amounts are

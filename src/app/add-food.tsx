@@ -145,7 +145,7 @@ export default function AddFoodModal() {
       fav: { kind: 'food', candidate: c },
       log: (qty, entry) => {
         const id = ensureFoodItem(c);
-        foodRepo.addLog({ date, meal, foodItemLocalId: id, servingQty: qty });
+        foodRepo.addLog({ date, meal, foodItemLocalId: id, servingQty: qty, entry });
         foodRepo.setFoodItemLastEntry(id, entry.amount, entry.unit);
         router.back();
       },
@@ -156,7 +156,7 @@ export default function AddFoodModal() {
     if (!food) return;
     Keyboard.dismiss();
     setFavActive(!!r.isFavorite);
-    setSelected({ food, fav: { kind: 'recipe', recipe: r }, log: (qty) => { foodRepo.addLog({ date, meal, recipeLocalId: r.id, servingQty: qty }); router.back(); } });
+    setSelected({ food, fav: { kind: 'recipe', recipe: r }, log: (qty, entry) => { foodRepo.addLog({ date, meal, recipeLocalId: r.id, servingQty: qty, entry }); router.back(); } });
   };
   // Star toggle in the sheet — persists + flips the local flag so the row/list stays in sync.
   const toggleSelectedFav = () => {

@@ -348,6 +348,10 @@ function runMigrations() {
   ensureColumn('food_logs', 'customProtein', 'REAL');
   ensureColumn('food_logs', 'customCarbs', 'REAL');
   ensureColumn('food_logs', 'customFat', 'REAL');
+  // The amount + unit the user typed for this entry ("150 g", "1.5 cup"), so the Today list and
+  // the edit sheet show/reopen it as entered. servingQty stays the source of truth for nutrition.
+  ensureColumn('food_logs', 'entryAmount', 'REAL');
+  ensureColumn('food_logs', 'entryUnit', 'TEXT');
 }
 
 function ensureColumn(table: string, column: string, decl: string) {

@@ -10,13 +10,13 @@ export { FEEDBACK_EMAIL, gatherDiagnostics, type Diagnostics };
  * Bump this whenever there's something new for testers to see. The What's-New sheet
  * shows once per version (tracked in `app_meta`). Keep the list short + tester-focused.
  */
-export const WHATS_NEW_VERSION = '1.0.0-b17';
+export const WHATS_NEW_VERSION = '1.0.0-b18';
 export const WHATS_NEW = {
   title: "What's new to test",
   items: [
-    'Edit a past workout: open any finished workout in history, tap Edit, and fix a mistyped set, add one, or delete one — your stats, PRs, and next-time prefills all recompute from the corrected numbers.',
-    'Workout variations (A/B days): give one workout named versions (A, B, …) that share most exercises but swap a few. Tap an A/B pill to start that version, or tap the card to auto-alternate to whichever you did least recently.',
-    'Coaching notes can now also be added while building or editing a template.',
+    'Log by the piece: foods with a serving like "3 cookies" or "1 bar" now offer that as a unit — log 1 cookie instead of 0.33 servings. Cereal-style "2/3 cup (55 g)" labels let you log in cups.',
+    'Amounts accept 1,5 · 1/2 · 1 1/2 · ½. Edited entries reopen in the unit you used (150 g, not 1.5 servings), and the Today list shows what you entered.',
+    'Custom foods understand units like "Grams" or "Tbsp", and the label scanner reads "2/3 cup" correctly.',
   ],
 };
 

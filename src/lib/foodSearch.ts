@@ -76,12 +76,17 @@ const numOr = (v: any): number | null => (typeof v === 'number' && Number.isFini
  *    grams can't be entered at all.
  * Returns null when there's no calorie data.
  */
-function offNutrition(p: any): OffNutrition | null {
+export function offNutrition(p: any): OffNutrition | null {
   const n = p?.nutriments ?? {};
   const servingG = numOr(Number(p?.serving_quantity));
   const hasServingG = servingG != null && servingG > 0;
   // A serving measured in ml (a drink) keeps its volume unit; the sheet then offers ml/tsp/… for it.
-  const unit = hasServingG && (p?.serving_quantity_unit === 'ml' || p?.serving_quantity_unit === 'l') ? 'ml' : 'g';
+  // Older OFF records omit serving_quantity_unit; fall back to the free-text serving ("250 ml").
+  const qUnit = typeof p?.serving_quantity_unit === 'string' ? p.serving_quantity_unit.toLowerCase() : null;
+  const textSaysVolume = typeof p?.serving_size === 'string' && /\d\s*(ml|cl|l)\b/i.test(p.serving_size)
+    && !/\d\s*g\b/i.test(p.serving_size);
+  const isVolume = qUnit ? qUnit === 'ml' || qUnit === 'l' || qUnit === 'cl' : textSaysVolume;
+  const unit = hasServingG && isVolume ? 'ml' : 'g';
   // Treat an explicit 0 as "no data on this basis" — so a contradictory 0/valid pair can't mask the
   // real value, and genuinely 0-kcal noise items are skipped (matching the prior behavior).
   const cal100 = numOr(n['energy-kcal_100g']);
@@ -118,7 +123,21 @@ function offNutrition(p: any): OffNutrition | null {
   return null; // no calorie data
 }
 
-function offProductToCandidate(p: any): FoodCandidate | null {
+/**
+ * The household part of OFF's free-text `serving_size` ("2 cookies (30 g)" → "2 cookies"), shown
+ * next to the gram serving. Null when it's only a metric weight or a generic "1 serving".
+ */
+export function offServingText(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const t = raw.split('(')[0].replace(/\s+/g, ' ').trim().replace(/[,;:]$/, '');
+  if (!t || t.length > 40) return null;
+  if (/^\d+(?:[.,]\d+)?\s*(g|gr|grams?|ml|mL|cl|l|kg|oz)\.?$/i.test(t)) return null; // just a weight
+  if (/^(1\s*)?(serving|portion|portie|porción)s?$/i.test(t)) return null;
+  if (!/[a-z]/i.test(t)) return null;
+  return t;
+}
+
+export function offProductToCandidate(p: any): FoodCandidate | null {
   if (!p.product_name) return null;
   if (p.product_name.length > 120) return null; // skip ingredient-list dumps
   const nut = offNutrition(p);
@@ -128,6 +147,7 @@ function offProductToCandidate(p: any): FoodCandidate | null {
     name: p.product_name,
     brand: p.brands || null,
     ...nut,
+    servingText: nut.servingUnit === 'serving' || nut.servingSize !== 100 ? offServingText(p.serving_size) : null,
     source: 'OPEN_FOOD_FACTS',
     isCustom: false,
     details: extractDetails(p),
@@ -283,6 +303,7 @@ export async function fetchOffByBarcode(barcode: string): Promise<FoodCandidate 
       name: p.product_name ?? p.product_name_en ?? 'Unknown product',
       brand: p.brands || null,
       ...nut,
+      servingText: nut.servingUnit === 'serving' || nut.servingSize !== 100 ? offServingText(p.serving_size) : null,
       source: 'OPEN_FOOD_FACTS',
       isCustom: false,
       details: extractDetails(p),
@@ -346,6 +367,7 @@ export function ensureFoodItem(c: FoodCandidate): string {
     barcode: c.barcode,
     servingSize: c.servingSize,
     servingUnit: c.servingUnit,
+    servingText: c.servingText ?? null,
     calories: c.calories,
     protein: c.protein,
     carbs: c.carbs,

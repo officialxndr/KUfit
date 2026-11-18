@@ -1,4 +1,5 @@
 import TextRecognition from '@react-native-ml-kit/text-recognition';
+import { normalizeUnit, parseAmount } from '@/lib/servingUnits';
 
 /**
  * On-device Nutrition Facts label OCR. Uses Google ML Kit text recognition
@@ -90,15 +91,31 @@ const FIELDS: FieldSpec[] = [
 const isFieldLine = (l: string) => FIELDS.some((f) => f.include.test(l));
 
 /** Pull the gram serving weight + unit from a "Serving size …" line, if present. */
-function parseServing(lines: string[]): { servingSize?: number; servingUnit?: string } {
+export function parseServing(lines: string[]): { servingSize?: number; servingUnit?: string; servingText?: string } {
   const line = lines.find((l) => /serving\s*size/i.test(l));
   if (!line) return {};
-  // Prefer an explicit gram/ml weight, usually in parens e.g. "2/3 cup (55g)".
-  const grams = line.match(/(\d+(?:\.\d+)?)\s*(g|ml)\b/i);
-  if (grams) return { servingSize: parseFloat(grams[1]), servingUnit: grams[2].toLowerCase() };
-  const any = line.match(/(\d+(?:\.\d+)?)\s*(oz|cup|tbsp|tsp|piece|slice|serving)?/i);
-  if (any) return { servingSize: parseFloat(any[1]), servingUnit: (any[2] || 'g').toLowerCase() };
-  return {};
+  // Everything after "Serving size", e.g. "2/3 cup (55g)" / "1 bar (40 g)" / "8 fl oz (240mL)".
+  const rest = line.replace(/^.*?serving\s*size\s*[:.]?\s*/i, '').trim();
+  // Household measure before the parens ("2/3 cup", "1 bar") — kept as the serving description.
+  const household = rest.split('(')[0].trim().replace(/[,;]$/, '');
+  // Prefer an explicit gram/ml weight, usually in parens. Decimal commas ("27,5 g") count.
+  const grams = rest.match(/(\d+(?:[.,]\d+)?)\s*(g|ml)\b/i);
+  if (grams) {
+    const size = parseFloat(grams[1].replace(',', '.'));
+    const text = household && !/^\d+(?:[.,]\d+)?\s*(g|ml)$/i.test(household) ? household : undefined;
+    return { servingSize: size, servingUnit: grams[2].toLowerCase(), ...(text ? { servingText: text } : {}) };
+  }
+  // No metric weight: a household measure with a real unit. Fractions/mixed numbers read whole —
+  // "2/3 cup" is 0.67 cup, "1 1/2 tbsp" 1.5 tbsp (the old parse read "2/3 cup" as 2 g).
+  const m = rest.match(/^((?:\d+\s+)?\d+\s*\/\s*\d+|\d+(?:[.,]\d+)?|[½⅓⅔¼¾])\s*(fl\.?\s*oz|oz|cups?|tbsp|tsp|pieces?|slices?|servings?)?/i);
+  if (!m) return {};
+  const qty = parseAmount(m[1]);
+  if (qty == null) return {};
+  const unit = normalizeUnit(m[2]);
+  // A measurable unit is stored canonically; a count ("1 slice") or a bare number becomes a
+  // 1-serving item described by the household text, never a guessed gram weight.
+  if (unit && unit !== 'serving') return { servingSize: Math.round(qty * 100) / 100, servingUnit: unit, ...(household ? { servingText: household } : {}) };
+  return { servingSize: 1, servingUnit: 'serving', ...(household ? { servingText: household } : {}) };
 }
 
 /**

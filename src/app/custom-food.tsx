@@ -16,6 +16,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { colors, radius, space, themedStyles } from '@/theme/tokens';
 import type { MealType } from '@/types';
 import { todayLocal } from '@/lib/date';
+import { normalizeUnit, parseAmount, parseNonNegative } from '@/lib/servingUnits';
 
 export default function CustomFood() {
   const router = useRouter();
@@ -73,8 +74,14 @@ export default function CustomFood() {
     return () => clearInterval(t);
   }, [processing]);
 
-  // Empty optional fields stay null (unknown) rather than collapsing to 0.
-  const optional = (v: string) => (v.trim() === '' ? null : Number(v) || 0);
+  // Empty optional fields stay null (unknown) rather than collapsing to 0. Decimal commas ("1,5")
+  // parse like dots — Number("1,5") is NaN, which used to silently zero the field.
+  const optional = (v: string) => (v.trim() === '' ? null : parseNonNegative(v) ?? 0);
+  const req = (v: string) => parseNonNegative(v) ?? 0;
+  // A free-text unit the app can measure ("Grams" → g, "Tbsp" → tbsp) is stored canonically so
+  // the quantity sheet can offer conversions; anything else ("slice", "bar") stays serving-only.
+  const unitCanon = normalizeUnit(servingUnit);
+  const unitIsServingOnly = servingUnit.trim() !== '' && unitCanon == null;
 
   /** Fill the form from a scanned label — only fields the OCR actually found. */
   const applyParsed = (p: ParsedNutrition) => {
@@ -134,21 +141,26 @@ export default function CustomFood() {
   };
 
   const create = (thenLog: boolean) => {
-    if (!name.trim() || !calories) {
+    if (!name.trim() || parseNonNegative(calories) == null) {
       Alert.alert('Missing info', 'A name and calories are required.');
+      return;
+    }
+    const size = parseAmount(servingSize);
+    if (size == null) {
+      Alert.alert('Check serving size', 'Enter a serving size greater than 0 (e.g. 30 or 1.5).');
       return;
     }
     const localId = foodRepo.createCustomFoodItem({
       name: name.trim(),
       brand: brand.trim() || null,
       barcode: null,
-      servingSize: Number(servingSize) || 100,
-      servingUnit: servingUnit || 'g',
+      servingSize: size,
+      servingUnit: unitCanon ?? (servingUnit.trim() || 'g'),
       servingText: servingText.trim() || null,
-      calories: Number(calories),
-      protein: Number(protein) || 0,
-      carbs: Number(carbs) || 0,
-      fat: Number(fat) || 0,
+      calories: req(calories),
+      protein: req(protein),
+      carbs: req(carbs),
+      fat: req(fat),
       fiber: optional(fiber),
       sugar: optional(sugar),
       sodium: optional(sodium),
@@ -162,6 +174,7 @@ export default function CustomFood() {
         meal: params.meal,
         foodItemLocalId: localId,
         servingQty: 1,
+        entry: { amount: 1, unit: 'serving' },
       });
     }
     router.back();
@@ -230,6 +243,11 @@ export default function CustomFood() {
               <Field label="Unit" value={servingUnit} onChangeText={setServingUnit} />
             </View>
           </View>
+          {unitIsServingOnly && (
+            <FsText variant="caption" style={{ marginTop: -space[2], marginBottom: space[3] }}>
+              "{servingUnit.trim()}" isn't a weight or volume, so this food logs by serving only. Use g, oz, ml, cup, tbsp… to log by amount.
+            </FsText>
+          )}
           <Field label="Serving description (optional)" value={servingText} onChangeText={setServingText} placeholder={'e.g. "2 cookies"'} />
           <Pressable style={styles.weighToggle} onPress={() => setWeighing((w) => !w)}>
             <ScaleIcon color={colors.primary} size={16} />

@@ -58,6 +58,7 @@ function mapFoodLog(row: any): FoodLog {
         brand: row.fi_brand ?? null,
         servingSize: row.fi_servingSize,
         servingUnit: row.fi_servingUnit ?? 'g',
+        servingText: row.fi_servingText ?? null,
         calories: row.fi_calories,
         protein: row.fi_protein,
         carbs: row.fi_carbs,
@@ -92,6 +93,8 @@ function mapFoodLog(row: any): FoodLog {
     recipe: null, // recipes loaded separately when needed
     custom,
     servingQty: row.servingQty,
+    entryAmount: row.entryAmount ?? null,
+    entryUnit: row.entryUnit ?? null,
     createdAt: row.updatedAt ?? new Date().toISOString(),
   };
 }
@@ -118,7 +121,7 @@ export class FoodRepo {
   getLogs(date: string): FoodLog[] {
     const rows = db.getAllSync(
       `SELECT
-         fl.localId, fl.date, fl.meal, fl.servingQty, fl.updatedAt, fl.recipeLocalId,
+         fl.localId, fl.date, fl.meal, fl.servingQty, fl.entryAmount, fl.entryUnit, fl.updatedAt, fl.recipeLocalId,
          fl.customName, fl.customCalories, fl.customProtein, fl.customCarbs, fl.customFat,
          fi.localId   AS fi_localId,
          fi.barcode   AS fi_barcode,
@@ -126,6 +129,7 @@ export class FoodRepo {
          fi.brand     AS fi_brand,
          fi.servingSize AS fi_servingSize,
          fi.servingUnit AS fi_servingUnit,
+         fi.servingText AS fi_servingText,
          fi.calories  AS fi_calories,
          fi.protein   AS fi_protein,
          fi.carbs     AS fi_carbs,
@@ -161,6 +165,8 @@ export class FoodRepo {
     foodItemLocalId?: string;
     recipeLocalId?: string;
     servingQty: number;
+    /** The amount + unit as typed in the quantity sheet (display/edit only — nutrition uses servingQty). */
+    entry?: { amount: number; unit: string } | null;
     /** Quick-add: a bare name + calories (+ optional macros) with no food item / recipe. */
     custom?: { name: string; calories: number; protein?: number; carbs?: number; fat?: number };
   }): void {
@@ -168,9 +174,9 @@ export class FoodRepo {
     const c = payload.custom;
     db.runSync(
       `INSERT INTO food_logs
-         (localId, date, meal, foodItemLocalId, recipeLocalId, servingQty,
+         (localId, date, meal, foodItemLocalId, recipeLocalId, servingQty, entryAmount, entryUnit,
           customName, customCalories, customProtein, customCarbs, customFat, syncStatus, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
       [
         localId,
         payload.date,
@@ -178,6 +184,8 @@ export class FoodRepo {
         payload.foodItemLocalId ?? null,
         payload.recipeLocalId ?? null,
         payload.servingQty,
+        payload.entry?.amount ?? null,
+        payload.entry?.unit ?? null,
         c?.name ?? null,
         c?.calories ?? null,
         c?.protein ?? null,
@@ -196,10 +204,11 @@ export class FoodRepo {
     );
   }
 
-  updateLog(localId: string, servingQty: number): void {
+  updateLog(localId: string, servingQty: number, entry?: { amount: number; unit: string } | null): void {
     db.runSync(
-      `UPDATE food_logs SET servingQty = ?, syncStatus = 'pending', updatedAt = ? WHERE localId = ?`,
-      [servingQty, new Date().toISOString(), localId]
+      `UPDATE food_logs SET servingQty = ?, entryAmount = ?, entryUnit = ?, syncStatus = 'pending', updatedAt = ?
+       WHERE localId = ?`,
+      [servingQty, entry?.amount ?? null, entry?.unit ?? null, new Date().toISOString(), localId]
     );
   }
 
@@ -220,7 +229,7 @@ export class FoodRepo {
   // rows all carry over). Returns how many items were copied.
   private _copyLogs(where: string, params: any[], toDate: string, forceMeal: string | null): number {
     const rows = db.getAllSync(
-      `SELECT meal, foodItemLocalId, recipeLocalId, servingQty,
+      `SELECT meal, foodItemLocalId, recipeLocalId, servingQty, entryAmount, entryUnit,
               customName, customCalories, customProtein, customCarbs, customFat
        FROM food_logs WHERE ${where} AND deleted = 0 ORDER BY rowid`,
       params
@@ -232,6 +241,7 @@ export class FoodRepo {
         foodItemLocalId: r.foodItemLocalId ?? undefined,
         recipeLocalId: r.recipeLocalId ?? undefined,
         servingQty: r.servingQty,
+        entry: r.entryUnit != null && r.entryAmount != null ? { amount: r.entryAmount, unit: r.entryUnit } : null,
         custom: r.customName != null
           ? { name: r.customName, calories: r.customCalories ?? 0, protein: r.customProtein ?? 0, carbs: r.customCarbs ?? 0, fat: r.customFat ?? 0 }
           : undefined,
@@ -472,6 +482,7 @@ export class FoodRepo {
     barcode?: string | null;
     servingSize: number;
     servingUnit?: string;
+    servingText?: string | null;
     calories: number;
     protein: number;
     carbs: number;
@@ -504,9 +515,9 @@ export class FoodRepo {
     const localId = Crypto.randomUUID();
     db.runSync(
       `INSERT OR IGNORE INTO food_items
-         (localId, serverId, name, brand, barcode, servingSize, servingUnit,
+         (localId, serverId, name, brand, barcode, servingSize, servingUnit, servingText,
           calories, protein, carbs, fat, fiber, sugar, sodium, saturatedFat, detailsJson, source, isCustom, syncStatus, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced', ?)`,
       [
         localId,
         item.serverId ?? null,
@@ -515,6 +526,7 @@ export class FoodRepo {
         item.barcode ?? null,
         item.servingSize,
         item.servingUnit ?? 'g',
+        item.servingText ?? null,
         item.calories,
         item.protein,
         item.carbs,

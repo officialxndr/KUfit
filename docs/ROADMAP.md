@@ -3,6 +3,14 @@
 Honest status of the rebuild. **Update this when features land or plans change.**
 
 ## Done
+- [x] **Sturdier food logging: units, household servings, entered amounts** — the serving/unit math moved into a
+      pure, tested `lib/servingUnits.ts` (230 tests over all base foods, OFF records and label lines).
+      **Household units**: a serving description like "3 cookies" / "1 bar" / "2 slices" becomes a loggable unit
+      (1 cookie = ⅓ serving), and "2/3 cup (55 g)" on a gram food gives a calibrated `cup`. Amounts accept decimal
+      commas, fractions and mixed numbers (`1,5`, `1/2`, `1 1/2`, `½`). Each log stores the **amount + unit as
+      entered** (`food_logs.entryAmount/entryUnit`), so the Today list shows "150 g" and edits reopen in that
+      unit. Custom-food units are normalized ("Grams"→g, "Tbsp"→tbsp); OFF keeps its household `serving_size`
+      text and infers ml for older drink records; the label scanner no longer reads "2/3 cup" as 2 g.
 - [x] **Weight-trend line (scale vs. trend) + more ranges** — the Health → Weight chart now draws a smoothed
       **trend line** (EWMA, `lib/weightTrend.ts` — the Hacker's Diet / Happy Scale method) over the raw scale
       weight, so day-to-day water bounce doesn't obscure the real direction (eases weight frustration). Both

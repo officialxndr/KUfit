@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, Pressable, Modal, ScrollView, Dimensions, TextInput, Alert, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, { FadeInDown, FadeOut, LinearTransition, useSharedValue, useAnimatedStyle, runOnJS, type SharedValue } from 'react-native-reanimated';
@@ -22,6 +22,7 @@ import {
 
 import { Card, FsText, Button } from '@/components/ui';
 import { isoLocalDay, parseLocalDay, addDays, shortDate } from '@/lib/date';
+import { describeLoggedAmount, roundAmount } from '@/lib/servingUnits';
 import { KebabMenu, type KebabMenuItem } from '@/components/KebabMenu';
 import { CalorieMacroCard } from '@/components/CalorieMacroCard';
 import { MonthCalendar } from '@/components/MonthCalendar';
@@ -57,10 +58,11 @@ function logToSheetFood(l: FoodLog): SheetFood | null {
   }
   if (l.recipe?.nutrition) {
     const n = l.recipe.nutrition;
+    const w = l.recipe.servingWeightG;
     return {
       name: l.recipe.name,
-      servingSize: 1,
-      servingUnit: 'serving',
+      servingSize: w && w > 0 ? w : 1,
+      servingUnit: w && w > 0 ? 'g' : 'serving',
       calories: n.perServingCalories,
       protein: n.perServingProtein,
       carbs: n.perServingCarbs,
@@ -274,7 +276,10 @@ export function FoodToday() {
 
   const [editing, setEditing] = useState<FoodLog | null>(null);
   const [favActive, setFavActive] = useState(false);
-  const editFood = editing ? logToSheetFood(editing) : null;
+  // Memoized: the sheet re-initializes its amount whenever `food` changes identity, and recipe /
+  // quick-add sheet foods are built fresh — so an unrelated re-render (e.g. the favorite toggle)
+  // would otherwise wipe what the user typed.
+  const editFood = useMemo(() => (editing ? logToSheetFood(editing) : null), [editing]);
   const openEdit = (l: FoodLog) => { setFavActive(!!(l.foodItem?.isFavorite ?? l.recipe?.isFavorite)); setEditing(l); };
   const toggleEditFav = () => {
     if (!editing) return;
@@ -282,10 +287,10 @@ export function FoodToday() {
     else if (editing.foodItem) foodRepo.toggleFavorite(editing.foodItem.id);
     setFavActive((v) => !v);
   };
-  const saveEdit = (qty: number) => {
+  const saveEdit = (qty: number, entry: { amount: number; unit: string }) => {
     if (!editing) return;
     if (qty <= 0) foodRepo.deleteLog(editing.id);
-    else foodRepo.updateLog(editing.id, qty);
+    else foodRepo.updateLog(editing.id, qty, entry);
     setEditing(null);
     refresh();
   };
@@ -389,11 +394,13 @@ export function FoodToday() {
                   const fi = l.foodItem;
                   const c = Math.round(logCals(l));
                   const name = fi?.name ?? l.custom?.name ?? l.recipe?.name ?? 'Item';
+                  const entry = { amount: l.entryAmount, unit: l.entryUnit };
+                  const recipeFood = l.recipe ? logToSheetFood(l) : null;
                   const sub = fi
-                    ? `${l.servingQty} × ${fi.servingSize}${fi.servingUnit}`
+                    ? describeLoggedAmount(fi, l.servingQty, entry)
                     : l.custom
-                      ? (l.servingQty > 1 ? `${l.servingQty} × · quick add` : 'Quick add')
-                      : `${l.servingQty} serving${l.servingQty > 1 ? 's' : ''} · recipe`;
+                      ? (l.servingQty !== 1 ? `${roundAmount(l.servingQty, 'serving')} × · quick add` : 'Quick add')
+                      : `${recipeFood ? describeLoggedAmount(recipeFood, l.servingQty, entry) : `${roundAmount(l.servingQty, 'serving')} servings`} · recipe`;
                   return (
                     <Animated.View
                       key={l.id}
@@ -530,6 +537,7 @@ export function FoodToday() {
         date={date}
         initialServings={editing?.servingQty ?? 1}
         baselineQty={editing?.servingQty ?? 0}
+        initialEntry={editing ? { amount: editing.entryAmount, unit: editing.entryUnit } : null}
         submitLabel="Save"
         favorite={editing?.foodItem || editing?.recipe ? { active: favActive, onToggle: toggleEditFav } : undefined}
         onSubmit={saveEdit}

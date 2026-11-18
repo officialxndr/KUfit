@@ -111,7 +111,7 @@ export function FoodSearch() {
   const logSelected = (qty: number, entry: { amount: number; unit: string }) => {
     if (!selected) return;
     const id = ensureFoodItem(selected);
-    foodRepo.addLog({ date: today(), meal, foodItemLocalId: id, servingQty: qty });
+    foodRepo.addLog({ date: today(), meal, foodItemLocalId: id, servingQty: qty, entry });
     foodRepo.setFoodItemLastEntry(id, entry.amount, entry.unit);
     setSelected(null);
   };

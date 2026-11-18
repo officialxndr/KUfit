@@ -282,6 +282,10 @@ for backup + Home Assistant / **MCP** access (`serverStore` is null by default).
   `<ModalHeader title onClose right? />` — never a hand-rolled header row. One component owns the top
   spacing so modals can't drift (a bespoke header that added `insets.top` and one that didn't is exactly
   how they stopped matching). It renders ✕ · title · optional action + a bottom divider.
+- **Food amounts/units go through `lib/servingUnits.ts`** — never `Number(text)` an amount (`1,5` → NaN) or
+  hand-roll unit factors. `servingQty` (multiplier) is the nutrition source of truth; pass the sheet's `entry`
+  (`{amount, unit}`) to `addLog`/`updateLog` so the entered unit is kept. Household units key off `servingText`,
+  so persist it whenever a food item is saved.
 - Calorie/macro targets resolve via `resolveTargets(profile)` (active GoalPhase → profile → TDEE). The TDEE
   **base** is the Mifflin formula unless `profile.calorieBasis === 'adaptive'`, in which case `resolveBaseTargets`
   substitutes the cached empirical maintenance (`profile.adaptiveMaintenanceKcal`, refreshed by
