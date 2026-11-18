@@ -27,6 +27,14 @@ _Reviewed: June 3, 2026 · Re-checked & partially fixed: June 4, 2026 · Expo / 
 - ⚠️ Unverified: the claim that Google Play *bars* Play Billing for tips (§1). Confirm against the
   current Play Payments policy before the Android launch.
 
+## ⏭️ To do on the next build (TestFlight)
+- [ ] **Take the IAP review screenshot.** After the next `eas build` is on TestFlight, open
+  Settings → Support Hale (the tip screen) and capture it with all three prices loaded. Upload it as
+  the **Review screenshot** on each consumable (`…tip.small` / `.medium` / `.large`) in App Store
+  Connect. The same image can be used for all three. Prices only appear once the Paid Apps Agreement
+  is Active.
+- [ ] While there, test a sandbox tip end to end: the purchase completes and you can tip again right away.
+
 ## Overall
 
 The app is in good shape for App Store review. It's local-first with no accounts, no tracking, and a clear privacy policy — which removes most of the things that get fitness apps rejected. The architecture decisions (native StoreKit tipping on iOS, external link on Android, push entitlement stripped, HealthKit usage strings present) show the rules were already considered. A few must-fix items and a few worth tightening remain before submission.
