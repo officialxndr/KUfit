@@ -60,9 +60,9 @@ export function HealthTrends() {
       // must be estimated from the DEXA baseline like a weight-only day.
       const entry = dexaOnly && w.bodyFat != null && !isDexaEntry(w) ? { ...w, bodyFat: null } : w;
       const r = bodyFatForEntry(entry, baseline);
-      return r ? { date: w.date, bf: r.bf, measured: r.measured } : null;
+      return r ? { date: w.date, bf: r.bf, measured: r.measured, weightKg: w.weightKg } : null;
     })
-    .filter((p): p is { date: string; bf: number; measured: boolean } => p != null);
+    .filter((p): p is { date: string; bf: number; measured: boolean; weightKg: number } => p != null);
   const navySeries = canNavy
     ? [...measurements] // newest-first → oldest-first for a left-to-right trend
         .reverse()
@@ -85,6 +85,26 @@ export function HealthTrends() {
   const bfLast = bfSeries[bfSeries.length - 1]?.bf ?? null;
   const bfChange = bfFirst != null && bfLast != null ? bfLast - bfFirst : null;
   const bfColor = bfChange == null ? colors.muted : bfChange < 0 ? colors.success : bfChange > 0 ? colors.danger : colors.muted;
+
+  // Fat/lean mass change over the window. Only *measured* readings count: an estimated
+  // point holds the baseline's lean mass constant (estimateBodyFat), so including one
+  // would always report ~0 lean change and attribute all weight change to fat. A
+  // Navy-only series has no weigh-in to multiply against, so it's skipped too.
+  const measuredMass = bfSeries === leanSeries ? leanSeries.filter((p) => p.measured) : [];
+  const massFirst = measuredMass[0];
+  const massLast = measuredMass[measuredMass.length - 1];
+  const showMass = measuredMass.length > 1;
+  const fatKg = (p: { weightKg: number; bf: number }) => (p.weightKg * p.bf) / 100;
+  const fatMassChange = showMass ? fatKg(massLast) - fatKg(massFirst) : null;
+  const leanMassChange = showMass ? (massLast.weightKg - fatKg(massLast)) - (massFirst.weightKg - fatKg(massFirst)) : null;
+  // Sign + tone from the *displayed* (rounded) value, so a tiny change never reads "+0.0".
+  const massStat = (kg: number, goodWhenUp: boolean) => {
+    const shown = toDisplay(kg, unit);
+    return {
+      value: `${shown > 0 ? '+' : ''}${shown === 0 ? 0 : shown} ${UNIT_LABELS[unit].weight}`,
+      tone: shown === 0 ? colors.muted : (shown > 0) === goodWhenUp ? colors.success : colors.danger,
+    };
+  };
 
   const lengthLabel = UNIT_LABELS[unit].smallLength;
   const toLen = (cm: number) => (unit === 'IMPERIAL' ? cm / 2.54 : cm);
@@ -141,6 +161,12 @@ export function HealthTrends() {
               <Stat label="Current" value={bfLast != null ? `${bfLast.toFixed(1)}%` : '—'} />
               <Stat label={`Change · ${days}d`} value={bfChange != null ? `${bfChange > 0 ? '+' : ''}${bfChange.toFixed(1)}%` : '—'} tone={bfColor} />
               <Stat label="Readings" value={`${bfSeries.length}`} />
+              {fatMassChange != null && (
+                <Stat label="Fat mass change" {...massStat(fatMassChange, false)} />
+              )}
+              {leanMassChange != null && (
+                <Stat label="Lean mass change" {...massStat(leanMassChange, true)} />
+              )}
             </View>
             <Sparkline values={bfSeries.map((p) => p.bf)} color={bfColor === colors.muted ? colors.primary : bfColor} />
             {bfMethod === 'Estimated' ? (

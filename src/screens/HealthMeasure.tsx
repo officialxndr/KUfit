@@ -246,10 +246,10 @@ function SiteDetail({ visible, siteKey, entries, unit, toLen, fromLen, lengthLab
               {PERIODS.map(({ months, label }) => {
                 const d = trend(months);
                 const active = periodMonths === months;
-                const valueColor = active ? colors.white : d == null || Math.abs(d) < 0.05 ? colors.muted : d < 0 ? colors.success : colors.danger;
+                const valueColor = active ? colors.white : d == null || Math.abs(d) < 0.05 ? colors.text : d < 0 ? colors.success : colors.danger;
                 return (
                   <Pressable key={label} style={[styles.trendCell, active && styles.trendCellOn]} onPress={() => setPeriodMonths(months)}>
-                    <FsText variant="caption" style={{ color: active ? colors.white : undefined }}>{label}</FsText>
+                    <FsText variant="caption" style={{ color: active ? colors.white : colors.text }}>{label}</FsText>
                     <FsText variant="cardTitle" style={{ color: valueColor }}>
                       {d == null ? '—' : `${d > 0 ? '+' : ''}${d.toFixed(1)}`}
                     </FsText>

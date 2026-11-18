@@ -353,8 +353,8 @@ function SourceToggle({ dexaLabel, dexaBf, navyBf, value, onChange }: {
 
 /**
  * Sex-aware body-fat range bar: color-coded segments sized to their real % span
- * (High is open-ended, capped at 40 so segments stay proportionate) with a
- * marker dot at the current reading, labels under each segment, and the bands
+ * (High is open-ended, capped at 40 so segments stay proportionate) with an
+ * arrow marker at the current reading, a legend under the bar, and the bands
  * spelled out so the category reads honestly.
  */
 function BodyFatBar({ bf, sex }: { bf: number; sex: Sex | null | undefined }) {
@@ -372,7 +372,7 @@ function BodyFatBar({ bf, sex }: { bf: number; sex: Sex | null | undefined }) {
   return (
     <View style={{ marginTop: space[3] }}>
       <View style={{ height: 10, position: 'relative' }}>
-        <View style={[styles.rangeMarker, { left: `${pct(bf)}%`, backgroundColor: toneColor[band.tone] }]} />
+        <View style={[styles.rangeArrow, { left: `${pct(bf)}%`, borderTopColor: toneColor[band.tone] }]} />
       </View>
       <View style={styles.rangeBar}>
         {bands.map((b, i) => (
@@ -382,19 +382,21 @@ function BodyFatBar({ bf, sex }: { bf: number; sex: Sex | null | undefined }) {
           />
         ))}
       </View>
-      <View style={styles.rangeLabels}>
-        {bands.map((b, i) => (
-          <FsText key={b.label} variant="caption" style={[styles.rangeLabel, { width: `${segWidth(i)}%` }]}>
-            {b.label}
-          </FsText>
-        ))}
-      </View>
       {(sex === 'MALE' || sex === 'FEMALE') && (
         <FsText variant="caption" style={styles.rangeNote}>
-          {sex === 'MALE' ? 'Men' : 'Women'}:{' '}
-          {bands.map((b) => `${b.label} ${b.max == null ? `≥${b.min}` : `${b.min}–${b.max}`}%`).join(' · ')}
+          Ranges for {sex === 'MALE' ? 'men' : 'women'}
         </FsText>
       )}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space[4], marginTop: space[2] }}>
+        {bands.map((b) => (
+          <Legend
+            key={b.label}
+            color={toneColor[b.tone]}
+            label={b.label}
+            value={`${b.max == null ? `≥${b.min}` : `${b.min}–${b.max}`}%`}
+          />
+        ))}
+      </View>
     </View>
   );
 }
@@ -494,10 +496,8 @@ const styles = themedStyles(() => StyleSheet.create({
   srcPill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, backgroundColor: 'rgba(99,102,241,0.15)' },
   rangeBar: { flexDirection: 'row', height: 12, borderRadius: radius.full, overflow: 'hidden', backgroundColor: colors.surfaceHigh },
   rangeSeg: { height: '100%' },
-  rangeMarker: { position: 'absolute', top: 0, width: 10, height: 10, borderRadius: 5, marginLeft: -5, borderWidth: 2, borderColor: colors.surface },
-  rangeLabels: { flexDirection: 'row', marginTop: space[2] },
-  rangeLabel: { textAlign: 'center', fontSize: 9, color: colors.muted },
-  rangeNote: { marginTop: space[1], fontSize: 10, color: colors.muted, lineHeight: 14 },
+  rangeArrow: { position: 'absolute', top: 0, width: 0, height: 0, borderLeftWidth: 6, borderRightWidth: 6, borderTopWidth: 10, borderLeftColor: 'transparent', borderRightColor: 'transparent', marginLeft: -6 },
+  rangeNote: { marginTop: space[2], fontSize: 10, color: colors.muted, lineHeight: 14 },
   srcToggle: { flexDirection: 'row', gap: space[1], marginTop: space[3] },
   srcToggleBtn: { flex: 1, paddingVertical: 8, paddingHorizontal: 8, borderRadius: radius.sm, alignItems: 'center', backgroundColor: colors.surfaceHigh },
   srcToggleActive: { backgroundColor: colors.primary },

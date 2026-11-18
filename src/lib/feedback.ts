@@ -10,15 +10,13 @@ export { FEEDBACK_EMAIL, gatherDiagnostics, type Diagnostics };
  * Bump this whenever there's something new for testers to see. The What's-New sheet
  * shows once per version (tracked in `app_meta`). Keep the list short + tester-focused.
  */
-export const WHATS_NEW_VERSION = '1.0.0-b13';
+export const WHATS_NEW_VERSION = '1.0.0-b17';
 export const WHATS_NEW = {
   title: "What's new to test",
   items: [
-    'Profile photo sticks: it no longer disappears after an app update.',
-    'Per-day calorie budget: burned calories are now counted for the day they happened (incl. Apple Health), instead of today\'s burn showing on every day.',
-    'Pick your next routine workout: tap the "Next:" chip on a routine to choose which one comes next.',
-    'Overview → Stats: the consistency card is now a GitHub-style grid — each day greys→greens as you log weight, food, and a workout. A weight loss now shows a minus sign.',
-    'Training Volume chart now has numbers (a scale + date range), and food-search foods with grams no longer show wild calorie totals (a bad OpenFoodFacts serving-size bug). Measurement goal input no longer hides behind the keyboard.',
+    'Edit a past workout: open any finished workout in history, tap Edit, and fix a mistyped set, add one, or delete one — your stats, PRs, and next-time prefills all recompute from the corrected numbers.',
+    'Workout variations (A/B days): give one workout named versions (A, B, …) that share most exercises but swap a few. Tap an A/B pill to start that version, or tap the card to auto-alternate to whichever you did least recently.',
+    'Coaching notes can now also be added while building or editing a template.',
   ],
 };
 
